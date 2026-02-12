@@ -58,6 +58,19 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     return !!numA && !!numB && numA === numB;
   }, [normalizeCompactId, normalizeNumericId]);
 
+  const extractPayrollEmployeeTokens = React.useCallback((payrollKey: string): { name: string; id: string } => {
+    const raw = String(payrollKey || '').trim();
+    if (!raw) return { name: '', id: '' };
+
+    // Expected format: EmployeeName-EmployeeID-Month-Year (name can contain hyphens)
+    const parts = raw.split('-').map((p) => p.trim()).filter(Boolean);
+    if (parts.length < 4) return { name: '', id: '' };
+
+    const id = parts[parts.length - 3] || '';
+    const name = parts.slice(0, parts.length - 3).join('-');
+    return { name, id };
+  }, []);
+
   const myRequests = React.useMemo(() =>
     requests
       .filter(r => {
@@ -74,20 +87,24 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     salarySlips
       .filter((s) => {
         if (idsMatch(s.employeeId, user.id)) return true;
+        if (user.itemId && idsMatch(s.employeeId, user.itemId)) return true;
 
-        const payrollKey = normalizeText(s.payrollKey);
-        const title = normalizeText(s.id);
+        const payrollParsed = extractPayrollEmployeeTokens(s.payrollKey || '');
+        const payrollEmployeeName = normalizeText(payrollParsed.name);
+        const payrollEmployeeId = normalizeText(payrollParsed.id);
         const userName = normalizeText(user.name);
         const userId = normalizeText(user.id);
         const userEmail = normalizeText(user.email);
-        const userEmailLocal = userEmail && userEmail.indexOf('@') > 0 ? userEmail.split('@')[0] : '';
+        const userItemId = normalizeText(user.itemId);
 
-        if (payrollKey && userName && payrollKey.indexOf(userName) !== -1) return true;
-        if (payrollKey && userId && payrollKey.indexOf(userId) !== -1) return true;
-        if (payrollKey && userEmail && payrollKey.indexOf(userEmail) !== -1) return true;
-        if (payrollKey && userEmailLocal && payrollKey.indexOf(userEmailLocal) !== -1) return true;
+        // Strict matching only for current user records.
+        if (payrollEmployeeName && userName && payrollEmployeeName === userName) return true;
+        if (payrollEmployeeId && userId && idsMatch(payrollEmployeeId, userId)) return true;
+        if (payrollEmployeeId && userItemId && idsMatch(payrollEmployeeId, userItemId)) return true;
 
-        if (title && userId && title.indexOf(userId) !== -1) return true;
+        // Defensive fallback if any tenant stores email in payrollKey.
+        const payrollKey = normalizeText(s.payrollKey);
+        if (payrollKey && userEmail && payrollKey.split('-').map((x) => x.trim()).indexOf(userEmail) !== -1) return true;
 
         return false;
       })
@@ -114,7 +131,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         if (!Number.isNaN(aTime) && !Number.isNaN(bTime)) return bTime - aTime;
         return (b.generatedDate || '').localeCompare(a.generatedDate || '');
       }),
-    [salarySlips, user.id, user.name, user.email, idsMatch, normalizeText]);
+    [salarySlips, user.id, user.name, user.email, user.itemId, idsMatch, normalizeText, extractPayrollEmployeeTokens]);
 
   const myAttendance = React.useMemo(() =>
     attendance

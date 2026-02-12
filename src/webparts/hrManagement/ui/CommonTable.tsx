@@ -385,7 +385,7 @@ const CommonTable = <T,>({
         }
         .common-table__toolbar {
           display: grid;
-          grid-template-columns: 1fr auto 1fr;
+          grid-template-columns: auto 1fr auto;
           align-items: center;
           gap: 8px;
           padding: 8px 12px;
@@ -400,6 +400,7 @@ const CommonTable = <T,>({
           display: flex;
           align-items: center;
           gap: 8px;
+          justify-self: end;
         }
         .common-table__search-group .input-group-text {
           background: #2f2f2f;
@@ -432,6 +433,9 @@ const CommonTable = <T,>({
           display: flex;
           justify-content: flex-end;
           gap: 6px;
+        }
+        .common-table__actions:empty {
+          display: none;
         }
         .common-table__filter {
           font-size: 11px;

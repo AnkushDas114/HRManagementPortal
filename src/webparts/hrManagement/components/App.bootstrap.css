@@ -1,0 +1,121 @@
+/* Global Bootstrap-first UI layer for the HR app */
+
+:root {
+  --hr-primary: #2f5596;
+  --hr-border: #d9e1ea;
+  --hr-muted-bg: #f6f8fb;
+}
+
+body,
+#workbenchPageContent,
+.CanvasComponent,
+.CanvasZone,
+.ControlZone,
+.ms-Fabric {
+  background-color: var(--hr-muted-bg);
+}
+
+.bg-light.min-vh-100 {
+  background-color: var(--hr-muted-bg) !important;
+}
+
+.nav.nav-pills {
+  border: 1px solid var(--hr-border);
+}
+
+.nav.nav-pills .nav-link {
+  color: #1f2937;
+  border-radius: 0.375rem;
+}
+
+.nav.nav-pills .nav-link.active,
+.nav.nav-pills .show > .nav-link {
+  background-color: var(--hr-primary);
+  color: #fff !important;
+}
+
+.nav.nav-pills .nav-link.active:hover,
+.nav.nav-pills .nav-link.active:focus,
+.nav.nav-pills .show > .nav-link:hover,
+.nav.nav-pills .show > .nav-link:focus {
+  color: #fff !important;
+}
+
+.nav.nav-pills .nav-link.active *,
+.nav.nav-pills .show > .nav-link * {
+  color: #fff !important;
+}
+
+.card {
+  border: 1px solid var(--hr-border);
+  border-radius: 0.5rem;
+}
+
+.card-header {
+  border-bottom: 1px solid var(--hr-border) !important;
+}
+
+.table {
+  margin-bottom: 0;
+}
+
+.table > :not(caption) > * > * {
+  border-bottom-color: #e6ebf1;
+}
+
+.form-control,
+.form-select,
+.btn {
+  border-radius: 0.375rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #8aa6d9;
+  box-shadow: 0 0 0 0.2rem rgba(47, 85, 150, 0.15);
+}
+
+.btn-primary {
+  background-color: var(--hr-primary);
+  border-color: var(--hr-primary);
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  background-color: #274985;
+  border-color: #274985;
+}
+
+.badge.text-bg-danger {
+  background-color: #dc3545 !important;
+}
+
+.modal-content {
+  border: 1px solid var(--hr-border);
+  border-radius: 0.5rem;
+}
+
+.common-table .table thead th {
+  background-color: #f8f9fb;
+  color: #495057;
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.common-table .table tbody tr:hover {
+  background-color: #f7faff;
+}
+
+@media (max-width: 991.98px) {
+  .container-xl.py-4 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  .nav.nav-pills {
+    width: 100%;
+  }
+}

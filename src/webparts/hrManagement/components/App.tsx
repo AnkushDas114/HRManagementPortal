@@ -5,6 +5,7 @@ import type { SPFI } from '@pnp/sp';
 import '@pnp/sp/lists';
 import '@pnp/sp/fields';
 import '@pnp/sp/site-users/web';
+import './App.bootstrap.css';
 import Header from './Header';
 import Dashboard from './Dashboard';
 import LeaveRequestsTable from './LeaveRequestsTable';
@@ -85,6 +86,18 @@ const calculateSalary = (monthlyCTC: number): {
 };
 
 const App: React.FC<AppProps> = ({ sp }) => {
+  React.useEffect(() => {
+    const bootstrapLinkId = 'hr-bootstrap-css';
+    const existing = document.getElementById(bootstrapLinkId);
+    if (existing) return;
+
+    const link = document.createElement('link');
+    link.id = bootstrapLinkId;
+    link.rel = 'stylesheet';
+    link.href = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
+    document.head.appendChild(link);
+  }, []);
+
   const [role, setRole] = useState<UserRole>(UserRole.Employee);
   const [employees] = useState<Employee[]>(MOCK_EMPLOYEES);
   const [directoryEmployees, setDirectoryEmployees] = useState<Employee[]>([]);
@@ -601,6 +614,34 @@ const App: React.FC<AppProps> = ({ sp }) => {
     setBalanceEmployee(emp);
     setIsBalanceModalOpen(true);
   };
+
+  const getQuotaForLeaveType = React.useCallback((type: string): number => {
+    const direct = leaveQuotas[type];
+    if (typeof direct === 'number') return direct;
+    const matchedKey = Object.keys(leaveQuotas).find((key) => key.toLowerCase() === type.toLowerCase());
+    return matchedKey ? leaveQuotas[matchedKey] : 0;
+  }, [leaveQuotas]);
+
+  const getUsedLeavesForEmployee = React.useCallback((employeeId: string, type: string): number => {
+    return leaveRequests
+      .filter((request) =>
+        request.employee.id === employeeId &&
+        request.leaveType.toLowerCase() === type.toLowerCase() &&
+        request.status === LeaveStatus.Approved
+      )
+      .reduce((sum, request) => sum + request.days, 0);
+  }, [leaveRequests]);
+
+  const balanceSummary = React.useMemo(() => {
+    if (!balanceEmployee) return [];
+    const leaveTypes = Object.keys(leaveQuotas);
+    return leaveTypes.map((type) => {
+      const quota = getQuotaForLeaveType(type);
+      const used = getUsedLeavesForEmployee(balanceEmployee.id, type);
+      const left = Math.max(quota - used, 0);
+      return { type, quota, used, left };
+    });
+  }, [balanceEmployee, leaveQuotas, getQuotaForLeaveType, getUsedLeavesForEmployee]);
 
   const handleRaiseConcern = async (type: ConcernType, referenceId: string | number, description: string) => {
     try {
@@ -1538,7 +1579,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       </div>
                       <div className="col-md-4">
                         <div className="card border-0 shadow-sm">
-                          <div className="card-header bg-white py-3"><h5 className="mb-0 fw-bold">Leave Quotas</h5></div>
+                          <div className="card-header text-primary bg-white py-3"><h5 className="mb-0 fw-bold">Leave Quotas</h5></div>
                           {isLoadingQuotas && (
                             <div className="text-center py-4">
                               <div className="spinner-border spinner-border-sm text-primary" role="status">
@@ -2082,10 +2123,26 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
       <Modal isOpen={isBalanceModalOpen} onClose={() => setIsBalanceModalOpen(false)} title="Balance Summary">
         {balanceEmployee && (
-          <div className="row g-3">
-            {[{ l: 'Vacation', v: balanceEmployee.balance?.vacation }, { l: 'Sick', v: balanceEmployee.balance?.sick }, { l: 'Personal', v: balanceEmployee.balance?.personal }].map((it, idx) => (
-              <div key={idx} className="col-4"><div className="p-3 bg-white border rounded text-center shadow-sm"><div className="h4 fw-bold mb-0 text-primary">{it.v}</div><div className="small text-muted">{it.l}</div></div></div>
-            ))}
+          <div>
+            <div className="small text-muted mb-3">
+              {balanceEmployee.name} (ID: {balanceEmployee.id})
+            </div>
+            <div className="row g-3">
+              {balanceSummary.length === 0 && (
+                <div className="col-12">
+                  <div className="text-muted small">No unofficial leave quota configured.</div>
+                </div>
+              )}
+              {balanceSummary.map((item) => (
+                <div key={item.type} className="col-12 col-md-4 col-lg-3">
+                  <div className="p-3 bg-white border rounded text-center shadow-sm h-100">
+                    <div className="h4 fw-bold mb-1 text-primary">{item.left}</div>
+                    <div className="small text-muted text-truncate" title={item.type}>{item.type}</div>
+                    <div className="small text-muted mt-1">Used {item.used} / {item.quota}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </Modal>

@@ -691,36 +691,28 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
           {isDateAccordionOpen && (
             <div className="ps-4 pb-3 animate-in fade-in slide-in-from-top-1">
-              <div className="row g-3 mb-3">
-                {/* Added explicit type assertion to nested array to fix TS 'unknown' type inference on .map call */}
-                {([
-                  ['Custom', 'Today', 'Yesterday', 'This Week', 'Last Week', 'This Month'],
-                  ['Last Month', 'Last 3 Months', 'This Year', 'Last Year', 'All Time', 'Pre-set']
-                ] as string[][]).map((row, rIdx) => (
-                  <div key={rIdx} className="col-12 d-flex flex-wrap gap-4">
-                    {row.map(filter => (
-                      <div key={filter} className="d-flex align-items-center gap-2">
-                        <input
-                          type="radio"
-                          id={`radio-date-${filter}`}
-                          name="dateRangeFilter"
-                          className="form-check-input shadow-xs"
-                          checked={selectedDateFilter === filter}
-                          onChange={() => setSelectedDateFilter(filter)}
-                        />
-                        <label htmlFor={`radio-date-${filter}`} className="small text-muted mb-0 cursor-pointer">{filter}</label>
-                      </div>
-                    ))}
+              <div className="d-flex flex-wrap align-items-center gap-3 mb-3">
+                {['Custom', 'Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month', 'Last 3 Months', 'This Year', 'Last Year', 'All Time', 'Pre-set'].map((filter) => (
+                  <div key={filter} className="d-flex align-items-center gap-2">
+                    <input
+                      type="radio"
+                      id={`radio-date-${filter}`}
+                      name="dateRangeFilter"
+                      className="form-check-input shadow-xs"
+                      checked={selectedDateFilter === filter}
+                      onChange={() => setSelectedDateFilter(filter)}
+                    />
+                    <label htmlFor={`radio-date-${filter}`} className="small text-muted mb-0 cursor-pointer">{filter}</label>
                   </div>
                 ))}
               </div>
-              <div className="d-flex align-items-center gap-3">
+              <div className="d-flex flex-wrap align-items-end gap-3">
                 <div className="d-flex align-items-center gap-2">
                   <label className="small text-muted fw-bold">Start Date</label>
                   <input
                     type="date"
                     className="form-control form-control-sm shadow-xs"
-                    style={{ width: '135px' }}
+                    style={{ width: '140px' }}
                     value={startDate}
                     onChange={e => { setStartDate(e.target.value); setSelectedDateFilter('Custom'); }}
                   />

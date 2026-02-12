@@ -21,13 +21,10 @@ export interface ProfileGalleryImage {
 async function fetchEmployeeItems(sp: SPFI): Promise<any[]> {
   const items = await sp.web.lists
     .getByTitle(EMPLOYEE_MASTER_LIST_TITLE)
-        .items
-        .select(
-            '*'
-        )
-        .top(5000)();
-    console.log("items", items);
-    return items;
+    .items
+    .select('*')
+    .top(5000)();
+  return items;
 }
 
 export async function getAllEmployees(sp: SPFI): Promise<Employee[]> {
@@ -109,40 +106,91 @@ export async function replaceEmployeeProfileImage(sp: SPFI, itemId: number, blob
 }
 
 export async function getProfileGalleryImages(sp: SPFI): Promise<ProfileGalleryImage[]> {
-    const images: ProfileGalleryImage[] = [];
-    const seen = new Set<string>();
+  const images: ProfileGalleryImage[] = [];
+  const seen = new Set<string>();
+  const normalize = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const targetByNormalized = new Map<string, string>(
+    PROFILE_IMAGE_FOLDERS.map((name) => [normalize(name), name])
+  );
+
+  try {
+    const webInfo = await sp.web.select('ServerRelativeUrl')();
+    const rootRaw = (webInfo as any)?.ServerRelativeUrl || '';
+    const root = String(rootRaw).replace(/\/$/, '');
+
+    const libraryRoots = new Set<string>([
+      `${root}/SiteAssets`,
+      `${root}/SiteAssets/All Pictures`,
+      `${root}/All Pictures`,
+      `${root}/AllPictures`
+    ]);
 
     try {
-        const webInfo = await sp.web.select('ServerRelativeUrl')();
-        const rootRaw = (webInfo as any)?.ServerRelativeUrl || '';
-        const root = String(rootRaw).replace(/\/$/, '');
-        const bases = [`${root}/SiteAssets`, `${root}/SiteAssets/All Pictures`, root];
+      const docLibs = await sp.web.lists
+        .select('Title', 'BaseTemplate', 'Hidden', 'RootFolder/ServerRelativeUrl')
+        .expand('RootFolder')
+        .filter('BaseTemplate eq 101 and Hidden eq false')();
 
-        for (const folder of PROFILE_IMAGE_FOLDERS) {
-            for (const base of bases) {
-                try {
-                    const path = `${base}/${folder}`.replace(/\/+/g, '/');
-                    const files = await sp.web.getFolderByServerRelativePath(path).files.select('Name', 'ServerRelativeUrl').top(200)();
-                    files.forEach((file: any) => {
-                        const url = String(file.ServerRelativeUrl || '').trim();
-                        if (!url || seen.has(url)) return;
-                        seen.add(url);
-                        images.push({
-                            folder,
-                            name: String(file.Name || 'image'),
-                            url
-                        });
-                    });
-                } catch {
-                    // folder path may not exist in this tenant
-                }
-            }
+      docLibs.forEach((lib: any) => {
+        const title = String(lib.Title || '').toLowerCase();
+        const rootFolderUrl = String(lib.RootFolder?.ServerRelativeUrl || '').trim();
+        if (!rootFolderUrl) return;
+        if (title.includes('pictures') || title.includes('assets') || title.includes('images')) {
+          libraryRoots.add(rootFolderUrl.replace(/\/$/, ''));
         }
-    } catch (error) {
-        console.warn('Could not load profile image folders.', error);
+      });
+    } catch {
+      // ignore and continue with fallback roots
     }
 
-    return images;
+    const roots: string[] = [];
+    libraryRoots.forEach((value) => roots.push(value));
+
+    for (const libraryRoot of roots) {
+      try {
+        const subFolders = await sp.web
+          .getFolderByServerRelativePath(libraryRoot)
+          .folders.select('Name', 'ServerRelativeUrl')
+          .top(500)();
+
+        for (const folderInfo of subFolders as any[]) {
+          const folderName = String(folderInfo.Name || '');
+          const normalized = normalize(folderName);
+          const mappedFolderName = targetByNormalized.get(normalized);
+          if (!mappedFolderName) continue;
+
+          const folderPath = String(folderInfo.ServerRelativeUrl || '').trim();
+          if (!folderPath) continue;
+
+          try {
+            const files = await sp.web
+              .getFolderByServerRelativePath(folderPath)
+              .files.select('Name', 'ServerRelativeUrl')
+              .top(500)();
+
+            (files as any[]).forEach((file) => {
+              const url = String(file.ServerRelativeUrl || '').trim();
+              if (!url || seen.has(url)) return;
+              seen.add(url);
+              images.push({
+                folder: mappedFolderName,
+                name: String(file.Name || 'image'),
+                url
+              });
+            });
+          } catch {
+            // ignore broken folder/file access
+          }
+        }
+      } catch {
+        // ignore root access failure
+      }
+    }
+  } catch (error) {
+    console.warn('Could not load profile image folders.', error);
+  }
+
+  return images;
 }
 
 async function mapItemToEmployee(sp: SPFI, item: any): Promise<Employee> {
