@@ -179,6 +179,16 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       .replace(/'/g, '&#39;');
   }, []);
 
+  const htmlToInnerText = React.useCallback((value: unknown): string => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+
+    // Browser-safe conversion from rich HTML to plain text.
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(raw, 'text/html');
+    return (doc.body?.textContent || '').trim();
+  }, []);
+
   const downloadSalarySlipPdf = React.useCallback((slip?: SalarySlip): void => {
     if (!slip) return;
     const gross = (slip.basic || 0) + (slip.hra || 0) + (slip.allowances || 0);
@@ -371,7 +381,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                       <span className="small fw-bold text-primary">HR Resolution:</span>
                       <span className="small text-muted" style={{ fontSize: '10px' }}>{c.repliedAt}</span>
                     </div>
-                    <p className="mb-0 small text-dark">{c.reply}</p>
+                    <p className="mb-0 small text-dark">{htmlToInnerText(c.reply)}</p>
                   </div>
                 ) : (
                   <p className="mb-0 small text-muted font-italic"><Clock size={12} className="me-1" /> Under Review...</p>

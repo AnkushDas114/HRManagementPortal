@@ -6,8 +6,8 @@ import type { LeaveRequest, Employee } from '../types';
 import { LeaveStatus } from '../types';
 import { formatDateIST, nowISTISOString, todayIST } from '../utils/dateTime';
 
-const LEAVE_REQUESTS_LIST_ID = '7BB0C02A58-E04A-43EA-8708-CB69E4D9BC88';
-const TASK_USERS_LIST_ID = '117bc416-3fbf-4641-8584-20d149078ee8';
+const LEAVE_REQUESTS_LIST_TITLE = 'Leave Request';
+const EMPLOYEE_MASTER_LIST_TITLE = 'EmployeeMaster';
 
 /**
  * GET: Load all leave requests from SharePoint
@@ -15,18 +15,11 @@ const TASK_USERS_LIST_ID = '117bc416-3fbf-4641-8584-20d149078ee8';
 export async function getAllLeaveRequests(sp: SPFI, employees: Employee[]): Promise<LeaveRequest[]> {
     try {
         const items = await sp.web.lists
-            .getByTitle("Leave Request")
+            .getByTitle(LEAVE_REQUESTS_LIST_TITLE)
             .items
             .select(
-                '*',
-                'EmployeeLookup/Title',
-                'EmployeeLookup/Email',
-                'EmployeeLookup/EmployeeID',
-                'EmployeeLookup/ID'
-            )
-            .expand('EmployeeLookup')
-            .orderBy('SubmittedAt', false)
-            .top(1000)();
+                '*'
+            ).top(1000)();
 
         console.log('Leave Requests loaded from SharePoint:', items);
 
@@ -47,13 +40,9 @@ export async function createLeaveRequest(
     days: number
 ): Promise<void> {
     try {
-        if (!employee.email) {
-            throw new Error('Employee email is missing');
-        }
-        const employeeId = await getEmployeeIdByEmail(sp, employee.email);
-
-        if (!employeeId) {
-            throw new Error('Employee not found in Task Users list');
+        const employeeLookupId = await getEmployeeLookupId(sp, employee);
+        if (!employeeLookupId) {
+            throw new Error('Employee lookup id not found in EmployeeMaster.');
         }
 
         // Prepare LeaveData JSON
@@ -74,7 +63,7 @@ export async function createLeaveRequest(
 
         // Create item in SharePoint
         await sp.web.lists
-            .getByTitle("Leave Request")
+            .getByTitle(LEAVE_REQUESTS_LIST_TITLE)
             .items.add({
                 Title: `${formData.leaveType} - ${formData.startDate}`,
                 LeaveType: formData.leaveType,
@@ -84,7 +73,7 @@ export async function createLeaveRequest(
                 Reason: formData.reason,
                 Status: 'Pending',
                 SubmittedAt: nowISTISOString(),
-                EmployeeLookupId: employeeId,
+                EmployeeLookupId: employeeLookupId,
                 ApproverName: null,
                 ApproverComment: null,
                 ApprovedAt: null,
@@ -120,7 +109,7 @@ export async function updateLeaveRequestStatus(
         }
 
         await sp.web.lists
-            .getByTitle("Leave Request").items.getById(requestId)
+            .getByTitle(LEAVE_REQUESTS_LIST_TITLE).items.getById(requestId)
             .update(updateData);
 
         console.log('Leave request status updated successfully');
@@ -136,7 +125,7 @@ export async function updateLeaveRequestStatus(
 export async function deleteLeaveRequest(sp: SPFI, requestId: number): Promise<void> {
     try {
         await sp.web.lists
-            .getById(LEAVE_REQUESTS_LIST_ID)
+            .getByTitle(LEAVE_REQUESTS_LIST_TITLE)
             .items.getById(requestId)
             .delete();
 
@@ -148,20 +137,38 @@ export async function deleteLeaveRequest(sp: SPFI, requestId: number): Promise<v
 }
 
 /**
- * Helper: Get employee ID from Task Users list by email
+ * Helper: Resolve EmployeeMaster lookup id for leave request
  */
-async function getEmployeeIdByEmail(sp: SPFI, email: string): Promise<number | null> {
+async function getEmployeeLookupId(sp: SPFI, employee: Employee): Promise<number | null> {
     try {
-        const items = await sp.web.lists
-            .getById(TASK_USERS_LIST_ID)
-            .items
-            .select('Id')
-            .filter(`Email eq '${email}'`)
-            .top(1)();
+        if (employee.itemId) {
+            return employee.itemId;
+        }
 
-        return items.length > 0 ? items[0].Id : null;
+        const escapedEmpId = String(employee.id || '').replace(/'/g, "''");
+        const escapedEmail = String(employee.email || '').replace(/'/g, "''");
+        const escapedName = String(employee.name || '').replace(/'/g, "''");
+
+        const filters: string[] = [];
+        if (escapedEmpId) filters.push(`EmployeeID eq '${escapedEmpId}'`);
+        if (escapedEmail) filters.push(`Email eq '${escapedEmail}'`);
+        if (escapedName) filters.push(`Title eq '${escapedName}'`);
+
+        if (!filters.length) return null;
+
+        for (const filter of filters) {
+            const items = await sp.web.lists
+                .getByTitle(EMPLOYEE_MASTER_LIST_TITLE)
+                .items
+                .select('Id')
+                .filter(filter)
+                .top(1)();
+            if (items.length > 0) return items[0].Id;
+        }
+
+        return null;
     } catch (error) {
-        console.error('Error getting employee ID:', error);
+        console.error('Error resolving employee lookup id:', error);
         return null;
     }
 }
@@ -252,14 +259,24 @@ function mapItemToLeaveRequest(item: any, employees: Employee[]): LeaveRequest {
     }
 
     // Find employee from employees array or use lookup data
-    const employee = employees.find(emp =>
-        emp.email === item.EmployeeLookup?.Email ||
-        emp.id === String(item.EmployeeLookup?.EmployeeID)
-    ) || {
-        id: String(item.EmployeeLookup?.EmployeeID || item.EmployeeLookup?.ID || item.Id),
+    const lookupEmail = String(item.EmployeeLookup?.Email || '').trim().toLowerCase();
+    const lookupEmpId = String(item.EmployeeLookup?.EmployeeID || '').trim();
+    const lookupItemId = Number(item.EmployeeLookupId || item.EmployeeLookup?.Id || 0);
+    const lookupName = String(item.EmployeeLookup?.Title || '').trim().toLowerCase();
+
+    const employee = employees.find((emp) => {
+        if (lookupItemId && emp.itemId && emp.itemId === lookupItemId) return true;
+        if (lookupEmpId && String(emp.id || '').trim() === lookupEmpId) return true;
+        if (lookupEmail && String(emp.email || '').trim().toLowerCase() === lookupEmail) return true;
+        if (lookupName && String(emp.name || '').trim().toLowerCase() === lookupName) return true;
+        return false;
+    }) || {
+        id: String(item.EmployeeLookup?.EmployeeID || item.EmployeeLookup?.Id || item.EmployeeLookupId || item.Id),
+        itemId: lookupItemId || undefined,
         name: item.EmployeeLookup?.Title || 'Unknown',
-        department: 'Unknown' as any,
-        avatar: `https://i.pravatar.cc/150?u=${item.EmployeeLookup?.Email || item.Id}`,
+        department: item.EmployeeLookup?.Department || 'Unknown',
+        position: item.EmployeeLookup?.Designation || '',
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(item.EmployeeLookup?.Title || 'Employee')}&background=2f5596&color=ffffff&bold=true&size=128`,
         joiningDate: todayIST(),
         email: item.EmployeeLookup?.Email || ''
     };
@@ -270,11 +287,11 @@ function mapItemToLeaveRequest(item: any, employees: Employee[]): LeaveRequest {
         employee,
         leaveType: item.LeaveType || 'Unknown',
         startDate: formatDateIST(item.Startdate),
-        endDate: formatDateIST(item.Enddate),
+        endDate: formatDateIST(item.Enddate || item.Startdate),
         days: item.Days || 0,
         reason: item.Reason || '',
         status: item.Status as LeaveStatus || LeaveStatus.Pending,
-        submittedAt: formatDateIST(item.SubmittedAt) || todayIST(),
+        submittedAt: formatDateIST(item.SubmittedAt || item.Created) || todayIST(),
         approverName: item.ApproverName,
         approverComment: item.ApproverComment,
         isHalfDay: leaveData.isHalfDay || false,
