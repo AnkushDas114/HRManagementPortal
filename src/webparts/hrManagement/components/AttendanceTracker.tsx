@@ -4,14 +4,14 @@ import * as XLSX from 'xlsx';
 import { LeaveStatus } from '../types';
 import type { Employee, LeaveRequest, AttendanceRecord, AttendanceStatus } from '../types';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
-import { Edit3, Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Search, Upload, Calendar } from 'lucide-react';
+import { Edit3, Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Search, Upload, Calendar, Download } from 'lucide-react';
 import { formatDateIST, getNowIST, todayIST, formatDateForDisplayIST } from '../utils/dateTime';
 
 interface AttendanceTrackerProps {
   employees: Employee[];
   leaveRequests: LeaveRequest[];
   attendanceRecords: AttendanceRecord[];
-  onImport: (records: AttendanceRecord[]) => void;
+  onImport: (records: AttendanceRecord[]) => Promise<void> | void;
   onEditEmployeeLeave?: (employee: Employee) => void;
   onViewBalance?: (employee: Employee) => void;
   isImporting?: boolean;
@@ -26,9 +26,11 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   onImport,
   onEditEmployeeLeave,
   onViewBalance,
+  isImporting: isImportingProp,
   selectedUserId,
   leaveQuotas
 }) => {
+  const [isImportingLocal, setIsImportingLocal] = React.useState(false);
   const [isDateAccordionOpen, setIsDateAccordionOpen] = React.useState(true);
   const [isSmartSearchOpen, setIsSmartSearchOpen] = React.useState(false);
   const [selectedDateFilter, setSelectedDateFilter] = React.useState('All Time');
@@ -340,9 +342,10 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setIsImportingLocal(true);
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       const bstr = evt.target?.result;
       const wb = XLSX.read(bstr, { type: 'binary' });
       const wsname = wb.SheetNames[0];
@@ -352,10 +355,11 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
       const parsedRecords: AttendanceRecord[] = [];
 
-      const normalizeHeader = (value: unknown): string =>
-        String(value ?? '')
-          .toLowerCase()
-          .replace(/[\s._-]+/g, '');
+      try {
+        const normalizeHeader = (value: unknown): string =>
+          String(value ?? '')
+            .toLowerCase()
+            .replace(/[\s._-]+/g, '');
 
       const resolveHeader = (keys: string[], aliases: string[]): string | undefined => {
         return keys.find((key) => aliases.indexOf(normalizeHeader(key)) !== -1);
@@ -437,8 +441,8 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         return value as AttendanceStatus;
       };
 
-      // Import files exported from this UI format.
-      if (objectRows.length > 0) {
+        // Import files exported from this UI format.
+        if (objectRows.length > 0) {
         const headers = Object.keys(objectRows[0]);
         const employeeHeader = resolveHeader(headers, ['employee', 'employeename', 'name']);
         const idHeader = resolveHeader(headers, ['id', 'employeeid', 'empid', 'ecode', 'employeecode']);
@@ -479,12 +483,12 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             .filter((record): record is AttendanceRecord => record !== null);
 
           if (uiParsedRecords.length > 0) {
-            onImport(uiParsedRecords);
+            await Promise.resolve(onImport(uiParsedRecords));
             e.target.value = '';
             return;
           }
         }
-      }
+        }
 
       let currentDept = '';
       let attendanceDate = '';
@@ -588,11 +592,21 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         }
       });
 
-      if (parsedRecords.length > 0) {
-        onImport(parsedRecords);
-      } else {
-        alert("No attendance records found in the file. Please check the format.");
+        if (parsedRecords.length > 0) {
+          await Promise.resolve(onImport(parsedRecords));
+        } else {
+          alert("No attendance records found in the file. Please check the format.");
+        }
+      } catch (error) {
+        console.error('Failed to parse/import attendance file', error);
+        alert('Failed to import attendance data. Please verify the file and try again.');
+      } finally {
+        setIsImportingLocal(false);
       }
+    };
+    reader.onerror = () => {
+      setIsImportingLocal(false);
+      alert('Failed to read the selected file.');
     };
     reader.readAsBinaryString(file);
     // Reset input
@@ -613,6 +627,49 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       }
     }));
   }, [filteredRecords, employees, employeeIdsMatch, todayStr]);
+
+  const isImporting = Boolean(isImportingLocal || isImportingProp);
+
+  const handleExportFilteredAttendance = (): void => {
+    if (tableRows.length === 0) {
+      alert('No attendance data available to export for current filters.');
+      return;
+    }
+
+    const exportRows = tableRows.map(({ record, employee }) => {
+      const summary = getLeaveSummary(employee, record);
+      const leaveUsedTotal = summary.total ? `${formatLeaveNumber(summary.used)}/${formatLeaveNumber(summary.total)} (${formatLeaveNumber(summary.left)} left)` : '--';
+
+      return {
+        Employee: employee?.name || record.employeeName || 'Unknown',
+        'Employee ID': record.employeeId,
+        Department: employee?.department || record.department || 'N/A',
+        Date: record.date,
+        'Clock In': record.clockIn || '--:--',
+        'Clock Out': record.clockOut || '--:--',
+        'Total Time': record.workDuration || '--:--',
+        Status: record.status,
+        'Total Leave Left': leaveUsedTotal
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    worksheet['!cols'] = [
+      { wch: 24 }, // Employee
+      { wch: 14 }, // Employee ID
+      { wch: 16 }, // Department
+      { wch: 12 }, // Date
+      { wch: 10 }, // Clock In
+      { wch: 10 }, // Clock Out
+      { wch: 12 }, // Total Time
+      { wch: 12 }, // Status
+      { wch: 20 }  // Total Leave Left
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance');
+    XLSX.writeFile(workbook, `attendance_export_${todayIST()}.xlsx`);
+  };
 
   const columns = React.useMemo<ColumnDef<{ record: AttendanceRecord; employee: Employee }>[]>(() => ([
     {
@@ -722,10 +779,22 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
           {/* Right: Actions */}
           <div className="d-flex flex-wrap gap-2">
 
-            <label className="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs mb-0 cursor-pointer" style={{ backgroundColor: '#2F5596', borderColor: '#2F5596' }}>
-              <Upload size={14} /> Import Attendance
-              <input type="file" accept=".xlsx, .xls, .csv" className="d-none" onChange={handleFileChange} />
+            <label
+              className={`btn btn-primary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs mb-0 ${isImporting ? 'disabled' : 'cursor-pointer'}`}
+              style={{ backgroundColor: '#2F5596', borderColor: '#2F5596', opacity: isImporting ? 0.75 : 1, pointerEvents: isImporting ? 'none' : 'auto' }}
+            >
+              {isImporting ? <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> : <Upload size={14} />}
+              {isImporting ? 'Importing...' : 'Import Attendance'}
+              <input type="file" accept=".xlsx, .xls, .csv" className="d-none" onChange={handleFileChange} disabled={isImporting} />
             </label>
+            <button
+              type="button"
+              className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
+              onClick={handleExportFilteredAttendance}
+              disabled={tableRows.length === 0 || isImporting}
+            >
+              <Download size={14} /> Export Attendance
+            </button>
           </div>
         </div>
       </div>

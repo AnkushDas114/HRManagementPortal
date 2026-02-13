@@ -34,6 +34,8 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   const [targetRefId, setTargetRefId] = React.useState<string | number>('');
   const [concernDescription, setConcernDescription] = React.useState('');
   const [isBalanceModalOpen, setIsBalanceModalOpen] = React.useState(false);
+  const [selectedApprovalNote, setSelectedApprovalNote] = React.useState<LeaveRequest | null>(null);
+  const [selectedConcern, setSelectedConcern] = React.useState<Concern | null>(null);
 
   // Attendance Navigation State
   const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
@@ -139,6 +141,12 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         return (b.generatedDate || '').localeCompare(a.generatedDate || '');
       }),
     [salarySlips, user.id, user.name, user.email, user.itemId, idsMatch, normalizeText, extractPayrollEmployeeTokens]);
+
+  const currentMonthSalarySlip = React.useMemo(() => {
+    const currentMonth = normalizeText(monthNameIST());
+    const currentYear = String(getNowIST().getFullYear());
+    return mySalaries.find((slip) => normalizeText(slip.month) === currentMonth && String(slip.year) === currentYear);
+  }, [mySalaries, normalizeText]);
 
   const myAttendance = React.useMemo(() => {
     return attendance.filter(a => {
@@ -256,6 +264,11 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     const doc = parser.parseFromString(raw, 'text/html');
     return (doc.body?.textContent || '').trim();
   }, []);
+
+  const toPlainText = React.useCallback((value: unknown, fallback = ''): string => {
+    const plain = htmlToInnerText(value);
+    return plain || fallback;
+  }, [htmlToInnerText]);
 
   const downloadSalarySlipPdf = React.useCallback((slip?: SalarySlip): void => {
     if (!slip) return;
@@ -595,14 +608,20 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     if (filteredConcerns.length === 0) return null;
 
     return (
-      <div className="mt-5 animate-in fade-in">
+      <div className="mt-5 animate-in fade-in p-3">
         <h6 className="fw-bold mb-3 d-flex align-items-center gap-2" style={{ color: '#2F5596' }}>
           <MessageSquare size={16} /> My {type} Concerns & History
         </h6>
-        <div className="row g-3">
+        <div className="d-flex flex-wrap gap-3">
           {filteredConcerns.map(c => (
-            <div key={c.id} className="col-12">
-              <div className="card shadow-sm border-0 p-3 bg-white">
+            <button
+              key={c.id}
+              type="button"
+              className="btn text-start p-0 border-0 bg-transparent"
+              onClick={() => setSelectedConcern(c)}
+              style={{ width: '320px', maxWidth: '100%' }}
+            >
+              <div className="card shadow-sm border h-100 p-3 bg-white hover-bg-light">
                 <div className="d-flex justify-content-between align-items-start mb-2">
                   <div className="d-flex align-items-center gap-2">
                     <span className="badge bg-light text-dark border" style={{ fontSize: '10px' }}>Ref: {c.referenceId}</span>
@@ -611,7 +630,13 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                   <span className="small text-muted" style={{ fontSize: '11px' }}>{c.submittedAt}</span>
                 </div>
                 <div className="p-2 rounded bg-light border-start border-3 border-warning mb-2">
-                  <p className="mb-0 small text-dark"><strong>Query:</strong> {c.description}</p>
+                  <p
+                    className="mb-0 small text-dark"
+                    title={toPlainText(c.description)}
+                    style={{ display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  >
+                    <strong>Query:</strong> {toPlainText(c.description)}
+                  </p>
                 </div>
                 {c.reply ? (
                   <div className="p-2 rounded mt-2" style={{ backgroundColor: '#f0f9ff', borderLeft: '3px solid #0ea5e9' }}>
@@ -619,13 +644,19 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                       <span className="small fw-bold text-primary">HR Resolution:</span>
                       <span className="small text-muted" style={{ fontSize: '10px' }}>{c.repliedAt}</span>
                     </div>
-                    <p className="mb-0 small text-dark">{htmlToInnerText(c.reply)}</p>
+                    <p
+                      className="mb-0 small text-dark"
+                      title={toPlainText(c.reply)}
+                      style={{ display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    >
+                      {toPlainText(c.reply)}
+                    </p>
                   </div>
                 ) : (
                   <p className="mb-0 small text-muted font-italic"><Clock size={12} className="me-1" /> Under Review...</p>
                 )}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -646,6 +677,12 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     },
     { key: 'clockIn', header: 'Clock In', accessor: (rec) => rec.clockIn || '', render: (rec) => rec.clockIn || '--:--' },
     { key: 'clockOut', header: 'Clock Out', accessor: (rec) => rec.clockOut || '', render: (rec) => rec.clockOut || '--:--' },
+    {
+      key: 'workDuration',
+      header: 'Total Working Hours',
+      accessor: (rec) => rec.workDuration || '',
+      render: (rec) => rec.workDuration || '--:--'
+    },
     {
       key: 'actions',
       header: 'Action',
@@ -698,6 +735,23 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     { key: 'days', header: 'Days', accessor: (r) => r.days, render: (r) => `${r.days} Days` },
     { key: 'status', header: 'Status', accessor: (r) => r.status, render: (r) => <Badge status={r.status} /> },
     {
+      key: 'hrMessage',
+      header: 'HR Message',
+      accessor: (r) => toPlainText(r.approverComment, 'No message'),
+      render: (r) => {
+        const message = toPlainText(r.approverComment, 'No message');
+        return (
+          <span
+            className="d-inline-block text-truncate"
+            title={message}
+            style={{ maxWidth: '260px' }}
+          >
+            {message}
+          </span>
+        );
+      }
+    },
+    {
       key: 'actions',
       header: 'Action',
       searchable: false,
@@ -713,7 +767,13 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         </button>
       )
     }
-  ]), [handleOpenConcern]);
+  ]), [handleOpenConcern, toPlainText]);
+
+  // const approvedLeaveNotes = React.useMemo(() =>
+  //   myRequests
+  //     .filter((request) => request.status === LeaveStatus.Approved && (request.approverName || request.approverComment))
+  //     .sort((a, b) => b.id - a.id),
+  //   [myRequests]);
 
   // Independent recent attendance for Dashboard (ignores View Mode)
   const recentAttendanceRecords = React.useMemo(() => {
@@ -744,7 +804,9 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
                   <Banknote size={18} color="#2F5596" /> Latest Payroll Summary
                 </h6>
-                <div className="badge bg-success-subtle text-success border">Paid</div>
+                <div className={`badge border ${currentMonthSalarySlip ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'}`}>
+                  {currentMonthSalarySlip ? 'Paid' : 'Not Paid'}
+                </div>
               </div>
 
               <div className="d-flex align-items-center gap-3 mb-4 mt-2">
@@ -752,16 +814,26 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                   <Banknote size={32} color="#2F5596" />
                 </div>
                 <div>
-                  <div className="small text-muted fw-medium">{mySalaries[0]?.month} {mySalaries[0]?.year} Slip</div>
-                  <div className="h3 fw-bold mb-0 text-dark">₹{mySalaries[0]?.netPay.toLocaleString()}</div>
+                  {currentMonthSalarySlip ? (
+                    <>
+                      <div className="small text-muted fw-medium">{currentMonthSalarySlip.month} {currentMonthSalarySlip.year} Slip</div>
+                      <div className="h3 fw-bold mb-0 text-dark">₹{currentMonthSalarySlip.netPay.toLocaleString()}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="small text-muted fw-medium">{monthNameIST()} {getNowIST().getFullYear()} Slip</div>
+                      <div className="h5 fw-bold mb-0 text-warning-emphasis">Pending Salary for this month</div>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="d-grid">
                 <button
-                  className="btn btn-primary fw-bold d-flex align-items-center justify-content-center gap-2 py-2 shadow-sm"
-                  onClick={() => downloadSalarySlipPdf(mySalaries[0])}
+                  className={`btn fw-bold d-flex align-items-center justify-content-center gap-2 py-2 shadow-sm ${currentMonthSalarySlip ? 'btn-primary' : 'btn-outline-secondary'}`}
+                  onClick={() => currentMonthSalarySlip && downloadSalarySlipPdf(currentMonthSalarySlip)}
+                  disabled={!currentMonthSalarySlip}
                 >
-                  <Download size={18} /> Download Monthly Slip
+                  <Download size={18} /> {currentMonthSalarySlip ? 'Download Monthly Slip' : 'Salary Pending'}
                 </button>
               </div>
             </div>
@@ -1021,6 +1093,51 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               globalSearchPlaceholder="Search leave history"
             />
           </div>
+
+          {/* {approvedLeaveNotes.length > 0 && (
+            <div className="card shadow-sm border-0 p-3 mb-4">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h6 className="mb-0 fw-bold d-flex align-items-center gap-2" style={{ color: '#2F5596' }}>
+                  <MessageSquare size={16} /> HR Approval Notes
+                </h6>
+                <span className="small text-muted">{approvedLeaveNotes.length} Approved Notes</span>
+              </div>
+              <div className="d-flex flex-wrap gap-3">
+                {approvedLeaveNotes.map((request) => (
+                  <button
+                    key={`approval-note-${request.id}`}
+                    type="button"
+                    className="btn text-start p-0 border-0 bg-transparent"
+                    onClick={() => setSelectedApprovalNote(request)}
+                    style={{ width: '260px' }}
+                  >
+                    <div className="card border h-100 p-3 shadow-xs hover-bg-light">
+                      {(() => {
+                        const noteMessage = toPlainText(request.approverComment, 'No comment provided.');
+                        return (
+                          <>
+                            <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+                              <div className="small fw-bold text-dark text-truncate">{request.leaveType}</div>
+                              <Badge status={request.status} />
+                            </div>
+                            <div className="small text-muted mb-1 text-truncate">{request.startDate} - {request.endDate}</div>
+                            <div className="small fw-semibold text-primary text-truncate">By: {request.approverName || 'HR'}</div>
+                            <div
+                              className="small text-muted text-truncate mt-1"
+                              title={noteMessage}
+                              style={{ maxWidth: '100%' }}
+                            >
+                              {noteMessage}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )} */}
           <ConcernSection type={ConcernType.Leave} />
         </>
       )}
@@ -1066,6 +1183,70 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             </div>
           ))}
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!selectedApprovalNote}
+        onClose={() => setSelectedApprovalNote(null)}
+        title="HR Approval Details"
+      >
+        {selectedApprovalNote && (
+          <div className="d-flex flex-column gap-3">
+            <div className="p-3 border rounded bg-light">
+              <div className="small text-muted mb-1">Leave Details</div>
+              <div className="fw-bold">{selectedApprovalNote.leaveType}</div>
+              <div className="small text-muted">{selectedApprovalNote.startDate} - {selectedApprovalNote.endDate} ({selectedApprovalNote.days} days)</div>
+            </div>
+            <div className="p-3 border rounded bg-white">
+              <div className="small text-muted mb-1">Approved By</div>
+              <div className="fw-semibold">{selectedApprovalNote.approverName || 'HR'}</div>
+            </div>
+            <div className="p-3 border rounded bg-white">
+              <div className="small text-muted mb-1">HR Message</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>
+                {toPlainText(selectedApprovalNote.approverComment, 'No comment provided.')}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!selectedConcern}
+        onClose={() => setSelectedConcern(null)}
+        title="Concern Details"
+      >
+        {selectedConcern && (
+          <div className="d-flex flex-column gap-3">
+            <div className="p-3 border rounded bg-light">
+              <div className="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                  <div className="small text-muted mb-1">Reference</div>
+                  <div className="fw-semibold">Ref: {selectedConcern.referenceId}</div>
+                </div>
+                <span className={`badge ${selectedConcern.status === ConcernStatus.Open ? 'bg-warning text-dark' : 'bg-success text-white'}`}>
+                  {selectedConcern.status.toUpperCase()}
+                </span>
+              </div>
+              <div className="small text-muted mt-2">Submitted: {selectedConcern.submittedAt}</div>
+              {selectedConcern.repliedAt && (
+                <div className="small text-muted">Replied: {selectedConcern.repliedAt}</div>
+              )}
+            </div>
+            <div className="p-3 border rounded bg-white">
+              <div className="small text-muted mb-1">Query</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>
+                {toPlainText(selectedConcern.description, 'No query message.')}
+              </div>
+            </div>
+            <div className="p-3 border rounded bg-white">
+              <div className="small text-muted mb-1">HR Resolution</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>
+                {toPlainText(selectedConcern.reply, 'No HR resolution yet.')}
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

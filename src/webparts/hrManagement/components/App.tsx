@@ -106,6 +106,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(MOCK_LEAVE_REQUESTS);
   const [isLoadingLeaveRequests, setIsLoadingLeaveRequests] = useState(false);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(MOCK_ATTENDANCE_RECORDS);
+  const [isImportingAttendance, setIsImportingAttendance] = useState(false);
   const [salarySlips, setSalarySlips] = useState<SalarySlip[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [isLoadingPolicies, setIsLoadingPolicies] = useState(false);
@@ -470,6 +471,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   const handleImportAttendance = async (records: AttendanceRecord[]) => {
     if (!sp) return;
+    setIsImportingAttendance(true);
     try {
       await saveAttendanceRecords(sp, records);
       await loadAttendance();
@@ -477,6 +479,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
     } catch (err) {
       alert("Failed to import attendance data.");
       console.error(err);
+    } finally {
+      setIsImportingAttendance(false);
     }
   };
 
@@ -1546,7 +1550,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       />
                     </div>
                   )}
-                  {activeTab === 'attendance' && <AttendanceTracker employees={directoryEmployees} leaveRequests={leaveRequests} attendanceRecords={attendanceRecords} onImport={handleImportAttendance} onEditEmployeeLeave={handleOpenLeaveModal} onViewBalance={handleViewBalance} leaveQuotas={leaveQuotas} />}
+                  {activeTab === 'attendance' && <AttendanceTracker employees={directoryEmployees} leaveRequests={leaveRequests} attendanceRecords={attendanceRecords} onImport={handleImportAttendance} isImporting={isImportingAttendance} onEditEmployeeLeave={handleOpenLeaveModal} onViewBalance={handleViewBalance} leaveQuotas={leaveQuotas} />}
                   {activeTab === 'upload-salary-slip' && (
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white py-3">
@@ -1977,11 +1981,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
         onClose={() => setIsSalaryModalOpen(false)}
         title="Upload Salary Slip"
         size="lg"
+        scrollable={false}
         footer={
           <>
-            <button className="btn btn-outline-secondary d-flex align-items-center gap-2 shadow-sm" onClick={() => window.print()}>
+            {/* <button className="btn btn-outline-secondary d-flex align-items-center gap-2 shadow-sm" onClick={() => window.print()}>
               <Plus size={16} /> Print Salary Slip
-            </button>
+            </button> */}
             <div className="flex-grow-1"></div>
             <button className="btn btn-link link-secondary text-decoration-none" onClick={() => setIsSalaryModalOpen(false)}>Cancel</button>
             <button type="submit" form="salary-upload-form" className="btn btn-primary px-4 shadow-sm">Upload Slip</button>
@@ -2076,18 +2081,14 @@ const App: React.FC<AppProps> = ({ sp }) => {
               />
             </div>
             <div className="col-md-4 d-flex align-items-end pb-2">
-              <div className="form-check form-switch mb-0 d-flex align-items-center gap-2 pt-1">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="salaryManualMode"
-                  checked={isSalaryManualMode}
-                  onChange={(e) => setIsSalaryManualMode(e.target.checked)}
-                />
-                <label className="form-check-label small fw-bold text-muted" htmlFor="salaryManualMode">
-                  Manual edit amounts
-                </label>
-              </div>
+              <button
+                type="button"
+                className={`btn popup-option-toggle ${isSalaryManualMode ? 'popup-option-toggle--active' : ''}`}
+                onClick={() => setIsSalaryManualMode(!isSalaryManualMode)}
+                aria-pressed={isSalaryManualMode}
+              >
+                {isSalaryManualMode ? 'Manual Edit: ON' : 'Manual Edit: OFF'}
+              </button>
             </div>
 
             <div className="col-12 mt-2">

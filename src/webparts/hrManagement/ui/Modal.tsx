@@ -9,9 +9,10 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg';
+  scrollable?: boolean;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, size = 'md', scrollable = true }) => {
   React.useEffect(() => {
     if (isOpen) {
       document.body.classList.add('modal-open');
@@ -37,6 +38,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
   if (!isOpen) return null;
 
   const dialogSizeClass = size === 'sm' ? 'hr-modal-dialog--sm' : size === 'lg' ? 'hr-modal-dialog--lg' : '';
+  const dialogScrollableClass = scrollable ? 'modal-dialog-scrollable' : '';
+  const bodyClass = scrollable ? 'hr-modal-body' : 'hr-modal-body hr-modal-body--auto';
 
   return (
     <div className="hr-modal-backdrop" onClick={onClose}>
@@ -47,13 +50,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable hr-modal-dialog">
+        <div className={`modal-dialog modal-dialog-centered ${dialogScrollableClass} hr-modal-dialog`}>
           <div className="modal-content hr-modal-content">
             <div className="modal-header hr-modal-header">
               <h5 className="modal-title hr-modal-title">{title}</h5>
               <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
             </div>
-            <div className="modal-body hr-modal-body">
+            <div className={bodyClass}>
               {children}
             </div>
             {footer && (
