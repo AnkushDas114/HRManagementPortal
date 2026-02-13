@@ -255,6 +255,13 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   };
 
   const getDateDisplay = () => {
+    if (selectedDateFilter !== 'All Time' && selectedDateFilter !== 'Custom' && selectedDateFilter !== 'Pre-set') {
+      return selectedDateFilter;
+    }
+    if (selectedDateFilter === 'Custom' && startDate && endDate) {
+      return `${formatDateForDisplayIST(new Date(startDate), 'en-US', { day: 'numeric', month: 'short' })} - ${formatDateForDisplayIST(new Date(endDate), 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+
     if (viewMode === 'Daily') {
       return formatDateForDisplayIST(referenceDate, 'en-US', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
     }
@@ -269,6 +276,57 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       return formatDateForDisplayIST(referenceDate, 'en-US', { month: 'long', year: 'numeric' });
     }
     return '';
+  };
+
+  const handleDateFilterChange = (filter: string) => {
+    const now = getNowIST();
+
+    // Map Presets to View Modes
+    if (filter === 'Today') {
+      setReferenceDate(now);
+      setViewMode('Daily');
+      setSelectedDateFilter('All Time'); // Treat as shortcut
+      return;
+    }
+    if (filter === 'Yesterday') {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 1);
+      setReferenceDate(d);
+      setViewMode('Daily');
+      setSelectedDateFilter('All Time');
+      return;
+    }
+    if (filter === 'This Week') {
+      setReferenceDate(now);
+      setViewMode('Weekly');
+      setSelectedDateFilter('All Time');
+      return;
+    }
+    if (filter === 'Last Week') {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 7);
+      setReferenceDate(d);
+      setViewMode('Weekly');
+      setSelectedDateFilter('All Time');
+      return;
+    }
+    if (filter === 'This Month') {
+      setReferenceDate(now);
+      setViewMode('Monthly');
+      setSelectedDateFilter('All Time');
+      return;
+    }
+    if (filter === 'Last Month') {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 1);
+      setReferenceDate(d);
+      setViewMode('Monthly');
+      setSelectedDateFilter('All Time');
+      return;
+    }
+
+    // For other filters (Custom, Ranges), apply strict filtering
+    setSelectedDateFilter(filter);
   };
 
   const handleClearFilters = () => {
@@ -723,7 +781,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                       name="dateRangeFilter"
                       className="form-check-input shadow-xs"
                       checked={selectedDateFilter === filter}
-                      onChange={() => setSelectedDateFilter(filter)}
+                      onChange={() => handleDateFilterChange(filter)}
                     />
                     <label htmlFor={`radio-date-${filter}`} className="small text-muted mb-0 cursor-pointer">{filter}</label>
                   </div>

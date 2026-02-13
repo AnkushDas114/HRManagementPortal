@@ -9,6 +9,7 @@ import {
   Plus, Banknote, Download, FileText, Sun, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, AlertCircle, MessageSquare, ChevronLeft, ChevronRight, Calendar
 } from 'lucide-react';
 import { formatDateForDisplayIST, getNowIST, monthNameIST, formatDateIST } from '../utils/dateTime';
+import { numberToWords } from '../utils/numberToWords';
 
 interface EmployeePortalProps {
   user: Employee;
@@ -258,7 +259,12 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
 
   const downloadSalarySlipPdf = React.useCallback((slip?: SalarySlip): void => {
     if (!slip) return;
-    const gross = (slip.basic || 0) + (slip.hra || 0) + (slip.allowances || 0);
+    const gross = (slip.basic || 0) + (slip.hra || 0) + (slip.allowances || 0) + (slip.bonus || 0);
+    const deductionsTotal = (slip.deductions || 0);
+    // Determine "Other Deductions" by subtracting known components from the total deductions field
+    const knownDeductions = (slip.employeePF || 0) + (slip.esi || 0) + (slip.insurance || 0);
+    const otherDeductions = Math.max(0, deductionsTotal - knownDeductions);
+    const netPayInWords = numberToWords(slip.netPay || 0);
 
     const popup = window.open('', '_blank', 'width=980,height=800');
     if (!popup) {
@@ -273,65 +279,227 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           <meta charset="utf-8" />
           <title>Salary Slip - ${escapeHtml(slip.month)} ${escapeHtml(slip.year)}</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 28px; color: #1f2937; }
-            .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
-            .title { font-size: 24px; font-weight: 700; color: #1d4d9b; }
-            .meta { font-size: 13px; color: #475569; text-align: right; }
-            .card { border: 1px solid #dbe2ea; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
-            .card-title { font-weight: 700; margin-bottom: 8px; color: #1d4d9b; }
-            .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 14px; font-size: 13px; }
-            .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; font-size: 13px; }
-            .label { color: #64748b; font-size: 12px; margin-bottom: 2px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-            th, td { border-bottom: 1px solid #e2e8f0; padding: 10px 8px; font-size: 13px; }
-            th { text-align: left; background: #f8fafc; color: #334155; }
-            td:last-child { text-align: right; font-weight: 600; }
-            .total { font-size: 22px; font-weight: 700; color: #0f8a4b; text-align: right; margin-top: 12px; }
+            @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+            body { font-family: 'Roboto', sans-serif; position: relative; margin: 0; padding: 20px; color: #333; }
+            .container { border: 2px solid #5a8bd8; padding: 0; min-height: 900px; position: relative; max-width: 900px; margin: 0 auto; }
+            
+            /* Header */
+            .header { padding: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
+            .logo-area { display: flex; align-items: center; gap: 10px; }
+            .logo-text { font-size: 52px; font-weight: 800; color: #406085; font-family: sans-serif; letter-spacing: -1px; line-height: 1; margin: 0; }
+            
+            .company-details { text-align: right; max-width: 400px; padding-top: 5px; }
+            .company-name { font-size: 16px; font-weight: 700; color: #333; margin-bottom: 5px; }
+            .address { font-size: 11px; color: #555; line-height: 1.4; font-weight: 500; }
+
+            /* Grid Layouts */
+            table { width: 100%; border-collapse: collapse; }
+            
+            .main-table { width: 100%; border-top: 2px solid #5a8bd8; }
+            .main-table th, .main-table td { border: 1px solid #999; vertical-align: middle; }
+            
+            /* Section Headers */
+            .section-header { text-align: center; font-weight: bold; background: #fff; font-size: 14px; padding: 5px; }
+            
+            /* Employee Details Table */
+            .emp-table td { padding: 4px 5px; font-size: 11px; }
+            .emp-label { font-weight: normal; color: #333; width: 120px; }
+            .emp-val { font-weight: bold; color: #000; }
+
+            /* New Header Row Style */
+            .salary-slip-header { font-weight: bold; text-align: center; font-size: 14px; padding: 5px; border-bottom: 1px solid #999; }
+            .month-header { font-weight: bold; text-align: center; font-size: 14px; padding: 5px; width: 100px; border-left: 1px solid #999; }
+            
+            /* Salary Table */
+            .salary-table { width: 100%; border: none; }
+            .salary-table td { padding: 0; vertical-align: top; border: none; }
+            .income-col { border-right: 1px solid #999; width: 50%; }
+            .deduction-col { width: 50%; }
+
+            .item-row { display: flex; border-bottom: 1px solid #eee; padding: 6px 8px; font-size: 12px; }
+            .item-row.header { background: #fff; font-weight: bold; border-bottom: 1px solid #999; }
+            .item-name { flex: 1; }
+            .item-amount { width: 100px; text-align: right; font-weight: 500; }
+            
+            .total-row { display: flex; justify-content: space-between; padding: 6px 8px; font-weight: bold; font-size: 12px; border-top: 1px solid #999; border-bottom: 1px solid #5a8bd8; }
+            
+            /* Net Salary Section */
+            .net-salary-section { border-top: 2px solid #5a8bd8; border-bottom: 2px solid #5a8bd8; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 14px; }
+            
+            .words-row { padding: 8px; font-style: italic; font-size: 12px; text-align: center; color: #333; border-bottom: 1px solid #999; background: #fdfdfd; }
+
+            /* Watermark */
+            .bg-watermark {
+                position: absolute;
+                top: 55%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-30deg);
+                font-size: 100px;
+                color: rgba(0, 0, 0, 0.04);
+                z-index: -1;
+                font-weight: bold;
+                white-space: nowrap;
+                pointer-events: none;
+            }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="title">Salary Slip</div>
-            <div class="meta">
-              <div><strong>Pay Period:</strong> ${escapeHtml(slip.month)} ${escapeHtml(slip.year)}</div>
-              <div><strong>Generated On:</strong> ${escapeHtml(formatDateForDisplayIST(slip.generatedDate, 'en-US', { year: 'numeric', month: 'short', day: 'numeric' }))}</div>
-            </div>
-          </div>
+          <div class="container">
+            <div class="bg-watermark">Smalsus Infolabs</div>
 
-          <div class="card">
-            <div class="card-title">Employee Information</div>
-            <div class="grid3">
-              <div><div class="label">Name</div><div>${escapeHtml(user.name)}</div></div>
-              <div><div class="label">Employee ID</div><div>${escapeHtml(user.id)}</div></div>
-              <div><div class="label">Department</div><div>${escapeHtml(user.department)}</div></div>
+            <!-- Header -->
+            <div class="header">
+               <div class="logo-area">
+                  <h1 class="logo-text">Smalsus</h1>
+               </div>
+               <div class="company-details">
+                  <div class="company-name">Smalsus Infolabs Pvt .Ltd.</div>
+                  <div class="address">
+                    Kirti Tower, Plot no 13&13C, Techzone 4, Greater Noida west,<br/>
+                    Uttar Pradesh 201009
+                  </div>
+               </div>
             </div>
-          </div>
 
-          <div class="card">
-            <div class="card-title">Bank Details</div>
-            <div class="grid2">
-              <div><div class="label">PAN Number</div><div>${escapeHtml(user.pan || '-')}</div></div>
-              <div><div class="label">Bank Name</div><div>${escapeHtml(user.bankName || '-')}</div></div>
-              <div><div class="label">Account Number</div><div>${escapeHtml(user.accountNumber || '-')}</div></div>
-              <div><div class="label">IFSC Code</div><div>${escapeHtml(user.ifscCode || '-')}</div></div>
-            </div>
-          </div>
+            <table class="main-table">
+               <!-- Title Row -->
+               <tr>
+                  <td class="salary-slip-header" style="border-right: 1px solid #999;">Salary Slip</td>
+                  <td class="month-header">Month</td>
+                  <td class="month-header">${escapeHtml(slip.month)}-${escapeHtml(slip.year.slice(-2))}</td>
+               </tr>
 
-          <div class="card">
-            <div class="card-title">Salary Breakdown</div>
-            <table>
-              <thead>
-                <tr><th>Component</th><th>Amount</th></tr>
-              </thead>
-              <tbody>
-                <tr><td>Basic Pay</td><td>${escapeHtml(formatCurrencyINR(slip.basic || 0))}</td></tr>
-                <tr><td>HRA</td><td>${escapeHtml(formatCurrencyINR(slip.hra || 0))}</td></tr>
-                <tr><td>Allowances</td><td>${escapeHtml(formatCurrencyINR(slip.allowances || 0))}</td></tr>
-                <tr><td>Gross</td><td>${escapeHtml(formatCurrencyINR(gross))}</td></tr>
-                <tr><td>Total Deductions</td><td>${escapeHtml(formatCurrencyINR(slip.deductions || 0))}</td></tr>
-              </tbody>
+               <!-- Employee Details -->
+               <tr>
+                  <td colspan="3" style="padding: 0;">
+                     <div style="display: flex;">
+                        <div style="width: 50%; border-right: 1px solid #999;">
+                           <table class="emp-table">
+                              <tr><td class="emp-label">Employee Name</td><td class="emp-val">${escapeHtml(user.name)}</td></tr>
+                              <tr><td class="emp-label">Employee Code</td><td class="emp-val">${escapeHtml(user.id)}</td></tr>
+                              <tr><td class="emp-label">Designation</td><td class="emp-val">${escapeHtml(user.position || 'Software Engineer')}</td></tr>
+                              <tr><td class="emp-label">PAN</td><td class="emp-val">${escapeHtml(user.pan || '-')}</td></tr>
+                              <tr><td class="emp-label">Bank Account Number</td><td class="emp-val">${escapeHtml(user.accountNumber || '-')}</td></tr>
+                              <tr><td class="emp-label">Bank Name</td><td class="emp-val">${escapeHtml(user.bankName || '-')}</td></tr>
+                              <tr><td class="emp-label">IFSC Code</td><td class="emp-val">${escapeHtml(user.ifscCode || '-')}</td></tr>
+                           </table>
+                        </div>
+                        <div style="width: 50%;">
+                           <table class="emp-table">
+                              <tr><td class="emp-label">Date of Joining</td><td class="emp-val">${escapeHtml(formatDateForDisplayIST(user.joiningDate, 'en-US', { day: '2-digit', month: 'short', year: '2-digit' }))}</td></tr>
+                              <tr><td class="emp-label">Total Working Days</td><td class="emp-val">${slip.workingDays || 30}</td></tr>
+                              <tr><td class="emp-label">Paid days</td><td class="emp-val">${slip.paidDays || 30}</td></tr>
+                              <tr><td class="emp-label">&nbsp;</td><td class="emp-val">&nbsp;</td></tr>
+                              <tr><td class="emp-label">&nbsp;</td><td class="emp-val">&nbsp;</td></tr>
+                              <tr><td class="emp-label">&nbsp;</td><td class="emp-val">&nbsp;</td></tr>
+                              <tr><td class="emp-label">&nbsp;</td><td class="emp-val">&nbsp;</td></tr>
+                           </table>
+                        </div>
+                     </div>
+                  </td>
+               </tr>
+
+               <!-- Income / Deduction Headers -->
+               <tr>
+                  <td colspan="3" style="padding: 0;">
+                     <div style="display: flex; border-bottom: 1px solid #999;">
+                        <div class="section-header" style="width: 50%; border-right: 1px solid #999;">Income</div>
+                        <div class="section-header" style="width: 50%;">Deductions</div>
+                     </div>
+                  </td>
+               </tr>
+
+               <!-- Salary Body -->
+               <tr>
+                  <td colspan="3" style="padding: 0;">
+                     <div style="display: flex;">
+                        <!-- Incomes -->
+                        <div class="income-col">
+                           <div class="item-row header">
+                              <div class="item-name">Particulars</div>
+                              <div class="item-amount">Amount</div>
+                           </div>
+                           <div class="item-row">
+                              <div class="item-name">Basic Salary</div>
+                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.basic || 0)).replace('₹', '')}</div>
+                           </div>
+                           <div class="item-row">
+                              <div class="item-name">HRA</div>
+                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.hra || 0)).replace('₹', '')}</div>
+                           </div>
+                           <div class="item-row">
+                              <div class="item-name">Others / Allowances</div>
+                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.allowances || 0)).replace('₹', '')}</div>
+                           </div>
+                           <div class="item-row">
+                              <div class="item-name">Bonus</div>
+                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.bonus || 0)).replace('₹', '')}</div>
+                           </div>
+                           
+                           <!-- Spacer to push Total to bottom -->
+                           <div style="height: 100px;"></div>
+                           
+                           <div class="total-row">
+                              <div>Total</div>
+                              <div>${escapeHtml(formatCurrencyINR(gross)).replace('₹', '')}</div>
+                           </div>
+                        </div>
+
+                        <!-- Deductions -->
+                        <div class="deduction-col">
+                           <div class="item-row header">
+                              <div class="item-name">Particulars</div>
+                              <div class="item-amount">Amount</div>
+                           </div>
+                           <div class="item-row">
+                              <div class="item-name">Employee - PF Contribution</div>
+                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.employeePF || 0)).replace('₹', '')}</div>
+                           </div>
+                           <div class="item-row">
+                              <div class="item-name">ESI</div>
+                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.esi || 0)).replace('₹', '')}</div>
+                           </div>
+                           <div class="item-row">
+                              <div class="item-name">Insurance</div>
+                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.insurance || 0)).replace('₹', '')}</div>
+                           </div>
+                           <div class="item-row">
+                              <div class="item-name">Other Deductions</div>
+                              <div class="item-amount">${escapeHtml(formatCurrencyINR(otherDeductions)).replace('₹', '')}</div>
+                           </div>
+
+                           <!-- Spacer to push Total to bottom -->
+                           <div style="height: 100px;"></div>
+
+                           <div class="total-row">
+                              <div>Total</div>
+                              <div>${escapeHtml(formatCurrencyINR(deductionsTotal)).replace('₹', '')}</div>
+                           </div>
+                        </div>
+                     </div>
+                  </td>
+               </tr>
+
+               <!-- Net Salary -->
+               <tr>
+                  <td colspan="3" style="padding: 0; border: none;">
+                     <div class="net-salary-section">
+                        <div>Net Salary</div>
+                        <div>${escapeHtml(formatCurrencyINR(slip.netPay || 0)).replace('₹', '')}</div>
+                     </div>
+                  </td>
+               </tr>
+                <tr>
+                  <td colspan="3" style="padding: 0;">
+                      <div style="display: flex; align-items: center; padding: 8px;">
+                        <div style="font-weight: bold; width: 150px;">Rs- ${escapeHtml(formatCurrencyINR(slip.netPay || 0)).replace('₹', '')}</div>
+                        <div style="font-style: italic; font-size: 12px; margin-left: 20px;">${netPayInWords}</div>
+                      </div>
+                  </td>
+               </tr>
             </table>
-            <div class="total">Net Pay: ${escapeHtml(formatCurrencyINR(slip.netPay || 0))}</div>
+
+            <!-- Footer (optional empty space or note) -->
           </div>
           <script>window.onload = function(){ window.print(); };</script>
         </body>

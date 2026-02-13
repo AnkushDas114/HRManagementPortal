@@ -13,9 +13,9 @@ const EMPLOYEE_MASTER_LIST_TITLE = "EmployeeMaster";
 export const PROFILE_IMAGE_FOLDERS = ['Covers', 'Logos', 'Page-Images', 'PXCDescriptionImage', 'SliderImages', 'TeamMembers', 'Tiles'] as const;
 
 export interface ProfileGalleryImage {
-    folder: string;
-    name: string;
-    url: string;
+  folder: string;
+  name: string;
+  url: string;
 }
 
 async function fetchEmployeeItems(sp: SPFI): Promise<any[]> {
@@ -39,70 +39,76 @@ export async function getAllEmployees(sp: SPFI): Promise<Employee[]> {
 }
 
 export async function createEmployee(sp: SPFI, employee: Partial<Employee>): Promise<number> {
-    try {
+  try {
     const addResult = await sp.web.lists.getByTitle(EMPLOYEE_MASTER_LIST_TITLE).items.add({
-            Title: employee.name,
-            EmployeeID: employee.id,
-            Email: employee.email,
-            Department: employee.department,
-            Designation: employee.position,
-            DOJ: employee.joiningDate,
-            PAN: employee.pan,
-            AccountNumber: employee.accountNumber,
-            BankName: employee.bankName,
-            IFSCCode: employee.ifscCode,
-            Total: String(employee.total || '0')
-        });
+      Title: employee.name,
+      EmployeeID: employee.id,
+      Email: employee.email,
+      Department: employee.department,
+      Designation: employee.position,
+      DOJ: employee.joiningDate,
+      PAN: employee.pan,
+      AccountNumber: employee.accountNumber,
+      BankName: employee.bankName,
+      IFSCCode: employee.ifscCode,
+      Total: String(employee.total || '0'),
+      Phone: employee.phone,
+      Location: employee.location,
+      ReportingManager: employee.reportingManager
+    });
 
-        return addResult.data?.Id as number;
-    } catch (error) {
-        console.error('Error creating employee:', error);
-        throw error;
-    }
+    return addResult.data?.Id as number;
+  } catch (error) {
+    console.error('Error creating employee:', error);
+    throw error;
+  }
 }
 
 export async function updateEmployee(sp: SPFI, itemId: number, employee: Partial<Employee>): Promise<void> {
-    try {
+  try {
     await sp.web.lists.getByTitle(EMPLOYEE_MASTER_LIST_TITLE).items.getById(itemId).update({
-            Title: employee.name,
-            EmployeeID: employee.id,
-            Email: employee.email,
-            Department: employee.department,
-            Designation: employee.position,
-            DOJ: employee.joiningDate,
-            PAN: employee.pan,
-            AccountNumber: employee.accountNumber,
-            BankName: employee.bankName,
-            IFSCCode: employee.ifscCode,
-            Total: String(employee.total || '0')
-        });
-    } catch (error) {
-        console.error('Error updating employee:', error);
-        throw error;
-    }
+      Title: employee.name,
+      EmployeeID: employee.id,
+      Email: employee.email,
+      Department: employee.department,
+      Designation: employee.position,
+      DOJ: employee.joiningDate,
+      PAN: employee.pan,
+      AccountNumber: employee.accountNumber,
+      BankName: employee.bankName,
+      IFSCCode: employee.ifscCode,
+      Total: String(employee.total || '0'),
+      Phone: employee.phone,
+      Location: employee.location,
+      ReportingManager: employee.reportingManager
+    });
+  } catch (error) {
+    console.error('Error updating employee:', error);
+    throw error;
+  }
 }
 
 export async function deleteEmployee(sp: SPFI, itemId: number): Promise<void> {
-    try {
+  try {
     await sp.web.lists.getByTitle(EMPLOYEE_MASTER_LIST_TITLE).items.getById(itemId).delete();
-    } catch (error) {
-        console.error('Error deleting employee:', error);
-        throw error;
-    }
+  } catch (error) {
+    console.error('Error deleting employee:', error);
+    throw error;
+  }
 }
 
 export async function clearEmployeeProfileImage(sp: SPFI, itemId: number): Promise<void> {
   const item = sp.web.lists.getByTitle(EMPLOYEE_MASTER_LIST_TITLE).items.getById(itemId);
-    const attachments = await item.attachmentFiles();
-    for (const attachment of attachments) {
-        await item.attachmentFiles.getByName(attachment.FileName).delete();
-    }
+  const attachments = await item.attachmentFiles();
+  for (const attachment of attachments) {
+    await item.attachmentFiles.getByName(attachment.FileName).delete();
+  }
 }
 
 export async function replaceEmployeeProfileImage(sp: SPFI, itemId: number, blob: Blob, fileName: string): Promise<void> {
   const item = sp.web.lists.getByTitle(EMPLOYEE_MASTER_LIST_TITLE).items.getById(itemId);
-    await clearEmployeeProfileImage(sp, itemId);
-    await item.attachmentFiles.add(fileName, await blob.arrayBuffer());
+  await clearEmployeeProfileImage(sp, itemId);
+  await item.attachmentFiles.add(fileName, await blob.arrayBuffer());
 }
 
 export async function getProfileGalleryImages(sp: SPFI): Promise<ProfileGalleryImage[]> {
@@ -217,18 +223,21 @@ async function mapItemToEmployee(sp: SPFI, item: any): Promise<Employee> {
   }
 
   return {
-        id: String(item.EmployeeID || item.Id),
-        itemId: item.Id,
-        name: item.Title || 'Unknown',
-        department: item.Department || 'General',
-        position: item.Designation || '',
+    id: String(item.EmployeeID || item.Id),
+    itemId: item.Id,
+    name: item.Title || 'Unknown',
+    department: item.Department || 'General',
+    position: item.Designation || '',
     avatar: attachmentAvatar || fallbackAvatar,
-        joiningDate: formatDateIST(item.DOJ),
-        email: email,
-        pan: item.PAN,
-        accountNumber: item.AccountNumber,
-        bankName: item.BankName,
-        ifscCode: item.IFSCCode,
-        total: item.Total ? parseFloat(item.Total) : 0
-    };
+    joiningDate: formatDateIST(item.DOJ),
+    email: email,
+    pan: item.PAN,
+    accountNumber: item.AccountNumber,
+    bankName: item.BankName,
+    ifscCode: item.IFSCCode,
+    total: item.Total ? parseFloat(item.Total) : 0,
+    phone: item.Phone,
+    location: item.Location,
+    reportingManager: item.ReportingManager
+  };
 }

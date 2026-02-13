@@ -1449,7 +1449,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
       <main className="container-xl py-4">
         {activeTab === 'profile' ? (
-          <Profile user={currentUser || hrUser} role={role} onBack={() => setActiveTab(role === UserRole.HR ? 'overview' : 'dashboard')} />
+          <Profile
+            user={currentUser || hrUser}
+            role={role}
+            sp={sp}
+            onBack={() => setActiveTab(role === UserRole.HR ? 'overview' : 'dashboard')}
+            onUpdate={loadDirectoryEmployees}
+          />
         ) : (
           <>
             <ul className="nav nav-pills mb-4 bg-white p-2 rounded shadow-sm d-inline-flex flex-wrap gap-2" role="tablist">
@@ -2090,7 +2096,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       setSalaryFormData(prev => ({
                         ...prev,
                         basic: val,
-                        inhand: Math.max(0, (val + prev.hra + prev.allowances) - prev.deductions)
+                        inhand: Math.max(0, (val + prev.hra + prev.allowances + prev.bonus) - prev.deductions)
                       }));
                     }}
                     readOnly={!isSalaryManualMode}
@@ -2108,7 +2114,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       setSalaryFormData(prev => ({
                         ...prev,
                         hra: val,
-                        inhand: Math.max(0, (prev.basic + val + prev.allowances) - prev.deductions)
+                        inhand: Math.max(0, (prev.basic + val + prev.allowances + prev.bonus) - prev.deductions)
                       }));
                     }}
                     readOnly={!isSalaryManualMode}
@@ -2126,7 +2132,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       setSalaryFormData(prev => ({
                         ...prev,
                         allowances: val,
-                        inhand: Math.max(0, (prev.basic + prev.hra + val) - prev.deductions)
+                        inhand: Math.max(0, (prev.basic + prev.hra + val + prev.bonus) - prev.deductions)
                       }));
                     }}
                     readOnly={!isSalaryManualMode}
@@ -2144,7 +2150,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       setSalaryFormData(prev => ({
                         ...prev,
                         deductions: val,
-                        inhand: Math.max(0, (prev.basic + prev.hra + prev.allowances) - val)
+                        inhand: Math.max(0, (prev.basic + prev.hra + prev.allowances + prev.bonus) - val)
                       }));
                     }}
                     readOnly={!isSalaryManualMode}
@@ -2189,7 +2195,14 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     type="number"
                     className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
                     value={salaryFormData.bonus}
-                    onChange={(e) => setSalaryFormData({ ...salaryFormData, bonus: Number(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setSalaryFormData(prev => ({
+                        ...prev,
+                        bonus: val,
+                        inhand: Math.max(0, (prev.basic + prev.hra + prev.allowances + val) - prev.deductions)
+                      }));
+                    }}
                     readOnly={!isSalaryManualMode}
                   />
                 </div>

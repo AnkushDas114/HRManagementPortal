@@ -58,7 +58,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
   const onLeaveToday = React.useMemo(() => {
     const validTypes = Object.keys(leaveQuotas);
     return requests.filter(req => {
-      const isStatusValid = req.status === LeaveStatus.Approved || req.status === LeaveStatus.Pending;
+      const isStatusValid = req.status === LeaveStatus.Approved;
       const isDateValid = today >= req.startDate && today <= req.endDate;
       const isTypeValid = validTypes.length === 0 || validTypes.indexOf(req.leaveType) !== -1;
       return isStatusValid && isDateValid && isTypeValid;

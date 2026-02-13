@@ -55,6 +55,9 @@ export interface Employee {
   site?: string;
   role?: string;
   team?: string;
+  phone?: string;
+  location?: string;
+  reportingManager?: string;
   // Payroll & Bank Details
   pan?: string;
   accountNumber?: string;
@@ -121,6 +124,8 @@ export interface SalarySlip {
   slipPdfUrl?: string;
   description?: string;
   generatedDate: string;
+  workingDays?: number;
+  paidDays?: number;
 }
 
 export interface Holiday {

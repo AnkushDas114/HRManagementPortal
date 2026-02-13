@@ -74,7 +74,9 @@ const mapItemToSalarySlip = (item: any): SalarySlip => {
     employerEsi: toNumber(item.EmployerESI),
     payrollKey: String(item.PayrollKey || ''),
     slipPdfUrl: typeof item.SlipPdfUrl === 'string' ? item.SlipPdfUrl : String(item.SlipPdfUrl?.Url || ''),
-    generatedDate: formatDateIST(item.GeneratedDate) || todayIST()
+    generatedDate: formatDateIST(item.GeneratedDate) || todayIST(),
+    workingDays: toNumber(item.WorkingDays),
+    paidDays: toNumber(item.PaidDays)
   };
 };
 
@@ -127,7 +129,9 @@ export async function createSalarySlip(sp: SPFI, slip: SalarySlip, employee?: Em
     allowances: slip.allowances,
     deductions: slip.deductions,
     netPay: slip.netPay,
-    generatedDate: slip.generatedDate || todayIST()
+    generatedDate: slip.generatedDate || todayIST(),
+    workingDays: slip.workingDays,
+    paidDays: slip.paidDays
   }, null, 2);
 
   const addResult = await sp.web.lists
@@ -155,7 +159,9 @@ export async function createSalarySlip(sp: SPFI, slip: SalarySlip, employee?: Em
     Insurance: slip.insurance || 0,
     ESI: slip.esi || 0,
     GeneratedDate: new Date().toISOString(),
-    PayrollKey: String(slip.payrollKey || defaultPayrollKey)
+    PayrollKey: String(slip.payrollKey || defaultPayrollKey),
+    WorkingDays: slip.workingDays || 0,
+    PaidDays: slip.paidDays || 0
   };
 
   // NOTE:
@@ -205,7 +211,9 @@ export async function updateSalarySlip(sp: SPFI, id: number, slip: Partial<Salar
     Insurance: slip.insurance,
     ESI: slip.esi,
     GeneratedDate: slip.generatedDate,
-    PayrollKey: slip.payrollKey
+    PayrollKey: slip.payrollKey,
+    WorkingDays: slip.workingDays,
+    PaidDays: slip.paidDays
   };
 
   if (slip.slipPdfUrl) {
