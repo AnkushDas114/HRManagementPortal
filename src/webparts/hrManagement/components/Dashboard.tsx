@@ -6,7 +6,7 @@ import StatCard from '../ui/StatCard';
 import { generateLeaveSummaryReport } from '../services/geminiService';
 import Modal from '../ui/Modal';
 import { Sparkle, Users, CheckCircle, Clock, XCircle, UserCheck, Calendar as CalendarIcon, Flag, PartyPopper, Cake, MessageSquare, Plus, Calendar } from 'lucide-react';
-import { formatDateForDisplayIST, monthNameIST, todayIST } from '../utils/dateTime';
+import { formatDateForDisplayIST, monthNameIST, todayIST, getNowIST } from '../utils/dateTime';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 
 const RxXAxis = XAxis as unknown as React.ComponentType<any>;
@@ -32,6 +32,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
   const [isEventModalOpen, setIsEventModalOpen] = React.useState(false);
   const [summary, setSummary] = React.useState('');
   const [isLoadingSummary, setIsLoadingSummary] = React.useState(false);
+  const [insightTab, setInsightTab] = React.useState<'overview' | 'leave' | 'attendance'>('overview');
 
   // Add Event Form State
   const [eventFormData, setEventFormData] = React.useState<Omit<TeamEvent, 'id'>>({
@@ -139,6 +140,114 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
 
   const chartColors = ['#1f7ae0', '#f5b323', '#14b8a6', '#8b5cf6', '#ef4444', '#06b6d4'];
 
+  const weeklyInsights = React.useMemo(() => {
+    const toDateValue = (value: unknown): Date | null => {
+      const raw = String(value || '').trim();
+      if (!raw) return null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        const [year, month, day] = raw.split('-').map(Number);
+        const date = new Date(year, month - 1, day, 12, 0, 0);
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
+      const parsed = new Date(raw);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const today = getNowIST();
+    const weekStart = new Date(today);
+    const weekOffset = (today.getDay() + 6) % 7; // Monday-first week
+    weekStart.setDate(today.getDate() - weekOffset);
+    weekStart.setHours(0, 0, 0, 0);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const isInWeek = (date: Date | null): boolean => {
+      if (!date) return false;
+      return date >= weekStart && date <= weekEnd;
+    };
+
+    const weeklyRequests = requests.filter((request) => {
+      const submittedDate = toDateValue(request.submittedAt);
+      const fallbackDate = toDateValue(request.startDate);
+      return isInWeek(submittedDate || fallbackDate);
+    });
+
+    const weeklyApproved = weeklyRequests.filter((request) => request.status === LeaveStatus.Approved);
+    const weeklyPending = weeklyRequests.filter((request) => request.status === LeaveStatus.Pending).length;
+
+    const approvedDaysThisWeek = requests
+      .filter((request) => request.status === LeaveStatus.Approved)
+      .reduce((total, request) => {
+        const leaveStart = toDateValue(request.startDate);
+        const leaveEnd = toDateValue(request.endDate) || leaveStart;
+        if (!leaveStart || !leaveEnd) return total;
+
+        const overlapStart = leaveStart > weekStart ? leaveStart : weekStart;
+        const overlapEnd = leaveEnd < weekEnd ? leaveEnd : weekEnd;
+        if (overlapStart > overlapEnd) return total;
+
+        const overlapDays = Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        return total + Math.max(0, overlapDays);
+      }, 0);
+
+    const departmentCounts = weeklyRequests.reduce((acc, request) => {
+      const dept = request.employee?.department || 'Unknown';
+      acc[dept] = (acc[dept] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const topDepartment = Object.keys(departmentCounts).reduce(
+      (best, current) => (!best || departmentCounts[current] > departmentCounts[best] ? current : best),
+      ''
+    );
+
+    const leaveTypeCounts = weeklyApproved.reduce((acc, request) => {
+      const type = request.leaveType || 'Other';
+      acc[type] = (acc[type] || 0) + (request.days || 0);
+      return acc;
+    }, {} as Record<string, number>);
+
+    const topLeaveType = Object.keys(leaveTypeCounts).reduce(
+      (best, current) => (!best || leaveTypeCounts[current] > leaveTypeCounts[best] ? current : best),
+      ''
+    );
+
+    const weeklyAttendance = attendanceRecords.filter((record) => isInWeek(toDateValue(record.date)));
+    const presentCount = weeklyAttendance.filter((record) => record.status === AttendanceStatus.Present).length;
+    const absentCount = weeklyAttendance.filter((record) => record.status === AttendanceStatus.Absent).length;
+    const onLeaveCount = weeklyAttendance.filter((record) => record.status === AttendanceStatus.OnLeave).length;
+    const trackableAttendance = weeklyAttendance.filter((record) => record.status !== AttendanceStatus.Weekend);
+    const presentRate = trackableAttendance.length > 0 ? Math.round((presentCount / trackableAttendance.length) * 100) : 0;
+
+    const approvalRate = weeklyRequests.length > 0 ? Math.round((weeklyApproved.length / weeklyRequests.length) * 100) : 0;
+    const rejectedRequests = weeklyRequests.filter((request) => request.status === LeaveStatus.Rejected).length;
+    const avgDaysPerRequest = weeklyRequests.length > 0
+      ? Number((weeklyRequests.reduce((sum, request) => sum + (request.days || 0), 0) / weeklyRequests.length).toFixed(1))
+      : 0;
+
+    return {
+      rangeLabel: `${formatDateForDisplayIST(weekStart, 'en-US', { day: 'numeric', month: 'short' })} - ${formatDateForDisplayIST(weekEnd, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+      totalRequests: weeklyRequests.length,
+      approvedRequests: weeklyApproved.length,
+      pendingRequests: weeklyPending,
+      rejectedRequests,
+      approvalRate,
+      avgDaysPerRequest,
+      approvedDaysThisWeek,
+      presentRate,
+      presentCount,
+      absentCount,
+      onLeaveCount,
+      attendanceTracked: trackableAttendance.length,
+      topDepartment: topDepartment || 'N/A',
+      topDepartmentCount: topDepartment ? departmentCounts[topDepartment] : 0,
+      topLeaveType: topLeaveType || 'N/A',
+      topLeaveTypeDays: topLeaveType ? leaveTypeCounts[topLeaveType] : 0
+    };
+  }, [requests, attendanceRecords]);
+
   const formatSummaryToHtml = React.useCallback((raw: string): string => {
     const normalized = String(raw || '').replace(/\r\n/g, '\n').trim();
     if (!normalized) return '<p>No summary generated.</p>';
@@ -208,6 +317,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
 
   const handleGenerateSummary = async () => {
     setIsModalOpen(true);
+    setInsightTab('overview');
     setIsLoadingSummary(true);
     try {
       const result = await generateLeaveSummaryReport(requests);
@@ -235,7 +345,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-4 p-3">
         <h2 className="h3 fw-semibold text-secondary">Dashboard Overview</h2>
         <button
           onClick={handleGenerateSummary}
@@ -425,8 +535,96 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
             </div>
           </div>
         ) : (
-          <div className="ai-report-shell">
-            <div className="ai-report-content" dangerouslySetInnerHTML={{ __html: summary }} />
+          <div className="ai-weekly-modal-layout p-4">
+            <div className="ai-week-insights">
+              <div className="ai-week-insights__head">
+                <div>
+                  <h6 className="mb-1">This Week Insights</h6>
+                  <p className="mb-0">{weeklyInsights.rangeLabel}</p>
+                </div>
+              </div>
+
+              <div className="ai-week-insights__tabs">
+                <button type="button" className={`btn btn-sm ${insightTab === 'overview' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setInsightTab('overview')}>Overview</button>
+                <button type="button" className={`btn btn-sm ${insightTab === 'leave' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setInsightTab('leave')}>Leave</button>
+                <button type="button" className={`btn btn-sm ${insightTab === 'attendance' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setInsightTab('attendance')}>Attendance</button>
+              </div>
+
+              {insightTab === 'overview' && (
+                <div className="ai-week-insights__grid">
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">Weekly Requests</div>
+                    <div className="ai-week-insights__value">{weeklyInsights.totalRequests}</div>
+                  </div>
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">Approval Rate</div>
+                    <div className="ai-week-insights__value">{weeklyInsights.approvalRate}%</div>
+                  </div>
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">Pending Requests</div>
+                    <div className="ai-week-insights__value">{weeklyInsights.pendingRequests}</div>
+                  </div>
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">Approved Leave Days</div>
+                    <div className="ai-week-insights__value">{weeklyInsights.approvedDaysThisWeek}</div>
+                  </div>
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">Present Rate</div>
+                    <div className="ai-week-insights__value">{weeklyInsights.presentRate}%</div>
+                  </div>
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">Top Department</div>
+                    <div className="ai-week-insights__value ai-week-insights__value--text">{weeklyInsights.topDepartment}</div>
+                    <div className="ai-week-insights__meta">{weeklyInsights.topDepartmentCount} requests</div>
+                  </div>
+                </div>
+              )}
+
+              {insightTab === 'leave' && (
+                <div className="ai-week-insights__grid">
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">Approved</div>
+                    <div className="ai-week-insights__value">{weeklyInsights.approvedRequests}</div>
+                  </div>
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">Rejected</div>
+                    <div className="ai-week-insights__value">{weeklyInsights.rejectedRequests}</div>
+                  </div>
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">Avg Days / Request</div>
+                    <div className="ai-week-insights__value">{weeklyInsights.avgDaysPerRequest}</div>
+                  </div>
+                </div>
+              )}
+
+              {insightTab === 'attendance' && (
+                <div className="ai-week-insights__grid">
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">Present Records</div>
+                    <div className="ai-week-insights__value">{weeklyInsights.presentCount}</div>
+                  </div>
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">Absent Records</div>
+                    <div className="ai-week-insights__value">{weeklyInsights.absentCount}</div>
+                  </div>
+                  <div className="ai-week-insights__card">
+                    <div className="ai-week-insights__label">On Leave Records</div>
+                    <div className="ai-week-insights__value">{weeklyInsights.onLeaveCount}</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="ai-week-insights__note">
+                Most used leave type this week: <strong>{weeklyInsights.topLeaveType}</strong> ({weeklyInsights.topLeaveTypeDays} days)
+                {weeklyInsights.attendanceTracked > 0 && (
+                  <span className="ms-2">• Attendance tracked entries: <strong>{weeklyInsights.attendanceTracked}</strong></span>
+                )}
+              </div>
+            </div>
+
+            <div className="ai-report-shell">
+              <div className="ai-report-content" dangerouslySetInnerHTML={{ __html: summary }} />
+            </div>
           </div>
         )}
       </Modal>
