@@ -162,7 +162,7 @@ const CommonTable = <T,>({
       const perColumnOk = filterableColumns.every(col => {
         const filterValue = (columnFilters[col.key] || '').trim();
         if (!filterValue) return true;
-        const cell = col.accessor ? col.accessor(row) : (row as any)[col.key];
+        const cell = col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key];
         return normalize(cell).toLowerCase().includes(filterValue.toLowerCase());
       });
       if (!perColumnOk) return false;
@@ -441,11 +441,11 @@ const CommonTable = <T,>({
           font-size: 11px;
           padding: 2px 6px;
           border-color: #cfcfcf;
-          background: #3a3a3a;
-          color: #fff;
+          background: #fff;
+          color: #333;
         }
         .common-table__filter::placeholder {
-          color: #d0d0d0;
+          color: #999;
         }
         .common-table .table thead th {
           vertical-align: bottom;

@@ -3,53 +3,61 @@ import { LeaveStatus, AttendanceStatus } from './types';
 import { formatDateIST, getNowIST } from './utils/dateTime';
 
 export const MOCK_EMPLOYEES: Employee[] = [
-  { 
-    id: 'E001', 
-    name: 'Alice Johnson', 
-    department: 'Engineering', 
+  {
+    id: 'E001',
+    name: 'Alice Johnson',
+    department: 'Engineering',
     avatar: 'https://i.pravatar.cc/150?u=E001',
     joiningDate: '2022-01-15',
     balance: { vacation: 12, sick: 5, personal: 3, totalEntitled: 25, wfh: 10, restrictedHoliday: 2 }
   },
-  { 
-    id: 'E002', 
-    name: 'Bob Williams', 
-    department: 'Product', 
+  {
+    id: 'E002',
+    name: 'Bob Williams',
+    department: 'Product',
     avatar: 'https://i.pravatar.cc/150?u=E002',
     joiningDate: '2022-03-10',
     balance: { vacation: 8, sick: 4, personal: 2, totalEntitled: 25, wfh: 15, restrictedHoliday: 1 }
   },
-  { 
-    id: 'E003', 
-    name: 'Charlie Brown', 
-    department: 'Design', 
+  {
+    id: 'E003',
+    name: 'Charlie Brown',
+    department: 'Design',
     avatar: 'https://i.pravatar.cc/150?u=E003',
     joiningDate: '2021-11-20',
     balance: { vacation: 15, sick: 6, personal: 5, totalEntitled: 30, wfh: 5, restrictedHoliday: 3 }
   },
-  { 
-    id: 'E004', 
-    name: 'Diana Miller', 
-    department: 'Engineering', 
+  {
+    id: 'E004',
+    name: 'Diana Miller',
+    department: 'Engineering',
     avatar: 'https://i.pravatar.cc/150?u=E004',
     joiningDate: '2023-05-02',
     balance: { vacation: 5, sick: 2, personal: 1, totalEntitled: 25, wfh: 20, restrictedHoliday: 0 }
   },
-  { 
-    id: 'E005', 
-    name: 'Ethan Davis', 
-    department: 'QA', 
+  {
+    id: 'E005',
+    name: 'Ethan Davis',
+    department: 'QA',
     avatar: 'https://i.pravatar.cc/150?u=E005',
     joiningDate: '2022-08-14',
     balance: { vacation: 10, sick: 3, personal: 3, totalEntitled: 25, wfh: 12, restrictedHoliday: 2 }
   },
-  { 
-    id: 'E006', 
-    name: 'Fiona Garcia', 
-    department: 'Marketing', 
+  {
+    id: 'E006',
+    name: 'Fiona Garcia',
+    department: 'Marketing',
     avatar: 'https://i.pravatar.cc/150?u=E006',
     joiningDate: '2023-02-28',
     balance: { vacation: 14, sick: 5, personal: 4, totalEntitled: 30, wfh: 8, restrictedHoliday: 1 }
+  },
+  {
+    id: 'E007',
+    name: 'George Miller',
+    department: 'Management',
+    avatar: 'https://i.pravatar.cc/150?u=E007',
+    joiningDate: '2020-05-15',
+    balance: { vacation: 20, sick: 10, personal: 5, totalEntitled: 35, wfh: 0, restrictedHoliday: 4 }
   },
 ];
 

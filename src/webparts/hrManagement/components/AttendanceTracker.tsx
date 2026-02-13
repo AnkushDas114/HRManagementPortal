@@ -4,8 +4,8 @@ import * as XLSX from 'xlsx';
 import { LeaveStatus } from '../types';
 import type { Employee, LeaveRequest, AttendanceRecord, AttendanceStatus } from '../types';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
-import { Edit3, Clock, Info, ChevronDown, ChevronRight, Download, Search, Upload } from 'lucide-react';
-import { formatDateIST, getNowIST, todayIST } from '../utils/dateTime';
+import { Edit3, Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Search, Upload, Calendar } from 'lucide-react';
+import { formatDateIST, getNowIST, todayIST, formatDateForDisplayIST } from '../utils/dateTime';
 
 interface AttendanceTrackerProps {
   employees: Employee[];
@@ -39,6 +39,9 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
   const today = getNowIST();
   const todayStr = todayIST();
+
+  const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
+  const [referenceDate, setReferenceDate] = React.useState<Date>(today);
 
   const normalizeText = React.useCallback((value: unknown): string => {
     return String(value ?? '').trim().toLowerCase();
@@ -200,13 +203,73 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         return record.date >= startDate && record.date <= endDate;
       }
 
+      // 3. View mode filtering (Daily, Weekly, Monthly)
+      const refDateStr = formatDateIST(referenceDate);
+
+      if (viewMode === 'Daily') {
+        return record.date === refDateStr;
+      }
+
+      if (viewMode === 'Weekly') {
+        const startOfWeek = new Date(referenceDate);
+        startOfWeek.setDate(referenceDate.getDate() - referenceDate.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        const recStart = new Date(record.date);
+        recStart.setHours(0, 0, 0, 0);
+
+        return recStart >= startOfWeek && recStart <= endOfWeek;
+      }
+
+      if (viewMode === 'Monthly') {
+        const recDateObj = new Date(record.date);
+        return recDateObj.getMonth() === referenceDate.getMonth() && recDateObj.getFullYear() === referenceDate.getFullYear();
+      }
+
       if (selectedDateFilter === 'All Time') {
         return true;
       }
 
       return true;
     }).sort((a, b) => b.date.localeCompare(a.date));
-  }, [attendanceRecords, employees, selectedMemberId, searchQuery, selectedDateFilter, startDate, endDate, todayStr, today, employeeIdsMatch, normalizeText]);
+  }, [attendanceRecords, employees, selectedMemberId, searchQuery, selectedDateFilter, startDate, endDate, todayStr, today, employeeIdsMatch, normalizeText, viewMode, referenceDate]);
+
+  const handlePrev = () => {
+    const nextDate = new Date(referenceDate);
+    if (viewMode === 'Daily') nextDate.setDate(referenceDate.getDate() - 1);
+    else if (viewMode === 'Weekly') nextDate.setDate(referenceDate.getDate() - 7);
+    else if (viewMode === 'Monthly') nextDate.setMonth(referenceDate.getMonth() - 1);
+    setReferenceDate(nextDate);
+  };
+
+  const handleNext = () => {
+    const nextDate = new Date(referenceDate);
+    if (viewMode === 'Daily') nextDate.setDate(referenceDate.getDate() + 1);
+    else if (viewMode === 'Weekly') nextDate.setDate(referenceDate.getDate() + 7);
+    else if (viewMode === 'Monthly') nextDate.setMonth(referenceDate.getMonth() + 1);
+    setReferenceDate(nextDate);
+  };
+
+  const getDateDisplay = () => {
+    if (viewMode === 'Daily') {
+      return formatDateForDisplayIST(referenceDate, 'en-US', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
+    }
+    if (viewMode === 'Weekly') {
+      const start = new Date(referenceDate);
+      start.setDate(referenceDate.getDate() - referenceDate.getDay());
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      return `${formatDateForDisplayIST(start, 'en-US', { day: 'numeric', month: 'short' })} - ${formatDateForDisplayIST(end, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+    if (viewMode === 'Monthly') {
+      return formatDateForDisplayIST(referenceDate, 'en-US', { month: 'long', year: 'numeric' });
+    }
+    return '';
+  };
 
   const handleClearFilters = () => {
     setSelectedDateFilter('All Time');
@@ -478,43 +541,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     e.target.value = '';
   };
 
-  const exportToCSV = () => {
-    const headers = ['Employee', 'ID', 'Department', 'Date', 'Clock In', 'Clock Out', 'Total Time', 'Status'];
-
-    const csvCell = (value: unknown): string => {
-      const raw = String(value ?? '');
-      if (/[",\n]/.test(raw)) {
-        return `"${raw.replace(/"/g, '""')}"`;
-      }
-      return raw;
-    };
-
-    const rows = filteredRecords.map(record => {
-      const emp = employees.find(e => employeeIdsMatch(e.id, record.employeeId));
-      const name = emp?.name || record.employeeName || 'Unknown';
-      return [
-        name,
-        String(record.employeeId || ''),
-        emp?.department || record.department || 'N/A',
-        record.date,
-        record.clockIn || '--:--',
-        record.clockOut || '--:--',
-        record.workDuration || '00:00',
-        record.status
-      ];
-    });
-
-    const csvContent = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `attendance_export_${selectedDateFilter.replace(/\s+/g, '_')}_${new Date().getTime()}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  // Export functionality removed per user request
 
   const tableRows = React.useMemo(() => {
     return filteredRecords.map(record => ({
@@ -632,20 +659,16 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
   return (
     <div className="card shadow-sm border-0 bg-white">
-      <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom-0">
-        <h5 className="mb-0 fw-bold" style={{ color: '#2F5596', fontSize: '18px' }}>Global Attendance & Payroll Directory</h5>
-        <div className="d-flex gap-2">
-          <label className="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs mb-0 cursor-pointer" style={{ borderRadius: '4px' }}>
-            <Upload size={14} /> Import Data
-            <input type="file" accept=".xlsx, .xls, .csv" className="d-none" onChange={handleFileChange} />
-          </label>
-          <button
-            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
-            onClick={exportToCSV}
-            style={{ borderRadius: '4px' }}
-          >
-            <Download size={14} /> Export CSV
-          </button>
+      <div className="card-header bg-white py-3 border-bottom-0">
+        <div className="d-flex flex-wrap justify-content-end align-items-center gap-3">
+          {/* Right: Actions */}
+          <div className="d-flex flex-wrap gap-2">
+
+            <label className="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs mb-0 cursor-pointer" style={{ backgroundColor: '#2F5596', borderColor: '#2F5596' }}>
+              <Upload size={14} /> Import Attendance
+              <input type="file" accept=".xlsx, .xls, .csv" className="d-none" onChange={handleFileChange} />
+            </label>
+          </div>
         </div>
       </div>
 
@@ -765,6 +788,45 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         </div>
       </div>
 
+      <div className="px-4 py-2 border-top">
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+          {/* View Mode Toggle */}
+          <div className="btn-group shadow-xs" style={{ borderRadius: '8px', overflow: 'hidden' }}>
+            <button
+              className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Daily' ? 'btn-primary' : 'bg-white text-dark'}`}
+              onClick={() => setViewMode('Daily')}
+            >
+              <Clock size={16} className={viewMode === 'Daily' ? 'text-white' : 'text-primary'} /> Daily
+            </button>
+            <button
+              className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Weekly' ? 'btn-primary' : 'bg-white text-dark'}`}
+              onClick={() => setViewMode('Weekly')}
+            >
+              <Calendar size={16} className={viewMode === 'Weekly' ? 'text-white' : 'text-primary'} /> Weekly
+            </button>
+            <button
+              className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Monthly' ? 'btn-primary' : 'bg-white text-dark'}`}
+              onClick={() => setViewMode('Monthly')}
+            >
+              <Calendar size={16} className={viewMode === 'Monthly' ? 'text-white' : 'text-primary'} /> Monthly
+            </button>
+          </div>
+
+          {/* Date Navigator */}
+          <div className="d-flex align-items-center gap-2 bg-light rounded-pill px-2 py-1 shadow-xs border">
+            <button className="btn btn-sm btn-link text-dark p-1 hover-bg-gray rounded-circle" onClick={handlePrev}>
+              <ChevronLeft size={20} />
+            </button>
+            <div className="fw-bold px-3 text-center" style={{ minWidth: '180px', color: '#2F5596', fontSize: '13px' }}>
+              {getDateDisplay()}
+            </div>
+            <button className="btn btn-sm btn-link text-dark p-1 hover-bg-gray rounded-circle" onClick={handleNext}>
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
+      </div>
+
       <CommonTable
         data={tableRows}
         columns={columns}
@@ -777,9 +839,11 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         .avatar-selection.active img { border-color: #2F5596 !important; transform: scale(1.1); box-shadow: 0 0 0 2px rgba(47, 85, 150, 0.1); }
         .accordion-filter:hover { background-color: #fafafa; }
         .shadow-xs { box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .hover-bg-gray:hover { background-color: rgba(0,0,0,0.05); }
         .animate-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
         .form-check-input:checked { background-color: #2F5596; border-color: #2F5596; }
+        .btn-outline-secondary:hover { background-color: #f8f9fa; color: #212529; }
       `}</style>
     </div>
   );

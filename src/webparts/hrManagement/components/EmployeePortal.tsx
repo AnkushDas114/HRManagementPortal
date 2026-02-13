@@ -6,9 +6,9 @@ import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import {
-  Plus, Banknote, Download, FileText, Sun, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, AlertCircle, MessageSquare
+  Plus, Banknote, Download, FileText, Sun, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, AlertCircle, MessageSquare, ChevronLeft, ChevronRight, Calendar
 } from 'lucide-react';
-import { formatDateForDisplayIST, getNowIST, monthNameIST } from '../utils/dateTime';
+import { formatDateForDisplayIST, getNowIST, monthNameIST, formatDateIST } from '../utils/dateTime';
 
 interface EmployeePortalProps {
   user: Employee;
@@ -22,15 +22,21 @@ interface EmployeePortalProps {
   teamEvents: TeamEvent[];
   onRaiseConcern: (type: ConcernType, referenceId: string | number, description: string) => void;
   onSubmitLeave: () => void;
+  onTabChange?: (tab: string) => void;
   activeTab: string;
 }
 
-const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attendance, salarySlips, policies, holidays, concerns, leaveQuotas, teamEvents, onRaiseConcern, onSubmitLeave, activeTab }) => {
+const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attendance, salarySlips, policies, holidays, concerns, leaveQuotas, teamEvents, onRaiseConcern, onSubmitLeave, onTabChange, activeTab }) => {
   const [isPolicyModalOpen, setIsPolicyModalOpen] = React.useState(false);
   const [isConcernModalOpen, setIsConcernModalOpen] = React.useState(false);
   const [targetType, setTargetType] = React.useState<ConcernType>(ConcernType.General);
   const [targetRefId, setTargetRefId] = React.useState<string | number>('');
   const [concernDescription, setConcernDescription] = React.useState('');
+  const [isBalanceModalOpen, setIsBalanceModalOpen] = React.useState(false);
+
+  // Attendance Navigation State
+  const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
+  const [referenceDate, setReferenceDate] = React.useState<Date>(getNowIST());
 
   const normalizeText = React.useCallback((value: unknown): string => {
     return String(value ?? '').trim().toLowerCase();
@@ -133,14 +139,75 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       }),
     [salarySlips, user.id, user.name, user.email, user.itemId, idsMatch, normalizeText, extractPayrollEmployeeTokens]);
 
-  const myAttendance = React.useMemo(() =>
-    attendance
-      .filter(a => {
-        if (idsMatch(a.employeeId, user.id)) return true;
-        return normalizeText(a.employeeName) === normalizeText(user.name);
-      })
-      .sort((a, b) => b.date.localeCompare(a.date)),
-    [attendance, user, idsMatch, normalizeText]);
+  const myAttendance = React.useMemo(() => {
+    return attendance.filter(a => {
+      // 1. User matching
+      const isMine = idsMatch(a.employeeId, user.id) || normalizeText(a.employeeName) === normalizeText(user.name);
+      if (!isMine) return false;
+
+      // 2. View mode filtering
+      const refDateStr = formatDateIST(referenceDate);
+
+      if (viewMode === 'Daily') {
+        return a.date === refDateStr;
+      }
+
+      if (viewMode === 'Weekly') {
+        const startOfWeek = new Date(referenceDate);
+        startOfWeek.setDate(referenceDate.getDate() - referenceDate.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        const recStart = new Date(a.date);
+        recStart.setHours(0, 0, 0, 0);
+
+        return recStart >= startOfWeek && recStart <= endOfWeek;
+      }
+
+      if (viewMode === 'Monthly') {
+        const recDateObj = new Date(a.date);
+        return recDateObj.getMonth() === referenceDate.getMonth() && recDateObj.getFullYear() === referenceDate.getFullYear();
+      }
+
+      return true;
+    }).sort((a, b) => b.date.localeCompare(a.date));
+  }, [attendance, user, idsMatch, normalizeText, viewMode, referenceDate]);
+
+  const handlePrev = () => {
+    const nextDate = new Date(referenceDate);
+    if (viewMode === 'Daily') nextDate.setDate(referenceDate.getDate() - 1);
+    else if (viewMode === 'Weekly') nextDate.setDate(referenceDate.getDate() - 7);
+    else if (viewMode === 'Monthly') nextDate.setMonth(referenceDate.getMonth() - 1);
+    setReferenceDate(nextDate);
+  };
+
+  const handleNext = () => {
+    const nextDate = new Date(referenceDate);
+    if (viewMode === 'Daily') nextDate.setDate(referenceDate.getDate() + 1);
+    else if (viewMode === 'Weekly') nextDate.setDate(referenceDate.getDate() + 7);
+    else if (viewMode === 'Monthly') nextDate.setMonth(referenceDate.getMonth() + 1);
+    setReferenceDate(nextDate);
+  };
+
+  const getDateDisplay = () => {
+    if (viewMode === 'Daily') {
+      return formatDateForDisplayIST(referenceDate, 'en-US', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
+    }
+    if (viewMode === 'Weekly') {
+      const start = new Date(referenceDate);
+      start.setDate(referenceDate.getDate() - referenceDate.getDay());
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      return `${formatDateForDisplayIST(start, 'en-US', { day: 'numeric', month: 'short' })} - ${formatDateForDisplayIST(end, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+    if (viewMode === 'Monthly') {
+      return formatDateForDisplayIST(referenceDate, 'en-US', { month: 'long', year: 'numeric' });
+    }
+    return '';
+  };
 
   const myConcerns = React.useMemo(() =>
     concerns
@@ -346,7 +413,10 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       return {
         label: type,
         icon: icon,
-        val: `${used}/${total} Days`
+        val: `${used}/${total} Days`,
+        used,
+        total,
+        left: Math.max(0, total - used)
       };
     });
   }, [myRequests, leaveQuotas]);
@@ -437,7 +507,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       searchable: false,
       filterable: false,
       align: 'end',
-          render: (slip) => (
+      render: (slip) => (
         <div className="d-flex justify-content-end gap-2">
           <button className="btn btn-sm btn-outline-primary" style={{ borderColor: '#2F5596', color: '#2F5596' }} onClick={() => downloadSalarySlipPdf(slip)}>
             <Download size={14} /> PDF
@@ -524,7 +594,9 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <div className="card shadow-sm border-0 h-100 p-4">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                 <h6 className="fw-bold mb-0 text-dark">Leave Balance</h6>
-                <Info size={14} className="text-muted" />
+                <button className="btn btn-link p-0 border-0" onClick={() => setIsBalanceModalOpen(true)}>
+                  <Info size={14} className="text-muted" />
+                </button>
               </div>
               <div className="d-flex flex-column gap-3">
                 {leaveStats.map((item, idx) => (
@@ -532,7 +604,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                     <div className="d-flex align-items-center gap-2 small fw-medium text-dark">
                       {item.icon} {item.label}
                     </div>
-                    <div className="small fw-bold">{item.val} Days</div>
+                    <div className="small fw-bold">{item.val} </div>
                   </div>
                 ))}
               </div>
@@ -594,8 +666,8 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                   currentMonthHolidays.map(holiday => (
                     <div key={holiday.id} className="col-md-6">
                       <div className="p-3 rounded border bg-light d-flex align-items-center gap-3">
-                        <div className={`p-2 rounded d-flex align-items-center justify-content-center ${holiday.type === 'Public' ? 'bg-primary text-white' : 'bg-secondary text-white'}`} style={{ width: '40px', height: '40px' }}>
-                          <CalendarIcon size={18} />
+                        <div className={`p-2 rounded d-flex align-items-center justify-content-center ${holiday.type === 'Public' ? 'bg-primary' : 'bg-secondary'}`} style={{ width: '40px', height: '40px' }}>
+                          <CalendarIcon size={18} className="text-white" />
                         </div>
                         <div>
                           <div className="small fw-bold text-dark">{holiday.name}</div>
@@ -619,7 +691,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
                   <UserCheck size={18} color="#2F5596" /> Recent Attendance
                 </h6>
-                <button className="btn btn-link btn-sm p-0 text-decoration-none small" style={{ color: '#2F5596' }} onClick={() => alert('Viewing full history...')}>View History</button>
+                <button className="btn btn-link btn-sm p-0 text-decoration-none small" style={{ color: '#2F5596' }} onClick={() => onTabChange && onTabChange('attendance')}>View History</button>
               </div>
               <div className="d-flex flex-column gap-3 mt-2">
                 {myAttendance.slice(0, 3).map((rec, i) => (
@@ -635,6 +707,41 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             </div>
           </div>
         </div>
+
+        {/* Balance Summary Modal */}
+        <Modal
+          isOpen={isBalanceModalOpen}
+          onClose={() => setIsBalanceModalOpen(false)}
+          title="Balance Summary"
+        >
+          <div className="text-center mb-4">
+            <h5 className="fw-bold text-primary mb-1">{user.name}</h5>
+            <p className="text-muted small">Employee ID: {user.id}</p>
+          </div>
+          <div className="row g-3">
+            {leaveStats.map((item, idx) => (
+              <div key={idx} className="col-6">
+                <div className="card h-100 border p-3 text-center shadow-xs hover-shadow-sm transition-all" style={{ borderRadius: '12px' }}>
+                  <div className="display-5 fw-bold text-primary mb-1">{item.left}</div>
+                  <div className="small fw-bold text-dark mb-2">{item.label}</div>
+                  <div className="progress mb-2" style={{ height: '4px' }}>
+                    <div
+                      className="progress-bar bg-primary"
+                      role="progressbar"
+                      style={{ width: `${(item.used / (item.total || 1)) * 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-muted" style={{ fontSize: '10px' }}>
+                    Used {item.used} / {item.total}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-3 border-top text-center">
+            <button className="btn btn-light border fw-bold px-4" onClick={() => setIsBalanceModalOpen(false)}>Close</button>
+          </div>
+        </Modal>
       </div>
     );
   };
@@ -645,8 +752,46 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
 
       {activeTab === 'attendance' && (
         <>
-          <div className="card shadow-sm border-0 mb-4 p-4">
-            <h5 className="fw-bold mb-4" style={{ color: '#2F5596' }}>Detailed Attendance Log</h5>
+          <div className="card shadow-sm border-0 mb-4 px-4 py-3">
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+              <div className="d-flex align-items-center gap-3">
+                {/* View Toggles */}
+                <div className="btn-group shadow-xs" style={{ borderRadius: '8px', overflow: 'hidden' }}>
+                  <button
+                    className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Daily' ? 'btn-primary' : 'bg-white text-dark'}`}
+                    onClick={() => setViewMode('Daily')}
+                  >
+                    <Clock size={16} className={viewMode === 'Daily' ? 'text-white' : 'text-primary'} /> Daily
+                  </button>
+                  <button
+                    className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Weekly' ? 'btn-primary' : 'bg-white text-dark'}`}
+                    onClick={() => setViewMode('Weekly')}
+                  >
+                    <Calendar size={16} className={viewMode === 'Weekly' ? 'text-white' : 'text-primary'} /> Weekly
+                  </button>
+                  <button
+                    className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Monthly' ? 'btn-primary' : 'bg-white text-dark'}`}
+                    onClick={() => setViewMode('Monthly')}
+                  >
+                    <Calendar size={16} className={viewMode === 'Monthly' ? 'text-white' : 'text-primary'} /> Monthly
+                  </button>
+                </div>
+
+                {/* Date Navigator */}
+                <div className="d-flex align-items-center gap-2 bg-light rounded-pill px-2 py-1 border shadow-xs">
+                  <button className="btn btn-sm btn-link text-dark p-1 rounded-circle" onClick={handlePrev}>
+                    <ChevronLeft size={20} />
+                  </button>
+                  <div className="fw-bold px-3 text-center" style={{ minWidth: '180px', color: '#2F5596', fontSize: '13px' }}>
+                    {getDateDisplay()}
+                  </div>
+                  <button className="btn btn-sm btn-link text-dark p-1 rounded-circle" onClick={handleNext}>
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <CommonTable
               data={myAttendance}
               columns={attendanceColumns}

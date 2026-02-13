@@ -35,6 +35,7 @@ import { getAllSalarySlips, createSalarySlip } from '../services/SalarySlipServi
 import { MOCK_LEAVE_REQUESTS, MOCK_ATTENDANCE_RECORDS, MOCK_EMPLOYEES } from '../constants';
 import { Plus, Trash2, Edit, Minus, X } from 'lucide-react';
 import { formatDateIST, getNowIST, monthNameIST, todayIST } from '../utils/dateTime';
+import { SalarySlipView } from './SalarySlipView';
 
 interface AppProps {
   sp: SPFI;
@@ -65,9 +66,9 @@ const calculateSalary = (monthlyCTC: number): {
   const hra = basic * 0.5;
   const employerPF = Math.floor((basic * 0.1) / 50) * 50;
   const bonus = Math.round(monthlyCTC / 24);
-  const gross = monthlyCTC - employerPF - insurance - bonus;
-  const other = gross - basic - hra;
-  const inhand = gross - employeePF - esi;
+  const gross = Math.max(0, monthlyCTC - employerPF - insurance - bonus);
+  const other = Math.max(0, gross - basic - hra);
+  const inhand = Math.max(0, gross - employeePF - esi);
 
   return {
     basic,
@@ -119,6 +120,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [teamEvents, setTeamEvents] = useState<TeamEvent[]>([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [leaveFilter, setLeaveFilter] = useState<LeaveStatus | 'All'>('All');
+
+  //userGroup call-->
+
 
 
 
@@ -279,10 +283,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
     basic: 0,
     hra: 0,
     allowances: 0,
-    deductions: 0
-  });
-  const [salaryYearlyCtc, setSalaryYearlyCtc] = useState<string>('');
-  const [salaryCalcData, setSalaryCalcData] = useState({
+    deductions: 0,
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    pan: '',
+    workingDays: 31,
+    paidDays: 31,
     monthlyCtc: 0,
     gross: 0,
     employerPF: 0,
@@ -293,6 +300,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     employerEsi: 0,
     inhand: 0
   });
+  const [salaryYearlyCtc, setSalaryYearlyCtc] = useState<string>('');
   const [isSalaryManualMode, setIsSalaryManualMode] = useState(false);
 
   // Concern Reply Modal State
@@ -680,9 +688,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         basic: 0,
         hra: 0,
         allowances: 0,
-        deductions: 0
-      }));
-      setSalaryCalcData({
+        deductions: 0,
         monthlyCtc: 0,
         gross: 0,
         employerPF: 0,
@@ -692,7 +698,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         esi: 0,
         employerEsi: 0,
         inhand: 0
-      });
+      }));
       return;
     }
 
@@ -703,9 +709,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       basic: Number(salary.basic.toFixed(2)),
       hra: Number(salary.hra.toFixed(2)),
       allowances: Number(salary.other.toFixed(2)),
-      deductions: Number((salary.employeePF + salary.esi).toFixed(2))
-    }));
-    setSalaryCalcData({
+      deductions: Number((salary.employeePF + salary.esi).toFixed(2)),
       monthlyCtc: Number(monthly.toFixed(2)),
       gross: Number(salary.gross.toFixed(2)),
       employerPF: Number(salary.employerPF.toFixed(2)),
@@ -715,7 +719,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       esi: Number(salary.esi.toFixed(2)),
       employerEsi: Number(salary.employerEsi.toFixed(2)),
       inhand: Number(salary.inhand.toFixed(2))
-    });
+    }));
   };
 
   const handleUploadSalarySlip = (employee?: Employee) => {
@@ -728,7 +732,22 @@ const App: React.FC<AppProps> = ({ sp }) => {
       basic: 0,
       hra: 0,
       allowances: 0,
-      deductions: 0
+      deductions: 0,
+      bankName: employee.bankName || '',
+      accountNumber: employee.accountNumber || '',
+      ifscCode: employee.ifscCode || '',
+      pan: employee.pan || '',
+      workingDays: 31,
+      paidDays: 31,
+      monthlyCtc: 0,
+      gross: 0,
+      employerPF: 0,
+      employeePF: 0,
+      bonus: 0,
+      insurance: 0,
+      esi: 0,
+      employerEsi: 0,
+      inhand: 0
     });
     setSalaryYearlyCtc(initialYearlyCtc);
     applySalaryFromYearlyCtc(initialYearlyCtc);
@@ -744,24 +763,41 @@ const App: React.FC<AppProps> = ({ sp }) => {
       id: `S${Date.now()}`,
       employeeId: targetEmployee.id,
       yearlyCtc: Number(salaryYearlyCtc) || 0,
-      monthlyCtc: salaryCalcData.monthlyCtc || 0,
       ...salaryFormData,
-      gross: salaryCalcData.gross || 0,
-      employerPF: salaryCalcData.employerPF || 0,
-      employeePF: salaryCalcData.employeePF || 0,
-      bonus: salaryCalcData.bonus || 0,
-      insurance: salaryCalcData.insurance || 0,
-      esi: salaryCalcData.esi || 0,
-      employerEsi: salaryCalcData.employerEsi || 0,
       payrollKey: `${targetEmployee.name}-${targetEmployee.id}-${salaryFormData.month}-${salaryFormData.year}`,
       netPay,
       generatedDate: todayIST()
     };
     try {
       await createSalarySlip(sp, newSlip, targetEmployee);
+
+      // Update employee bank details if changed
+      if (targetEmployee.itemId) {
+        await updateEmployee(sp, targetEmployee.itemId, {
+          bankName: salaryFormData.bankName,
+          accountNumber: salaryFormData.accountNumber,
+          ifscCode: salaryFormData.ifscCode,
+          pan: salaryFormData.pan
+        });
+
+        // Update local state
+        setDirectoryEmployees(prev => prev.map(emp =>
+          emp.id === targetEmployee.id
+            ? {
+              ...emp,
+              bankName: salaryFormData.bankName,
+              accountNumber: salaryFormData.accountNumber,
+              ifscCode: salaryFormData.ifscCode,
+              pan: salaryFormData.pan
+            }
+            : emp
+        ));
+      }
+
       const all = await getAllSalarySlips(sp);
       setSalarySlips(all);
       setIsSalaryModalOpen(false);
+      alert('Salary slip saved and employee bank details updated.');
     } catch (error) {
       console.error('Failed to save salary slip', error);
       alert('Failed to save salary slip.');
@@ -1469,7 +1505,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
             <div className="tab-content">
               {role === UserRole.Employee ? (
-                <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={() => handleOpenLeaveModal()} activeTab={activeTab} />
+                <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={() => handleOpenLeaveModal()} onTabChange={setActiveTab} activeTab={activeTab} />
               ) : (
                 <>
                   {activeTab === 'overview' && <Dashboard requests={leaveRequests} attendanceRecords={attendanceRecords} concernsCount={openConcernsCount} holidays={holidays} teamEvents={teamEvents} employees={directoryEmployees} onAddTeamEvent={handleAddTeamEvent} onPendingClick={() => setActiveTab('leaves-request')} onOnLeaveTodayClick={() => setActiveTab('onLeaveToday')} onConcernsClick={() => setActiveTab('concerns-admin')} />}
@@ -1518,7 +1554,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       />
                     </div>
                   )}
-                  {activeTab === 'onLeaveToday' && <OnLeaveTodayTable requests={leaveRequests} onEdit={handleOpenLeaveModal} leaveQuotas={leaveQuotas} />}
+                  {activeTab === 'onLeaveToday' && (
+                    <OnLeaveTodayTable
+                      requests={leaveRequests}
+                      onEdit={handleOpenLeaveModal}
+                      leaveQuotas={leaveQuotas}
+                      sp={sp}
+                      employees={directoryEmployees}
+                      onRefresh={loadLeaveRequests}
+                    />
+                  )}
                   {activeTab === 'policy-admin' && (
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
@@ -1907,53 +1952,92 @@ const App: React.FC<AppProps> = ({ sp }) => {
         isOpen={isSalaryModalOpen}
         onClose={() => setIsSalaryModalOpen(false)}
         title="Upload Salary Slip"
+        size="lg"
         footer={
           <>
-            <button className="btn btn-link" onClick={() => setIsSalaryModalOpen(false)}>Cancel</button>
-            <button type="submit" form="salary-upload-form" className="btn btn-primary">Upload Slip</button>
+            <button className="btn btn-outline-secondary d-flex align-items-center gap-2 shadow-sm" onClick={() => window.print()}>
+              <Plus size={16} /> Print Salary Slip
+            </button>
+            <div className="flex-grow-1"></div>
+            <button className="btn btn-link link-secondary text-decoration-none" onClick={() => setIsSalaryModalOpen(false)}>Cancel</button>
+            <button type="submit" form="salary-upload-form" className="btn btn-primary px-4 shadow-sm">Upload Slip</button>
           </>
         }
       >
         <form id="salary-upload-form" onSubmit={saveSalarySlip}>
           <div className="row g-3">
+            {/* Employee Information Section - Dense box */}
             <div className="col-12">
-              <div className="p-3 rounded border bg-light-subtle">
-                <div className="fw-bold mb-2">Employee Information</div>
+              <div className="p-3 rounded border bg-light shadow-xs mb-1">
+                <div className="fw-bold text-primary d-flex align-items-center gap-2 mb-2 small text-uppercase">
+                  Employee Information
+                </div>
                 <div className="row g-2">
                   <div className="col-md-4">
-                    <div className="small text-muted fw-semibold">Employee Name</div>
-                    <div>{targetEmployee?.name || 'N/A'}</div>
+                    <div className="small text-muted">Employee Name</div>
+                    <div className="fw-semibold text-dark">{targetEmployee?.name || 'N/A'}</div>
                   </div>
                   <div className="col-md-4">
-                    <div className="small text-muted fw-semibold">Employee ID</div>
-                    <div>{targetEmployee?.id || 'N/A'}</div>
+                    <div className="small text-muted">Employee ID</div>
+                    <div className="fw-semibold text-dark">{targetEmployee?.id || 'N/A'}</div>
                   </div>
                   <div className="col-md-4">
-                    <div className="small text-muted fw-semibold">Department</div>
-                    <div>{targetEmployee?.department || 'N/A'}</div>
+                    <div className="small text-muted">Department</div>
+                    <div className="fw-semibold text-dark">{targetEmployee?.department || 'N/A'}</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Month</label>
+            {/* Hidden Print Template */}
+            <div className="d-none">
+              {targetEmployee && (
+                <SalarySlipView
+                  employee={targetEmployee}
+                  formData={salaryFormData}
+                />
+              )}
+            </div>
+
+            {/* Date & Period Section */}
+            <div className="col-md-3">
+              <label className="form-label fw-bold small text-muted text-uppercase mb-1">Month</label>
               <select className="form-select" value={salaryFormData.month} onChange={e => setSalaryFormData({ ...salaryFormData, month: e.target.value })}>
                 {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
             </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Year</label>
+            <div className="col-md-3">
+              <label className="form-label fw-bold small text-muted text-uppercase mb-1">Year</label>
               <select className="form-select" value={salaryFormData.year} onChange={e => setSalaryFormData({ ...salaryFormData, year: e.target.value })}>
                 {[getNowIST().getFullYear() - 1, getNowIST().getFullYear(), getNowIST().getFullYear() + 1].map((year) => (
                   <option key={year} value={String(year)}>{year}</option>
                 ))}
               </select>
             </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Yearly CTC (₹)</label>
+            <div className="col-md-3">
+              <label className="form-label fw-bold small text-muted text-uppercase mb-1">Working Days</label>
+              <input
+                type="number"
+                className="form-control"
+                value={salaryFormData.workingDays}
+                onChange={e => setSalaryFormData({ ...salaryFormData, workingDays: Number(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="col-md-3">
+              <label className="form-label fw-bold small text-muted text-uppercase mb-1">Paid Days</label>
+              <input
+                type="number"
+                className="form-control"
+                value={salaryFormData.paidDays}
+                onChange={e => setSalaryFormData({ ...salaryFormData, paidDays: Number(e.target.value) || 0 })}
+              />
+            </div>
+
+            {/* CTC & Manual Toggle Row */}
+            <div className="col-md-8">
+              <label className="form-label fw-bold small text-muted text-uppercase mb-1">Yearly CTC (₹)</label>
               <input
                 type="number"
                 min="0"
@@ -1967,8 +2051,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 required
               />
             </div>
-            <div className="col-md-6 d-flex align-items-end">
-              <div className="form-check form-switch">
+            <div className="col-md-4 d-flex align-items-end pb-2">
+              <div className="form-check form-switch mb-0 d-flex align-items-center gap-2 pt-1">
                 <input
                   className="form-check-input"
                   type="checkbox"
@@ -1976,145 +2060,181 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   checked={isSalaryManualMode}
                   onChange={(e) => setIsSalaryManualMode(e.target.checked)}
                 />
-                <label className="form-check-label fw-semibold" htmlFor="salaryManualMode">Manual edit amounts</label>
+                <label className="form-check-label small fw-bold text-muted" htmlFor="salaryManualMode">
+                  Manual edit amounts
+                </label>
               </div>
             </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Monthly CTC (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryCalcData.monthlyCtc}
-                onChange={(e) => setSalaryCalcData({ ...salaryCalcData, monthlyCtc: Number(e.target.value) || 0 })}
-                readOnly={!isSalaryManualMode}
-              />
+
+            <div className="col-12 mt-2">
+              <div className="row row-cols-1 row-cols-md-2 g-3">
+                {/* Monthly CTC */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">Monthly CTC (₹)</label>
+                  <input
+                    type="number"
+                    className={`form-control bg-light`}
+                    value={salaryFormData.monthlyCtc}
+                    readOnly
+                  />
+                </div>
+                {/* Basic Pay */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">Basic Pay (₹)</label>
+                  <input
+                    type="number"
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
+                    value={salaryFormData.basic}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setSalaryFormData(prev => ({
+                        ...prev,
+                        basic: val,
+                        inhand: Math.max(0, (val + prev.hra + prev.allowances) - prev.deductions)
+                      }));
+                    }}
+                    readOnly={!isSalaryManualMode}
+                  />
+                </div>
+                {/* HRA */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">HRA (₹)</label>
+                  <input
+                    type="number"
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
+                    value={salaryFormData.hra}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setSalaryFormData(prev => ({
+                        ...prev,
+                        hra: val,
+                        inhand: Math.max(0, (prev.basic + val + prev.allowances) - prev.deductions)
+                      }));
+                    }}
+                    readOnly={!isSalaryManualMode}
+                  />
+                </div>
+                {/* Allowances */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">Allowances (₹)</label>
+                  <input
+                    type="number"
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
+                    value={salaryFormData.allowances}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setSalaryFormData(prev => ({
+                        ...prev,
+                        allowances: val,
+                        inhand: Math.max(0, (prev.basic + prev.hra + val) - prev.deductions)
+                      }));
+                    }}
+                    readOnly={!isSalaryManualMode}
+                  />
+                </div>
+                {/* Deductions */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">Deductions (₹)</label>
+                  <input
+                    type="number"
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
+                    value={salaryFormData.deductions}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setSalaryFormData(prev => ({
+                        ...prev,
+                        deductions: val,
+                        inhand: Math.max(0, (prev.basic + prev.hra + prev.allowances) - val)
+                      }));
+                    }}
+                    readOnly={!isSalaryManualMode}
+                  />
+                </div>
+                {/* Gross */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">Gross (₹)</label>
+                  <input
+                    type="number"
+                    className="form-control bg-light"
+                    value={salaryFormData.gross}
+                    readOnly
+                  />
+                </div>
+                {/* Employer PF */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">Employer PF (₹)</label>
+                  <input
+                    type="number"
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
+                    value={salaryFormData.employerPF}
+                    onChange={(e) => setSalaryFormData({ ...salaryFormData, employerPF: Number(e.target.value) || 0 })}
+                    readOnly={!isSalaryManualMode}
+                  />
+                </div>
+                {/* Employee PF */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">Employee PF (₹)</label>
+                  <input
+                    type="number"
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
+                    value={salaryFormData.employeePF}
+                    onChange={(e) => setSalaryFormData({ ...salaryFormData, employeePF: Number(e.target.value) || 0 })}
+                    readOnly={!isSalaryManualMode}
+                  />
+                </div>
+                {/* Bonus */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">Bonus (₹)</label>
+                  <input
+                    type="number"
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
+                    value={salaryFormData.bonus}
+                    onChange={(e) => setSalaryFormData({ ...salaryFormData, bonus: Number(e.target.value) || 0 })}
+                    readOnly={!isSalaryManualMode}
+                  />
+                </div>
+                {/* ESI */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">ESI (₹)</label>
+                  <input
+                    type="number"
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
+                    value={salaryFormData.esi}
+                    onChange={(e) => setSalaryFormData({ ...salaryFormData, esi: Number(e.target.value) || 0 })}
+                    readOnly={!isSalaryManualMode}
+                  />
+                </div>
+                {/* Employer ESI */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">Employer ESI (₹)</label>
+                  <input
+                    type="number"
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
+                    value={salaryFormData.employerEsi}
+                    onChange={(e) => setSalaryFormData({ ...salaryFormData, employerEsi: Number(e.target.value) || 0 })}
+                    readOnly={!isSalaryManualMode}
+                  />
+                </div>
+                {/* Insurance */}
+                <div className="col">
+                  <label className="form-label small fw-bold text-muted mb-1">Insurance (₹)</label>
+                  <input
+                    type="number"
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
+                    value={salaryFormData.insurance}
+                    onChange={(e) => setSalaryFormData({ ...salaryFormData, insurance: Number(e.target.value) || 0 })}
+                    readOnly={!isSalaryManualMode}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Basic Pay (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryFormData.basic}
-                onChange={(e) => setSalaryFormData({ ...salaryFormData, basic: Number(e.target.value) || 0 })}
-                readOnly={!isSalaryManualMode}
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">HRA (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryFormData.hra}
-                onChange={(e) => setSalaryFormData({ ...salaryFormData, hra: Number(e.target.value) || 0 })}
-                readOnly={!isSalaryManualMode}
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Allowances (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryFormData.allowances}
-                onChange={(e) => setSalaryFormData({ ...salaryFormData, allowances: Number(e.target.value) || 0 })}
-                readOnly={!isSalaryManualMode}
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Deductions (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryFormData.deductions}
-                onChange={(e) => {
-                  const value = Number(e.target.value) || 0;
-                  setSalaryFormData({ ...salaryFormData, deductions: value });
-                  setSalaryCalcData({ ...salaryCalcData, employeePF: value });
-                }}
-                readOnly={!isSalaryManualMode}
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Gross (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryCalcData.gross}
-                onChange={(e) => setSalaryCalcData({ ...salaryCalcData, gross: Number(e.target.value) || 0 })}
-                readOnly={!isSalaryManualMode}
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Employer PF (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryCalcData.employerPF}
-                onChange={(e) => setSalaryCalcData({ ...salaryCalcData, employerPF: Number(e.target.value) || 0 })}
-                readOnly={!isSalaryManualMode}
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Employee PF (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryCalcData.employeePF}
-                onChange={(e) => {
-                  const value = Number(e.target.value) || 0;
-                  setSalaryCalcData({ ...salaryCalcData, employeePF: value });
-                  setSalaryFormData({ ...salaryFormData, deductions: Number((value + salaryCalcData.esi).toFixed(2)) });
-                }}
-                readOnly={!isSalaryManualMode}
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Bonus (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryCalcData.bonus}
-                onChange={(e) => setSalaryCalcData({ ...salaryCalcData, bonus: Number(e.target.value) || 0 })}
-                readOnly={!isSalaryManualMode}
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">ESI (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryCalcData.esi}
-                onChange={(e) => {
-                  const value = Number(e.target.value) || 0;
-                  setSalaryCalcData({ ...salaryCalcData, esi: value });
-                  setSalaryFormData({ ...salaryFormData, deductions: Number((salaryCalcData.employeePF + value).toFixed(2)) });
-                }}
-                readOnly={!isSalaryManualMode}
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Employer ESI (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryCalcData.employerEsi}
-                onChange={(e) => setSalaryCalcData({ ...salaryCalcData, employerEsi: Number(e.target.value) || 0 })}
-                readOnly={!isSalaryManualMode}
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label fw-bold">Insurance (₹)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={salaryCalcData.insurance}
-                onChange={(e) => setSalaryCalcData({ ...salaryCalcData, insurance: Number(e.target.value) || 0 })}
-                readOnly={!isSalaryManualMode}
-              />
-            </div>
-            <div className="col-12">
-              <div className="border-top pt-3 d-flex justify-content-between align-items-center">
-                <div className="fw-bold fs-5">Total Net Pay</div>
-                <div className={`fw-bold fs-4 ${salaryNetPay >= 0 ? 'text-success' : 'text-danger'}`}>₹{salaryNetPay.toLocaleString()}</div>
+
+            <div className="col-12 mt-4 pt-3 border-top">
+              <div className="d-flex justify-content-between align-items-center">
+                <div className="fw-bold fs-4 text-dark">Total Net Pay</div>
+                <div className="text-success fw-bold fs-3">
+                  ₹{salaryNetPay.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </div>
               </div>
             </div>
           </div>
@@ -2211,6 +2331,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     <option value="Marketing">Marketing</option>
                     <option value="HR">HR</option>
                     <option value="Finance">Finance</option>
+                    <option value="Management">Management</option>
                   </select>
                 </div>
                 <div className="col-md-6">

@@ -100,6 +100,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
       if (event.type === 'Birthday') icon = <Cake size={16} className="text-danger" />;
       if (event.type === 'Work Anniversary') icon = <PartyPopper size={16} className="text-warning" />;
       if (event.type === 'Meeting') icon = <Users size={16} className="text-primary" />;
+      if (event.type === 'Festival') icon = <Sparkle size={16} className="text-info" />;
 
       return {
         ...event,
@@ -234,8 +235,8 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                 currentMonthHolidays.map(holiday => (
                   <div key={holiday.id} className="col-md-6 col-xl-4">
                     <div className="p-3 rounded border bg-light d-flex align-items-center gap-2">
-                      <div className={`p-2 rounded d-flex align-items-center justify-content-center ${holiday.type === 'Public' ? 'bg-primary text-white' : 'bg-secondary text-white'}`} style={{ minWidth: '36px', height: '36px' }}>
-                        <CalendarIcon size={16} />
+                      <div className={`p-2 rounded d-flex align-items-center justify-content-center ${holiday.type === 'Public' ? 'bg-primary' : 'bg-secondary'}`} style={{ minWidth: '36px', height: '36px' }}>
+                        <CalendarIcon size={16} className="text-white" />
                       </div>
                       <div className="overflow-hidden">
                         <div className="small fw-bold text-dark text-truncate">{holiday.name}</div>
@@ -274,9 +275,12 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                       <img src={(item as any).avatar} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div>
-                      <div className="small fw-bold text-dark">{item.name}</div>
-                      <div className="text-muted d-flex align-items-center gap-1" style={{ fontSize: '10px' }}>
-                        {item.icon} {item.type}
+                      <div className="small fw-bold text-dark">{item.employee?.name || 'Team Event'}</div>
+                      <div className="text-muted d-flex flex-column gap-0" style={{ fontSize: '10px' }}>
+                        <div className="fw-medium text-primary mb-1">{item.name}</div>
+                        <div className="d-flex align-items-center gap-1">
+                          {item.icon} {item.type}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -432,6 +436,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
               <option value="Birthday">Birthday</option>
               <option value="Work Anniversary">Work Anniversary</option>
               <option value="Meeting">Meeting</option>
+              <option value="Festival">Festival</option>
               <option value="Other">Other</option>
             </select>
           </div>
