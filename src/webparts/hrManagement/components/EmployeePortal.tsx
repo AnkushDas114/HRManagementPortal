@@ -715,6 +715,14 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     }
   ]), [handleOpenConcern]);
 
+  // Independent recent attendance for Dashboard (ignores View Mode)
+  const recentAttendanceRecords = React.useMemo(() => {
+    return attendance
+      .filter(a => idsMatch(a.employeeId, user.id) || normalizeText(a.employeeName) === normalizeText(user.name))
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 5);
+  }, [attendance, user, idsMatch, normalizeText]);
+
   const renderDashboardTab = () => {
     return (
       <div className="animate-in fade-in pb-5">
@@ -738,6 +746,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 </h6>
                 <div className="badge bg-success-subtle text-success border">Paid</div>
               </div>
+
               <div className="d-flex align-items-center gap-3 mb-4 mt-2">
                 <div className="p-3 rounded-circle bg-light d-flex align-items-center justify-content-center" style={{ width: '64px', height: '64px' }}>
                   <Banknote size={32} color="#2F5596" />
@@ -862,18 +871,24 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 <button className="btn btn-link btn-sm p-0 text-decoration-none small" style={{ color: '#2F5596' }} onClick={() => onTabChange && onTabChange('attendance')}>View History</button>
               </div>
               <div className="d-flex flex-column gap-3 mt-2">
-                {myAttendance.slice(0, 3).map((rec, i) => (
+                {recentAttendanceRecords.map((rec, i) => (
                   <div key={i} className="d-flex align-items-center justify-content-between pb-2 border-bottom border-light last-border-none">
                     <div className="d-flex align-items-center gap-3">
                       <div className="small fw-bold text-dark">{formatDateForDisplayIST(rec.date, 'en-US', { day: 'numeric', month: 'short' })}</div>
-                      <div className="small text-muted">{rec.clockIn} - {rec.clockOut}</div>
+                      <div className="small text-muted">{rec.clockIn ? `${rec.clockIn} - ${rec.clockOut || '...'}` : '-'}</div>
                     </div>
-                    <Badge status={rec.status === 'Present' ? LeaveStatus.Approved : LeaveStatus.Rejected} />
+                    <span className={`badge rounded-pill px-3 py-2 text-uppercase ${rec.status === 'Present' ? 'text-bg-success' : 'text-bg-warning'}`} style={{ fontSize: '9px', letterSpacing: '0.5px' }}>
+                      {rec.status}
+                    </span>
                   </div>
                 ))}
+                {recentAttendanceRecords.length === 0 && (
+                  <div className="text-center py-4 text-muted small">No recent attendance records found.</div>
+                )}
               </div>
             </div>
           </div>
+
         </div>
 
         {/* Balance Summary Modal */}
