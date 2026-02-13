@@ -319,8 +319,6 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
               </div>
             )}
 
-            <hr className="my-2" />
-
             <div className="col-12">
               <label className="form-label fw-bold d-flex align-items-center gap-2 text-dark">
                 <Info size={16} className="text-primary" /> Leave Type
@@ -362,16 +360,14 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
             </div>
 
             <div className="col-12">
-              <div className="form-check form-switch p-2 ps-5 rounded border bg-light">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="onLeaveToday_hdSwitch"
-                  checked={leaveFormData.isHalfDay}
-                  onChange={e => setLeaveFormData({ ...leaveFormData, isHalfDay: e.target.checked })}
-                />
-                <label className="form-check-label fw-semibold" htmlFor="onLeaveToday_hdSwitch">Request Half Day</label>
-              </div>
+              <button
+                type="button"
+                className={`btn popup-option-toggle ${leaveFormData.isHalfDay ? 'popup-option-toggle--active' : ''}`}
+                onClick={() => setLeaveFormData({ ...leaveFormData, isHalfDay: !leaveFormData.isHalfDay })}
+                aria-pressed={leaveFormData.isHalfDay}
+              >
+                Request Half Day
+              </button>
             </div>
 
             {leaveFormData.isHalfDay && (
@@ -405,16 +401,14 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
             )}
 
             <div className="col-12">
-              <div className="form-check form-switch p-2 ps-5 rounded border bg-light">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="onLeaveToday_recurringSwitch"
-                  checked={leaveFormData.isRecurring}
-                  onChange={e => setLeaveFormData({ ...leaveFormData, isRecurring: e.target.checked })}
-                />
-                <label className="form-check-label fw-semibold" htmlFor="onLeaveToday_recurringSwitch">Recurrence</label>
-              </div>
+              <button
+                type="button"
+                className={`btn popup-option-toggle ${leaveFormData.isRecurring ? 'popup-option-toggle--active' : ''}`}
+                onClick={() => setLeaveFormData({ ...leaveFormData, isRecurring: !leaveFormData.isRecurring })}
+                aria-pressed={leaveFormData.isRecurring}
+              >
+                Recurrence
+              </button>
             </div>
 
             {leaveFormData.isRecurring && (

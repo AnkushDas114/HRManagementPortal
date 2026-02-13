@@ -1,5 +1,6 @@
 
 import * as React from 'react';
+import './Modal.css';
 
 interface ModalProps {
   isOpen: boolean;
@@ -20,24 +21,47 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
     return () => document.body.classList.remove('modal-open');
   }, [isOpen]);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
+  const dialogSizeClass = size === 'sm' ? 'hr-modal-dialog--sm' : size === 'lg' ? 'hr-modal-dialog--lg' : '';
+
   return (
-    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }} onClick={onClose}>
-      <div className={`modal-dialog modal-dialog-centered modal-dialog-scrollable ${size === 'lg' ? 'modal-lg' : ''}`} style={{ maxWidth: size === 'lg' ? '1200px' : '600px' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-content shadow-lg border-0">
-          <div className="modal-header border-bottom-0 pt-4 px-4">
-            <h5 className="modal-title fw-bold text-primary fs-4">{title}</h5>
-            <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
-          </div>
-          <div className="modal-body px-4 pb-4">
-            {children}
-          </div>
-          {footer && (
-            <div className="modal-footer border-top-0 px-4 pb-4">
-              {footer}
+    <div className="hr-modal-backdrop" onClick={onClose}>
+      <div
+        className={`hr-modal ${dialogSizeClass}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable hr-modal-dialog">
+          <div className="modal-content hr-modal-content">
+            <div className="modal-header hr-modal-header">
+              <h5 className="modal-title hr-modal-title">{title}</h5>
+              <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
             </div>
-          )}
+            <div className="modal-body hr-modal-body">
+              {children}
+            </div>
+            {footer && (
+              <div className="modal-footer hr-modal-footer">
+                {footer}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

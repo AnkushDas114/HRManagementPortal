@@ -1,0 +1,75 @@
+.hr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(7, 17, 35, 0.48);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.hr-modal {
+  position: relative;
+  width: 100%;
+  max-width: min(100%, 960px);
+}
+
+.hr-modal-dialog {
+  margin: 0;
+  width: 100%;
+  max-width: 100% !important;
+}
+
+.hr-modal-dialog--sm {
+  max-width: min(100%, 420px);
+}
+
+.hr-modal-dialog--lg {
+  max-width: min(100%, 1260px);
+}
+
+.hr-modal-content {
+  border: 1px solid #d6e0ec;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  box-shadow: 0 24px 56px rgba(11, 33, 66, 0.26);
+  background-color: #ffffff !important;
+  opacity: 1;
+}
+
+.hr-modal-header {
+  border-bottom: 1px solid #e7edf5;
+  padding: 1.1rem 1.25rem;
+  background-color: #ffffff;
+}
+
+.hr-modal-title {
+  margin: 0;
+  color: #1f4f93;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.hr-modal-body {
+  padding: 1.1rem 1.25rem 1.2rem;
+  max-height: min(70vh, 760px);
+  background-color: #ffffff;
+}
+
+.hr-modal-footer {
+  border-top: 1px solid #e7edf5;
+  padding: 0.85rem 1.25rem 1.1rem;
+  background: #ffffff;
+}
+
+@media (max-width: 767.98px) {
+  .hr-modal-backdrop {
+    padding: 0.75rem;
+  }
+
+  .hr-modal-body {
+    max-height: min(66vh, 540px);
+  }
+}

@@ -1447,7 +1447,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         onUserChange={setSelectedUserId}
       />
 
-      <main className="container-xl py-4">
+      <main className="container-fluid hr-shell-container hr-main-content py-4">
         {activeTab === 'profile' ? (
           <Profile
             user={currentUser || hrUser}
@@ -1760,7 +1760,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
             <div className="col-12"><label className="form-label fw-bold">Leave Type</label><select className="form-select" value={leaveFormData.leaveType} onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}>{Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))}</select></div>
             <div className="col-md-6"><label className="form-label fw-bold">Start</label><input type="date" className="form-control" value={leaveFormData.startDate} onChange={e => setLeaveFormData({ ...leaveFormData, startDate: e.target.value })} required /></div>
             <div className="col-md-6"><label className="form-label fw-bold">End</label><input type="date" className="form-control" value={leaveFormData.endDate} onChange={e => setLeaveFormData({ ...leaveFormData, endDate: e.target.value })} required disabled={leaveFormData.isHalfDay} /></div>
-            <div className="col-12"><div className="form-check form-switch"><input className="form-check-input" type="checkbox" id="hdSwitch" checked={leaveFormData.isHalfDay} onChange={e => setLeaveFormData({ ...leaveFormData, isHalfDay: e.target.checked })} /><label className="form-check-label" htmlFor="hdSwitch">Request Half Day</label></div></div>
+            <div className="col-12">
+              <button
+                type="button"
+                className={`btn popup-option-toggle ${leaveFormData.isHalfDay ? 'popup-option-toggle--active' : ''}`}
+                onClick={() => setLeaveFormData({ ...leaveFormData, isHalfDay: !leaveFormData.isHalfDay })}
+                aria-pressed={leaveFormData.isHalfDay}
+              >
+                Request Half Day
+              </button>
+            </div>
             {leaveFormData.isHalfDay && (
               <div className="col-12">
                 <label className="form-label fw-bold">Half Day Type</label>
@@ -1792,7 +1801,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
               </div>
             )}
-            <div className="col-12"><div className="form-check form-switch"><input className="form-check-input" type="checkbox" id="recurringSwitch" checked={leaveFormData.isRecurring} onChange={e => setLeaveFormData({ ...leaveFormData, isRecurring: e.target.checked })} /><label className="form-check-label" htmlFor="recurringSwitch">Recurrence</label></div></div>
+            <div className="col-12">
+              <button
+                type="button"
+                className={`btn popup-option-toggle ${leaveFormData.isRecurring ? 'popup-option-toggle--active' : ''}`}
+                onClick={() => setLeaveFormData({ ...leaveFormData, isRecurring: !leaveFormData.isRecurring })}
+                aria-pressed={leaveFormData.isRecurring}
+              >
+                Recurrence
+              </button>
+            </div>
             {leaveFormData.isRecurring && (
               <>
                 {/* Recurrence Pattern Selection */}

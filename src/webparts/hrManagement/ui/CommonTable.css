@@ -1,0 +1,156 @@
+.common-table {
+  border: 1px solid #d9e4f0;
+  background: #fff;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.common-table__toolbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(180deg, #f7faff 0%, #f3f7fd 100%);
+  border-bottom: 1px solid #dce7f3;
+}
+
+.common-table__count {
+  font-size: 0.74rem;
+  color: #56708f;
+  font-weight: 600;
+}
+
+.common-table__search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-self: end;
+}
+
+.common-table__search-group .input-group-text {
+  background: #23416f;
+  color: #fff;
+  border-color: #23416f;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.common-table__search-group .form-control {
+  font-size: 0.8rem;
+  border-color: #bbcbdf;
+}
+
+.common-table__icon-btn {
+  border-color: #c4d2e4;
+  background: #fff;
+  color: #375a89;
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.common-table__icon-svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.common-table__mode {
+  min-width: 120px;
+  font-size: 0.78rem;
+}
+
+.common-table__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.common-table__actions:empty {
+  display: none;
+}
+
+.common-table__responsive {
+  border-top: 1px solid #edf2f8;
+}
+
+.common-table__head-cell {
+  vertical-align: bottom;
+}
+
+.common-table__header-label {
+  color: #324e72;
+  font-size: 0.73rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.common-table__filter {
+  font-size: 0.75rem;
+  border-color: #ccdaeb;
+}
+
+.common-table__filter::placeholder {
+  color: #8da4c1;
+}
+
+.common-table__cell {
+  color: #263a57;
+}
+
+.common-table .table thead th {
+  background: #f6f9fd;
+}
+
+.common-table .table tbody tr:hover {
+  background: #f8fbff;
+}
+
+.common-table .table > :not(caption) > * > * {
+  padding: 0.7rem 0.8rem;
+}
+
+.common-table__checkbox {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.common-table-settings {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.85fr) minmax(430px, 1.5fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.common-table-settings__panel {
+  min-width: 0;
+}
+
+.common-table-settings__panel--wide .border {
+  max-height: 58vh;
+}
+
+@media (max-width: 900px) {
+  .common-table__toolbar {
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+  }
+
+  .common-table__search {
+    justify-self: stretch;
+    flex-wrap: wrap;
+  }
+
+  .common-table__actions {
+    justify-content: flex-start;
+  }
+
+  .common-table-settings {
+    grid-template-columns: 1fr;
+  }
+}

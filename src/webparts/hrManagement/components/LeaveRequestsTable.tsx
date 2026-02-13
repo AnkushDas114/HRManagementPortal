@@ -429,15 +429,6 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
           </div>
         </div>
       </Modal>
-
-      <style>{`
-        .avatar-filter:hover img { transform: scale(1.1); transition: transform 0.2s; }
-        .avatar-filter.active img { border-color: #2F5596 !important; transform: scale(1.1); }
-        .accordion-filter:hover { background-color: #fcfcfc; }
-        .cursor-help { cursor: help; }
-        .animate-in { animation: fadeIn 0.2s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-      `}</style>
     </>
   );
 };

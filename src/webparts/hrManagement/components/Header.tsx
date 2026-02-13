@@ -20,13 +20,13 @@ const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, activeTab, onTabCha
   );
 
   return (
-    <header className="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm sticky-top py-2">
-      <div className="container-xl">
+    <header className="navbar navbar-expand-lg navbar-light border-bottom shadow-sm sticky-top py-2">
+      <div className="container-fluid hr-shell-container">
         <div className="d-flex align-items-center gap-2 navbar-brand">
-          <div className="p-1 rounded bg-primary d-flex align-items-center justify-content-center">
+          <div className="p-1 rounded bg-primary d-flex align-items-center justify-content-center shadow-xs">
             <Calendar size={18} color="white" />
           </div>
-          <span className="fw-bold fs-6">Smalsus - IT Portal</span>
+          <span className="fw-bold fs-6">Smalsus - HR Management Portal</span>
         </div>
 
         <div className="d-flex align-items-center gap-4">
@@ -51,7 +51,7 @@ const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, activeTab, onTabCha
             <div className="text-end d-none d-sm-block">
               <select
                 className="form-select form-select-sm fw-bold"
-                style={{ minWidth: '180px', fontSize: '12px' }}
+                style={{ minWidth: '180px', fontSize: '0.75rem' }}
                 value={selectedUser?.id || ''}
                 onChange={(e) => onUserChange?.(e.target.value)}
               >
@@ -61,15 +61,15 @@ const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, activeTab, onTabCha
                   </option>
                 ))}
               </select>
-              <div className="text-muted text-truncate" style={{ fontSize: '10px', maxWidth: '180px' }}>
+              <div className="text-muted text-truncate" style={{ fontSize: '0.68rem', maxWidth: '180px' }}>
                 {selectedUser?.department || (role === UserRole.HR ? 'Admin' : 'Employee')}
               </div>
             </div>
             <img
               src={selectedUser?.avatar || "https://i.pravatar.cc/150?u=user"}
               alt={selectedUser?.name || "User"}
-              className="rounded-circle border"
-              style={{ width: '32px', height: '32px' }}
+              className="rounded-circle border shadow-xs cursor-pointer"
+              style={{ width: '34px', height: '34px', objectFit: 'cover' }}
               onClick={() => onTabChange?.('profile')}
             />
           </div>

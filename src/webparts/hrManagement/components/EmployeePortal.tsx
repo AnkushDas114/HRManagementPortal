@@ -726,7 +726,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   const renderDashboardTab = () => {
     return (
       <div className="animate-in fade-in pb-5">
-        <div className="mb-4 d-flex justify-content-between align-items-end">
+        <div className="mb-4 d-flex justify-content-between align-items-end p-4">
           <div>
             <h2 className="h2 fw-bold mb-1" style={{ color: '#333' }}>Welcome, {user.name.split(' ')[0]}!</h2>
             <p className="text-muted small mb-0">Here is your summary for today.</p>

@@ -1,6 +1,8 @@
 import * as React from 'react';
+import { Settings2 } from 'lucide-react';
 import Modal from './Modal';
 import { formatDateForDisplayIST } from '../utils/dateTime';
+import './CommonTable.css';
 
 type Align = 'start' | 'center' | 'end';
 
@@ -198,7 +200,7 @@ const CommonTable = <T,>({
               />
             </div>
             <button type="button" className="btn btn-light btn-sm common-table__icon-btn" aria-label="Settings" onClick={openSettings}>
-              <span className="common-table__icon">⚙</span>
+              <Settings2 size={20} strokeWidth={2.3} className="common-table__icon-svg" />
             </button>
             <select
               className="form-select form-select-sm common-table__mode"
@@ -214,7 +216,7 @@ const CommonTable = <T,>({
         </div>
       )}
 
-      <div className="table-responsive">
+      <div className="table-responsive common-table__responsive">
         <table className={`table table-hover align-middle mb-0 ${compact ? 'table-sm' : ''}`}>
           {headerVisible && (
             <thead className="table-light">
@@ -241,9 +243,9 @@ const CommonTable = <T,>({
                   <th
                     key={col.key}
                     style={{ width: col.width }}
-                    className={col.align ? `text-${col.align}` : undefined}
+                    className={`${col.align ? `text-${col.align}` : ''} common-table__head-cell`.trim()}
                   >
-                    <div className="fw-bold small text-dark">{col.header}</div>
+                    <div className="fw-bold small common-table__header-label">{col.header}</div>
                     {filtersVisible && col.filterable !== false && (
                       <input
                         type="text"
@@ -273,8 +275,8 @@ const CommonTable = <T,>({
                       />
                     </td>
                   )}
-                  {sortedColumns.map(col => (
-                    <td key={col.key} className={col.align ? `text-${col.align}` : undefined}>
+                {sortedColumns.map(col => (
+                    <td key={col.key} className={`${col.align ? `text-${col.align}` : ''} common-table__cell`.trim()}>
                       {col.render ? col.render(row) : normalize(col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key])}
                     </td>
                   ))}
@@ -296,6 +298,7 @@ const CommonTable = <T,>({
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         title="Common Table Settings"
+        size="lg"
         footer={
           <div className="d-flex justify-content-end gap-2 w-100">
             <button className="btn btn-outline-secondary" onClick={() => setIsSettingsOpen(false)}>Cancel</button>
@@ -303,10 +306,10 @@ const CommonTable = <T,>({
           </div>
         }
       >
-        <div className="mb-4">
-          <div className="fw-bold mb-2">Customized Setting</div>
-          <div className="d-flex flex-wrap gap-4 border rounded p-3 bg-white">
-            <div>
+        <div className="common-table-settings">
+          <div className="common-table-settings__panel">
+            <div className="fw-bold mb-2">Customized Setting</div>
+            <div className="border rounded p-3 bg-white h-100">
               <div className="small fw-bold text-muted mb-2">Table Header</div>
               <div className="form-check mb-2">
                 <input className="form-check-input" type="checkbox" id="showHeader" checked={draftHeaderVisible} onChange={(e) => setDraftHeaderVisible(e.target.checked)} />
@@ -322,150 +325,61 @@ const CommonTable = <T,>({
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="fw-bold mb-2">Column Settings</div>
-        <div className="border rounded">
-          <div className="row g-0 border-bottom bg-light small fw-bold text-muted">
-            <div className="col-5 p-2">Columns</div>
-            <div className="col-4 p-2">Column Width</div>
-            <div className="col-3 p-2">Column Ordering</div>
-          </div>
-          {draftConfig.map((col, idx) => (
-            <div key={col.key} className="row g-0 border-bottom align-items-center">
-              <div className="col-5 p-2 d-flex align-items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={col.visible}
-                  onChange={(e) => {
-                    const next = [...draftConfig];
-                    next[idx] = { ...next[idx], visible: e.target.checked };
-                    setDraftConfig(next);
-                  }}
-                />
-                <span className="small">{col.header}</span>
+          <div className="common-table-settings__panel common-table-settings__panel--wide">
+            <div className="fw-bold mb-2">Column Settings</div>
+            <div className="border rounded overflow-auto">
+              <div className="row g-0 border-bottom bg-light small fw-bold text-muted">
+                <div className="col-5 p-2">Columns</div>
+                <div className="col-4 p-2">Column Width</div>
+                <div className="col-3 p-2">Column Ordering</div>
               </div>
-              <div className="col-4 p-2">
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  value={typeof col.width === 'number' ? col.width : Number(col.width) || ''}
-                  onChange={(e) => {
-                    const next = [...draftConfig];
-                    const val = e.target.value === '' ? undefined : Number(e.target.value);
-                    next[idx] = { ...next[idx], width: val };
-                    setDraftConfig(next);
-                  }}
-                />
-              </div>
-              <div className="col-3 p-2">
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  value={col.order}
-                  onChange={(e) => {
-                    const next = [...draftConfig];
-                    next[idx] = { ...next[idx], order: Number(e.target.value) || col.order };
-                    setDraftConfig(next);
-                  }}
-                />
-              </div>
+              {draftConfig.map((col, idx) => (
+                <div key={col.key} className="row g-0 border-bottom align-items-center">
+                  <div className="col-5 p-2 d-flex align-items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={col.visible}
+                      onChange={(e) => {
+                        const next = [...draftConfig];
+                        next[idx] = { ...next[idx], visible: e.target.checked };
+                        setDraftConfig(next);
+                      }}
+                    />
+                    <span className="small">{col.header}</span>
+                  </div>
+                  <div className="col-4 p-2">
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      value={typeof col.width === 'number' ? col.width : Number(col.width) || ''}
+                      onChange={(e) => {
+                        const next = [...draftConfig];
+                        const val = e.target.value === '' ? undefined : Number(e.target.value);
+                        next[idx] = { ...next[idx], width: val };
+                        setDraftConfig(next);
+                      }}
+                    />
+                  </div>
+                  <div className="col-3 p-2">
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      value={col.order}
+                      onChange={(e) => {
+                        const next = [...draftConfig];
+                        next[idx] = { ...next[idx], order: Number(e.target.value) || col.order };
+                        setDraftConfig(next);
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </Modal>
-
-      <style>{`
-        .common-table {
-          border: 1px solid #e5e7eb;
-          background: #fff;
-          border-radius: 6px;
-          overflow: hidden;
-        }
-        .common-table__toolbar {
-          display: grid;
-          grid-template-columns: auto 1fr auto;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          background: #f7f7f7;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        .common-table__count {
-          font-size: 12px;
-          color: #666;
-        }
-        .common-table__search {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          justify-self: end;
-        }
-        .common-table__search-group .input-group-text {
-          background: #2f2f2f;
-          color: #fff;
-          border-color: #2f2f2f;
-          font-size: 11px;
-          padding: 0 8px;
-        }
-        .common-table__search-group .form-control {
-          font-size: 12px;
-          padding: 4px 8px;
-          border-color: #cfcfcf;
-        }
-        .common-table__icon-btn {
-          padding: 2px 6px;
-          border: 1px solid #d8d8d8;
-          background: #fff;
-        }
-        .common-table__icon {
-          font-size: 12px;
-        }
-        .common-table__mode {
-          font-size: 12px;
-          padding: 2px 6px;
-          min-width: 110px;
-          border-color: #cfcfcf;
-          background: #fff;
-        }
-        .common-table__actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 6px;
-        }
-        .common-table__actions:empty {
-          display: none;
-        }
-        .common-table__filter {
-          font-size: 11px;
-          padding: 2px 6px;
-          border-color: #cfcfcf;
-          background: #fff;
-          color: #333;
-        }
-        .common-table__filter::placeholder {
-          color: #999;
-        }
-        .common-table .table thead th {
-          vertical-align: bottom;
-        }
-        .common-table .table tbody tr:hover {
-          background: #f9fafb;
-        }
-        .common-table__checkbox {
-          width: 14px;
-          height: 14px;
-        }
-        @media (max-width: 900px) {
-          .common-table__toolbar {
-            grid-template-columns: 1fr;
-          }
-          .common-table__actions {
-            justify-content: flex-start;
-          }
-        }
-      `}</style>
     </div>
   );
 };

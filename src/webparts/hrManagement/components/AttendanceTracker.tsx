@@ -891,18 +891,6 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         getRowId={(row) => `${row.record.employeeId}-${row.record.date}`}
         globalSearchPlaceholder="Search attendance"
       />
-
-      <style>{`
-        .avatar-selection:hover img { transform: scale(1.1); }
-        .avatar-selection.active img { border-color: #2F5596 !important; transform: scale(1.1); box-shadow: 0 0 0 2px rgba(47, 85, 150, 0.1); }
-        .accordion-filter:hover { background-color: #fafafa; }
-        .shadow-xs { box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-        .hover-bg-gray:hover { background-color: rgba(0,0,0,0.05); }
-        .animate-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-        .form-check-input:checked { background-color: #2F5596; border-color: #2F5596; }
-        .btn-outline-secondary:hover { background-color: #f8f9fa; color: #212529; }
-      `}</style>
     </div>
   );
 };

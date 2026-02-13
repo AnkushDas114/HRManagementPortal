@@ -139,20 +139,85 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
 
   const chartColors = ['#1f7ae0', '#f5b323', '#14b8a6', '#8b5cf6', '#ef4444', '#06b6d4'];
 
+  const formatSummaryToHtml = React.useCallback((raw: string): string => {
+    const normalized = String(raw || '').replace(/\r\n/g, '\n').trim();
+    if (!normalized) return '<p>No summary generated.</p>';
+
+    const escapeHtml = (value: string): string =>
+      value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const inlineFormat = (value: string): string =>
+      escapeHtml(value).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    const lines = normalized.split('\n');
+    let html = '';
+    let inList = false;
+
+    lines.forEach((rawLine) => {
+      const line = rawLine.trim();
+
+      if (!line) {
+        if (inList) {
+          html += '</ul>';
+          inList = false;
+        }
+        return;
+      }
+
+      const headingMatch = line.match(/^(#{1,3})\s+(.*)$/);
+      if (headingMatch) {
+        if (inList) {
+          html += '</ul>';
+          inList = false;
+        }
+        const level = headingMatch[1].length;
+        const text = inlineFormat(headingMatch[2]);
+        const tag = level === 1 ? 'h2' : level === 2 ? 'h3' : 'h4';
+        html += `<${tag}>${text}</${tag}>`;
+        return;
+      }
+
+      const bulletMatch = line.match(/^[-*•]\s+(.*)$/);
+      if (bulletMatch) {
+        if (!inList) {
+          html += '<ul>';
+          inList = true;
+        }
+        html += `<li>${inlineFormat(bulletMatch[1])}</li>`;
+        return;
+      }
+
+      if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+      html += `<p>${inlineFormat(line)}</p>`;
+    });
+
+    if (inList) {
+      html += '</ul>';
+    }
+
+    return html || '<p>No summary generated.</p>';
+  }, []);
+
   const handleGenerateSummary = async () => {
-    setIsLoadingSummary(true);
     setIsModalOpen(true);
-    const result = await generateLeaveSummaryReport(requests);
-
-    const html = result
-      .replace(/^### (.*$)/gim, '<h4>$1</h4>')
-      .replace(/^## (.*$)/gim, '<h3>$1</h3>')
-      .replace(/^\* (.*$)/gim, '<li>$1</li>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/((<li>.*<\/li>\s*)+)/g, '<ul>$1</ul>');
-
-    setSummary(html);
-    setIsLoadingSummary(false);
+    setIsLoadingSummary(true);
+    try {
+      const result = await generateLeaveSummaryReport(requests);
+      setSummary(formatSummaryToHtml(result));
+    } catch (error) {
+      console.error('Failed to generate AI summary:', error);
+      setSummary('<p>Unable to generate the report right now. Please try again.</p>');
+    } finally {
+      setIsLoadingSummary(false);
+    }
   };
 
   const handleAddEventSubmit = (e: React.FormEvent) => {
@@ -352,7 +417,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         </div>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="AI Generated Weekly Report">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="AI Generated Weekly Report" size="lg">
         {isLoadingSummary ? (
           <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
             <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
@@ -360,7 +425,9 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
             </div>
           </div>
         ) : (
-          <div dangerouslySetInnerHTML={{ __html: summary }} />
+          <div className="ai-report-shell">
+            <div className="ai-report-content" dangerouslySetInnerHTML={{ __html: summary }} />
+          </div>
         )}
       </Modal>
 
@@ -452,16 +519,6 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
           </div>
         </form>
       </Modal>
-
-      <style>{`
-        .card-clickable-wrapper:hover {
-          transform: translateY(-5px);
-        }
-        .card-clickable-wrapper:active {
-          transform: translateY(-2px);
-        }
-        .hover-bg-light:hover { background-color: #f8f9fa; }
-      `}</style>
     </div>
   );
 };
