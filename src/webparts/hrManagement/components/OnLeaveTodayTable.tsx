@@ -60,7 +60,8 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
     return requests.filter(req => {
       const isStatusValid = req.status === LeaveStatus.Approved;
       const isDateValid = today >= req.startDate && today <= req.endDate;
-      const isTypeValid = validTypes.length === 0 || validTypes.indexOf(req.leaveType) !== -1;
+      const isWorkFromHomeRequest = req.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(req.leaveType || ''));
+      const isTypeValid = isWorkFromHomeRequest || validTypes.length === 0 || validTypes.indexOf(req.leaveType) !== -1;
       return isStatusValid && isDateValid && isTypeValid;
     });
   }, [requests, today, leaveQuotas]);
@@ -168,7 +169,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
     },
     {
       key: 'leaveType',
-      header: 'Leave Type',
+      header: 'Request Type',
       render: (request) => (
         <span className="small fw-semibold py-1 px-3 rounded border" style={{ backgroundColor: '#f8f9fa', color: '#333' }}>
           {request.leaveType}
@@ -195,7 +196,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       render: (request) => (
         <button
           type="button"
-          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2 px-3 py-2 fw-medium"
+          className="btn btn-sm btn-outline-primary onleave-edit-btn d-inline-flex align-items-center gap-2 px-3 py-2 fw-medium"
           style={{ borderColor: '#2F5596', color: '#2F5596' }}
           onClick={() => onEdit?.(request)}
         >
@@ -210,7 +211,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       <div className="card shadow-sm border-0 animate-in fade-in overflow-hidden" style={{ borderRadius: '8px' }}>
         <div className="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom border-light">
           <h2 className="h5 mb-0 d-flex align-items-center gap-2" style={{ color: '#2F5596', fontWeight: 600 }}>
-            <Users size={20} /> Employees ON Leave Today
+            <Users size={20} /> Employees On Leave / WFH Today
           </h2>
           <div className="d-flex align-items-center gap-2">
             <button
@@ -218,7 +219,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
               onClick={() => setIsAddLeaveModalOpen(true)}
               style={{ borderRadius: '4px' }}
             >
-              <Plus size={16} /> Add Employee Leave
+              <Plus size={16} /> Add Employee Leave/WFH
             </button>
             <button
               className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
@@ -238,7 +239,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
           data={onLeaveToday}
           columns={columns}
           getRowId={(row) => row.id}
-          globalSearchPlaceholder="Search on leave"
+          globalSearchPlaceholder="Search leave/wfh"
         />
       </div>
 

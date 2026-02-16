@@ -18,7 +18,7 @@ import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import type { LeaveRequest, AttendanceRecord, Employee, SalarySlip, Policy, Concern, Holiday, TeamEvent } from '../types';
 import { LeaveStatus, UserRole, ConcernStatus, ConcernType } from '../types';
 import { getAllLeaveRequests, createLeaveRequest, updateLeaveRequestStatus, deleteLeaveRequest } from '../services/LeaveRequestsService';
-import { getAllEvents, createEvent, deleteEvent } from '../services/EventsService';
+import { getAllEvents, createEvent, updateEvent, deleteEvent } from '../services/EventsService';
 import { getAllConcerns, createConcern, updateConcernReply } from '../services/ConcernsService';
 import {
   getAllEmployees,
@@ -99,6 +99,28 @@ const App: React.FC<AppProps> = ({ sp }) => {
     document.head.appendChild(link);
   }, []);
 
+  React.useEffect(() => {
+    const openDatePickerOnClick = (event: MouseEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      const dateInput = (target.closest("input[type='date']") as HTMLInputElement | null);
+      if (!dateInput || dateInput.disabled || dateInput.readOnly) return;
+
+      const pickerInput = dateInput as HTMLInputElement & { showPicker?: () => void };
+      if (typeof pickerInput.showPicker === 'function') {
+        try {
+          pickerInput.showPicker();
+        } catch {
+          // Ignore errors where browser blocks picker invocation.
+        }
+      }
+    };
+
+    document.addEventListener('click', openDatePickerOnClick, true);
+    return () => document.removeEventListener('click', openDatePickerOnClick, true);
+  }, []);
+
   const [role, setRole] = useState<UserRole>(UserRole.Employee);
   const [employees] = useState<Employee[]>(MOCK_EMPLOYEES);
   const [directoryEmployees, setDirectoryEmployees] = useState<Employee[]>([]);
@@ -115,6 +137,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [isLoadingHolidays, setIsLoadingHolidays] = useState(false);
   const [holidaysError, setHolidaysError] = useState<string | null>(null);
   const [leaveCategories, setLeaveCategories] = useState<string[]>([]);
+  const [workFromHomeTypes, setWorkFromHomeTypes] = useState<string[]>([]);
   const [concerns, setConcerns] = useState<Concern[]>([]);
   const [isLoadingQuotas, setIsLoadingQuotas] = useState(false);
   const [quotasError, setQuotasError] = useState<string | null>(null);
@@ -257,6 +280,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
     }
   };
 
+  const handleUpdateTeamEvent = async (eventId: number, event: Omit<TeamEvent, 'id'>, employeeId?: string) => {
+    try {
+      await updateEvent(sp, eventId, event, employeeId);
+      await loadEvents();
+    } catch (error) {
+      console.error("Error updating event:", error);
+      alert("Failed to update event.");
+    }
+  };
+
 
 
   const loadDirectoryEmployees = React.useCallback(async () => {
@@ -349,6 +382,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   // Leave Form Modal State
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [leaveModalTab, setLeaveModalTab] = useState<'leave' | 'workFromHome'>('leave');
   const [selectedEmployeeForLeave, setSelectedEmployeeForLeave] = useState<Employee | null>(null);
   const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
   const [leaveFormData, setLeaveFormData] = useState({
@@ -384,6 +418,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
     endDateOption: 'noEnd' as 'noEnd' | 'endBy' | 'endAfter',
     recurrenceEndDate: '',
     recurrenceOccurrences: 1
+  });
+  const [workFromHomeFormData, setWorkFromHomeFormData] = useState({
+    workFromHomeType: 'Work From Home',
+    startDate: todayIST(),
+    endDate: todayIST(),
+    reason: ''
   });
 
   // Policy Modal State
@@ -506,7 +546,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     }
   };
 
-  const handleOpenLeaveModal = (empOrReq?: Employee | LeaveRequest) => {
+  const handleOpenLeaveModal = (empOrReq?: Employee | LeaveRequest, preferredTab?: 'leave' | 'workFromHome') => {
     let emp: Employee;
     let req: LeaveRequest | undefined;
     if (empOrReq && 'leaveType' in empOrReq) {
@@ -517,6 +557,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
     }
     setSelectedEmployeeForLeave(emp);
     if (req) {
+      const isWorkFromHomeRequest = req.requestCategory === 'Work From Home';
+      setLeaveModalTab(isWorkFromHomeRequest ? 'workFromHome' : 'leave');
       setEditingRequest(req);
       setLeaveFormData({
         leaveType: req.leaveType,
@@ -547,7 +589,14 @@ const App: React.FC<AppProps> = ({ sp }) => {
         recurrenceEndDate: '',
         recurrenceOccurrences: 1
       });
+      setWorkFromHomeFormData({
+        workFromHomeType: req.leaveType || (workFromHomeTypes[0] || 'Work From Home'),
+        startDate: req.startDate || todayIST(),
+        endDate: req.endDate || req.startDate || todayIST(),
+        reason: req.reason || ''
+      });
     } else {
+      setLeaveModalTab(preferredTab || 'leave');
       setEditingRequest(null);
       const todayStr = todayIST();
       const defaultType = Object.keys(leaveQuotas)[0] || 'Sick';
@@ -580,6 +629,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
         recurrenceEndDate: '',
         recurrenceOccurrences: 1
       });
+      setWorkFromHomeFormData({
+        workFromHomeType: workFromHomeTypes[0] || 'Work From Home',
+        startDate: todayStr,
+        endDate: todayStr,
+        reason: ''
+      });
     }
     setIsLeaveModalOpen(true);
   };
@@ -590,16 +645,6 @@ const App: React.FC<AppProps> = ({ sp }) => {
     e.preventDefault();
     if (!selectedEmployeeForLeave) return;
 
-    const start = new Date(leaveFormData.startDate);
-    const end = leaveFormData.isHalfDay ? start : new Date(leaveFormData.endDate);
-    let days = 1;
-    if (leaveFormData.isHalfDay) {
-      days = 0.5;
-    } else {
-      const diffTime = Math.abs(end.getTime() - start.getTime());
-      days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    }
-
     try {
       if (editingRequest) {
         // Edit logic not yet implemented in service, for now just update local state
@@ -607,23 +652,56 @@ const App: React.FC<AppProps> = ({ sp }) => {
         console.warn('Edit functionality not fully implemented on backend');
         alert('Edit functionality is currently limited.');
       } else {
-        // Validate Leave Balance
-        const quota = leaveQuotas[leaveFormData.leaveType] || 0;
+        if (leaveModalTab === 'workFromHome') {
+          const start = new Date(workFromHomeFormData.startDate);
+          const end = new Date(workFromHomeFormData.endDate || workFromHomeFormData.startDate);
+          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            alert('Please select valid start and end dates for work from home request.');
+            return;
+          }
+          if (end < start) {
+            alert('End date cannot be earlier than start date.');
+            return;
+          }
+          const diffTime = Math.abs(end.getTime() - start.getTime());
+          const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-        // Calculate currently used leaves (Approved) for this user and type
-        // NOTE: We could also include 'Pending' to preventing double-booking if desired.
-        // For now, matching the table logic which counts 'Approved'.
-        // To be safer, we should probably count Pending as well to avoid overdrafts via multiple requests.
-        const used = leaveRequests
-          .filter(r => r.employee.id === currentUser.id && r.leaveType === leaveFormData.leaveType && (r.status === LeaveStatus.Approved || r.status === LeaveStatus.Pending))
-          .reduce((sum, r) => sum + r.days, 0);
+          await createLeaveRequest(sp, selectedEmployeeForLeave, {
+            leaveType: workFromHomeFormData.workFromHomeType || 'Work From Home',
+            startDate: workFromHomeFormData.startDate,
+            endDate: workFromHomeFormData.endDate || workFromHomeFormData.startDate,
+            reason: workFromHomeFormData.reason,
+            isHalfDay: false,
+            isRecurring: false,
+            requestCategory: 'Work From Home'
+          }, days);
+        } else {
+          const start = new Date(leaveFormData.startDate);
+          const end = leaveFormData.isHalfDay ? start : new Date(leaveFormData.endDate);
+          let days = 1;
+          if (leaveFormData.isHalfDay) {
+            days = 0.5;
+          } else {
+            const diffTime = Math.abs(end.getTime() - start.getTime());
+            days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          }
 
-        if (used + days > quota) {
-          alert(`Insufficient leave balance! You have used ${used} of ${quota} days for ${leaveFormData.leaveType}. This request of ${days} days would exceed your limit.`);
-          return;
+          // Validate Leave Balance
+          const quota = leaveQuotas[leaveFormData.leaveType] || 0;
+
+          // Calculate currently used leaves (Approved + Pending) for this user and type
+          const used = leaveRequests
+            .filter(r => r.employee.id === currentUser.id && r.leaveType === leaveFormData.leaveType && (r.status === LeaveStatus.Approved || r.status === LeaveStatus.Pending))
+            .reduce((sum, r) => sum + r.days, 0);
+
+          if (used + days > quota) {
+            alert(`Insufficient leave balance! You have used ${used} of ${quota} days for ${leaveFormData.leaveType}. This request of ${days} days would exceed your limit.`);
+            return;
+          }
+
+          await createLeaveRequest(sp, selectedEmployeeForLeave, { ...leaveFormData, requestCategory: 'Leave' }, days);
         }
 
-        await createLeaveRequest(sp, selectedEmployeeForLeave, leaveFormData, days);
         await loadLeaveRequests(); // Reload data
         setIsLeaveModalOpen(false);
       }
@@ -1202,6 +1280,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   const policyColumns = React.useMemo<ColumnDef<Policy>[]>(() => ([
     { key: 'title', header: 'Title' },
+    {
+      key: 'description',
+      header: 'Description',
+      accessor: (p) => p.content || '',
+      render: (p) => <div className="small text-truncate" style={{ maxWidth: '420px' }}>{p.content || '-'}</div>
+    },
     { key: 'lastUpdated', header: 'Last Updated' },
     {
       key: 'actions',
@@ -1257,16 +1341,34 @@ const App: React.FC<AppProps> = ({ sp }) => {
     },
     { key: 'type', header: 'Type', render: (c) => <span className="badge text-bg-light border">{c.type}</span> },
     { key: 'description', header: 'Summary', render: (c) => <div className="small text-truncate" style={{ maxWidth: '300px' }}>{c.description}</div> },
-    { key: 'status', header: 'Status', render: (c) => <span className={`badge ${c.status === ConcernStatus.Open ? 'text-bg-warning' : 'text-bg-success'}`}>{c.status}</span> },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (c) => (
+        <span className={`badge ${c.status === ConcernStatus.Open ? 'text-bg-warning' : 'text-bg-success'}`}>
+          {c.status === ConcernStatus.Open ? 'UnResolved' : c.status}
+        </span>
+      )
+    },
     {
       key: 'actions',
       header: 'Actions',
       searchable: false,
       filterable: false,
       align: 'end',
-      render: (c) => (
-        <button className="btn btn-sm btn-outline-primary" onClick={() => handleOpenConcernReply(c)}>Reply</button>
-      )
+      render: (c) => {
+        const isAlreadyReplied = c.status !== ConcernStatus.Open || Boolean(c.reply && c.reply.trim());
+        return (
+          <button
+            className="btn btn-sm concern-reply-btn"
+            onClick={() => handleOpenConcernReply(c)}
+            disabled={isAlreadyReplied}
+            title={isAlreadyReplied ? 'HR already replied to this concern' : 'Reply to concern'}
+          >
+            Reply
+          </button>
+        );
+      }
     }
   ]), [directoryEmployees, handleOpenConcernReply]);
 
@@ -1285,6 +1387,27 @@ const App: React.FC<AppProps> = ({ sp }) => {
       console.error('Failed to load leave categories', err);
       // Fallback to default values if field fetch fails
       setLeaveCategories(['Public', 'National']);
+    }
+  }, [sp]);
+
+  // Load work from home request types from SmartMetadata list
+  const loadWorkFromHomeTypes = React.useCallback(async () => {
+    if (!sp) return;
+    try {
+      const items = await sp.web.lists
+        .getById(OFFICIAL_LEAVES_LIST_ID)
+        .items.select('Title')
+        .filter("TaxType eq 'Work From Home'")
+        .top(5000)();
+
+      const mappedTypes = items
+        .map((item: { Title?: string }) => String(item.Title || '').trim())
+        .filter((type: string, index: number, arr: string[]) => type && arr.indexOf(type) === index);
+
+      setWorkFromHomeTypes(mappedTypes.length > 0 ? mappedTypes : ['Work From Home']);
+    } catch (err: any) {
+      console.error('Failed to load work from home types', err);
+      setWorkFromHomeTypes(['Work From Home']);
     }
   }, [sp]);
 
@@ -1433,6 +1556,17 @@ const App: React.FC<AppProps> = ({ sp }) => {
     void loadLeaveCategories();
   }, [loadLeaveCategories]);
 
+  // Load work from home request types on component mount
+  React.useEffect(() => {
+    void loadWorkFromHomeTypes();
+  }, [loadWorkFromHomeTypes]);
+
+  React.useEffect(() => {
+    if (workFromHomeTypes.length === 0) return;
+    if (workFromHomeTypes.indexOf(workFromHomeFormData.workFromHomeType) !== -1) return;
+    setWorkFromHomeFormData(prev => ({ ...prev, workFromHomeType: workFromHomeTypes[0] }));
+  }, [workFromHomeTypes, workFromHomeFormData.workFromHomeType]);
+
   // Load policies on component mount
   React.useEffect(() => {
     void loadPolicies();
@@ -1449,6 +1583,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
   }, [loadSalarySlips]);
 
   const openConcernsCount = useMemo(() => concerns.filter(c => c.status === ConcernStatus.Open).length, [concerns]);
+  const workFromHomeRequests = useMemo(
+    () => leaveRequests.filter((request) => request.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(request.leaveType || ''))),
+    [leaveRequests]
+  );
 
   return (
     <div className="bg-light min-vh-100">
@@ -1483,6 +1621,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'leaves-request' ? 'active' : ''}`} onClick={() => setActiveTab('leaves-request')}>Leaves request</button>
                   </li>
                   <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'wfh-request' ? 'active' : ''}`} onClick={() => setActiveTab('wfh-request')}>Work From Home Request</button>
+                  </li>
+                  <li className="nav-item">
                     <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'global-directory' ? 'active' : ''}`} onClick={() => setActiveTab('global-directory')}>Global Directory</button>
                   </li>
                   <li className="nav-item">
@@ -1492,7 +1633,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'upload-salary-slip' ? 'active' : ''}`} onClick={() => setActiveTab('upload-salary-slip')}>Upload Salary Slip</button>
                   </li>
                   <li className="nav-item">
-                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'onLeaveToday' ? 'active' : ''}`} onClick={() => setActiveTab('onLeaveToday')}>ON Leave Today</button>
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'onLeaveToday' ? 'active' : ''}`} onClick={() => setActiveTab('onLeaveToday')}>On Leave / WFH Today</button>
                   </li>
                   <li className="nav-item">
                     <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'policy-admin' ? 'active' : ''}`} onClick={() => setActiveTab('policy-admin')}>Leave Policy</button>
@@ -1518,6 +1659,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'leave' ? 'active' : ''}`} onClick={() => setActiveTab('leave')}>Leave Applications</button>
                   </li>
                   <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'work-from-home' ? 'active' : ''}`} onClick={() => setActiveTab('work-from-home')}>Work From Home</button>
+                  </li>
+                  <li className="nav-item">
                     <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'salary' ? 'active' : ''}`} onClick={() => setActiveTab('salary')}>Salary Slip</button>
                   </li>
                 </>
@@ -1526,10 +1670,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
             <div className="tab-content">
               {role === UserRole.Employee ? (
-                <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={() => handleOpenLeaveModal()} onTabChange={setActiveTab} activeTab={activeTab} />
+                <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={(preferredTab) => handleOpenLeaveModal(undefined, preferredTab)} onTabChange={setActiveTab} activeTab={activeTab} />
               ) : (
                 <>
-                  {activeTab === 'overview' && <Dashboard requests={leaveRequests} attendanceRecords={attendanceRecords} concernsCount={openConcernsCount} holidays={holidays} teamEvents={teamEvents} employees={directoryEmployees} onAddTeamEvent={handleAddTeamEvent} onDeleteTeamEvent={handleDeleteTeamEvent} onPendingClick={() => setActiveTab('leaves-request')} onOnLeaveTodayClick={() => setActiveTab('onLeaveToday')} onConcernsClick={() => setActiveTab('concerns-admin')} />}
+                  {activeTab === 'overview' && <Dashboard requests={leaveRequests} attendanceRecords={attendanceRecords} concernsCount={openConcernsCount} holidays={holidays} teamEvents={teamEvents} employees={directoryEmployees} onAddTeamEvent={handleAddTeamEvent} onUpdateTeamEvent={handleUpdateTeamEvent} onDeleteTeamEvent={handleDeleteTeamEvent} onPendingClick={() => setActiveTab('leaves-request')} onOnLeaveTodayClick={() => setActiveTab('onLeaveToday')} onConcernsClick={() => setActiveTab('concerns-admin')} />}
                   {activeTab === 'leaves-request' && (
                     isLoadingLeaveRequests ? (
                       <div className="d-flex justify-content-center p-5">
@@ -1539,6 +1683,17 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       </div>
                     ) : (
                       <LeaveRequestsTable requests={leaveRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} />
+                    )
+                  )}
+                  {activeTab === 'wfh-request' && (
+                    isLoadingLeaveRequests ? (
+                      <div className="d-flex justify-content-center p-5">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <LeaveRequestsTable requests={workFromHomeRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} title="Detailed Work From Home Applications" showLeaveBalance={false} />
                     )
                   )}
                   {activeTab === 'global-directory' && (
@@ -1703,7 +1858,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       </main>
 
       <Modal isOpen={isPolicyModalOpen} onClose={() => setIsPolicyModalOpen(false)} title={editingPolicyId ? "Edit Policy" : "New Policy"} footer={<div className="d-flex justify-content-end gap-2 w-100"><button className="btn btn-outline-secondary" onClick={() => setIsPolicyModalOpen(false)}>Cancel</button><button type="submit" form="policy-form" className="btn btn-primary">{editingPolicyId ? "Update" : "Save"}</button></div>}>
-        <form id="policy-form" onSubmit={handleSavePolicy}><div className="mb-3"><label className="form-label fw-bold">Title</label><input type="text" className="form-control" value={policyFormData.title} onChange={e => setPolicyFormData({ ...policyFormData, title: e.target.value })} required /></div><div className="mb-3"><label className="form-label fw-bold">Configurations</label><textarea className="form-control" rows={8} value={policyFormData.content} onChange={e => setPolicyFormData({ ...policyFormData, content: e.target.value })} required></textarea></div></form>
+        <form id="policy-form" onSubmit={handleSavePolicy}><div className="mb-3"><label className="form-label fw-bold">Title</label><input type="text" className="form-control" value={policyFormData.title} onChange={e => setPolicyFormData({ ...policyFormData, title: e.target.value })} required /></div><div className="mb-3"><label className="form-label fw-bold">Description</label><textarea className="form-control" rows={8} value={policyFormData.content} onChange={e => setPolicyFormData({ ...policyFormData, content: e.target.value })} required></textarea></div></form>
       </Modal>
 
       <Modal isOpen={isAddLeaveModalOpen} onClose={() => setIsAddLeaveModalOpen(false)} title="Manage Quotas" footer={<button className="btn btn-primary px-4" onClick={handleSaveQuotas} disabled={isLoadingQuotas}>{isLoadingQuotas ? 'Saving...' : 'Save'}</button>}>
@@ -1769,221 +1924,285 @@ const App: React.FC<AppProps> = ({ sp }) => {
         )}
       </Modal>
 
-      <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title={editingRequest ? "Edit Leave" : "New Leave"} footer={<><button className="btn btn-link text-decoration-none" onClick={() => setIsLeaveModalOpen(false)}>Cancel</button><button type="submit" form="leave-application-form" className="btn btn-primary px-4">Submit</button></>}>
+      <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title={editingRequest ? (leaveModalTab === 'workFromHome' ? "Edit Work From Home" : "Edit Leave") : (leaveModalTab === 'workFromHome' ? "New Work From Home Request" : "New Leave")} footer={<><button className="btn btn-link text-decoration-none" onClick={() => setIsLeaveModalOpen(false)}>Cancel</button><button type="submit" form="leave-application-form" className="btn btn-primary px-4">Submit</button></>}>
         <form id="leave-application-form" onSubmit={saveLeaveRequest}>
-          <div className="row g-3">
-            <div className="col-12"><label className="form-label fw-bold">Leave Type</label><select className="form-select" value={leaveFormData.leaveType} onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}>{Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))}</select></div>
-            <div className="col-md-6"><label className="form-label fw-bold">Start</label><input type="date" className="form-control" value={leaveFormData.startDate} onChange={e => setLeaveFormData({ ...leaveFormData, startDate: e.target.value })} required /></div>
-            <div className="col-md-6"><label className="form-label fw-bold">End</label><input type="date" className="form-control" value={leaveFormData.endDate} onChange={e => setLeaveFormData({ ...leaveFormData, endDate: e.target.value })} required disabled={leaveFormData.isHalfDay} /></div>
-            <div className="col-12">
-              <button
-                type="button"
-                className={`btn popup-option-toggle ${leaveFormData.isHalfDay ? 'popup-option-toggle--active' : ''}`}
-                onClick={() => setLeaveFormData({ ...leaveFormData, isHalfDay: !leaveFormData.isHalfDay })}
-                aria-pressed={leaveFormData.isHalfDay}
-              >
-                Request Half Day
-              </button>
-            </div>
-            {leaveFormData.isHalfDay && (
+          <div className="d-flex align-items-center gap-2 mb-3">
+            {/* <button
+              type="button"
+              className={`btn btn-sm ${leaveModalTab === 'leave' ? 'btn-primary' : 'btn-outline-secondary'}`}
+              onClick={() => setLeaveModalTab('leave')}
+            >
+              Leave
+            </button> */}
+            <button
+              type="button"
+              className={`btn btn-sm ${leaveModalTab === 'workFromHome' ? 'btn-primary' : 'btn-outline-secondary'}`}
+              onClick={() => setLeaveModalTab('workFromHome')}
+            >
+              Work From Home
+            </button>
+          </div>
+          {leaveModalTab === 'leave' ? (
+            <div className="row g-3">
+              <div className="col-12"><label className="form-label fw-bold">Leave Type</label><select className="form-select" value={leaveFormData.leaveType} onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}>{Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))}</select></div>
+              <div className="col-md-6"><label className="form-label fw-bold">Start</label><input type="date" className="form-control" value={leaveFormData.startDate} onChange={e => setLeaveFormData({ ...leaveFormData, startDate: e.target.value })} required /></div>
+              <div className="col-md-6"><label className="form-label fw-bold">End</label><input type="date" className="form-control" value={leaveFormData.endDate} onChange={e => setLeaveFormData({ ...leaveFormData, endDate: e.target.value })} required disabled={leaveFormData.isHalfDay} /></div>
               <div className="col-12">
-                <label className="form-label fw-bold">Half Day Type</label>
-                <div className="d-flex gap-3">
-                  <div className="form-check">
-                    <input
-                      className="form-check-input"
-                      type="radio"
-                      name="halfDayType"
-                      id="firstHalf"
-                      value="first"
-                      checked={leaveFormData.halfDayType === 'first'}
-                      onChange={e => setLeaveFormData({ ...leaveFormData, halfDayType: e.target.value as 'first' | 'second' })}
-                    />
-                    <label className="form-check-label" htmlFor="firstHalf">First Half</label>
-                  </div>
-                  <div className="form-check">
-                    <input
-                      className="form-check-input"
-                      type="radio"
-                      name="halfDayType"
-                      id="secondHalf"
-                      value="second"
-                      checked={leaveFormData.halfDayType === 'second'}
-                      onChange={e => setLeaveFormData({ ...leaveFormData, halfDayType: e.target.value as 'first' | 'second' })}
-                    />
-                    <label className="form-check-label" htmlFor="secondHalf">Second Half</label>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  className={`btn popup-option-toggle ${leaveFormData.isHalfDay ? 'popup-option-toggle--active' : ''}`}
+                  onClick={() => setLeaveFormData({ ...leaveFormData, isHalfDay: !leaveFormData.isHalfDay })}
+                  aria-pressed={leaveFormData.isHalfDay}
+                >
+                  Request Half Day
+                </button>
               </div>
-            )}
-            <div className="col-12">
-              <button
-                type="button"
-                className={`btn popup-option-toggle ${leaveFormData.isRecurring ? 'popup-option-toggle--active' : ''}`}
-                onClick={() => setLeaveFormData({ ...leaveFormData, isRecurring: !leaveFormData.isRecurring })}
-                aria-pressed={leaveFormData.isRecurring}
-              >
-                Recurrence
-              </button>
-            </div>
-            {leaveFormData.isRecurring && (
-              <>
-                {/* Recurrence Pattern Selection */}
+              {leaveFormData.isHalfDay && (
                 <div className="col-12">
-                  <label className="form-label fw-bold small text-primary">RECURRENCE PATTERN</label>
-                  <div className="d-flex gap-2">
-                    {(['Daily', 'Weekly', 'Monthly', 'Yearly'] as const).map(freq => (
-                      <div key={freq} className="form-check">
-                        <input
-                          className="form-check-input"
-                          type="radio"
-                          name="recurringFrequency"
-                          id={`freq${freq}`}
-                          value={freq}
-                          checked={leaveFormData.recurringFrequency === freq}
-                          onChange={e => setLeaveFormData({ ...leaveFormData, recurringFrequency: e.target.value as typeof freq })}
-                        />
-                        <label className="form-check-label small" htmlFor={`freq${freq}`}>{freq}</label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Pattern-specific options */}
-                <div className="col-12">
-                  <label className="form-label fw-bold small text-primary">PATTERN</label>
-
-                  {/* Daily Pattern */}
-                  {leaveFormData.recurringFrequency === 'Daily' && (
-                    <div className="border rounded p-2">
-                      <div className="form-check mb-2">
-                        <input className="form-check-input" type="radio" name="dailyPattern" id="dailyEvery" checked={!leaveFormData.dailyWeekdaysOnly} onChange={() => setLeaveFormData({ ...leaveFormData, dailyWeekdaysOnly: false })} />
-                        <label className="form-check-label small" htmlFor="dailyEvery">
-                          every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.dailyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, dailyInterval: parseInt(e.target.value) || 1 })} /> days
-                        </label>
-                      </div>
-                      <div className="form-check">
-                        <input className="form-check-input" type="radio" name="dailyPattern" id="dailyWeekdays" checked={leaveFormData.dailyWeekdaysOnly} onChange={() => setLeaveFormData({ ...leaveFormData, dailyWeekdaysOnly: true })} />
-                        <label className="form-check-label small" htmlFor="dailyWeekdays">every weekdays</label>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Weekly Pattern */}
-                  {leaveFormData.recurringFrequency === 'Weekly' && (
-                    <div className="border rounded p-2">
-                      <div className="mb-2 small">
-                        every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.weeklyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, weeklyInterval: parseInt(e.target.value) || 1 })} /> week(s) on
-                      </div>
-                      <div className="d-flex flex-wrap gap-1">
-                        {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
-                          <div key={day} className="form-check form-check-inline">
-                            <input
-                              className="form-check-input"
-                              type="checkbox"
-                              id={`day${day}`}
-                              checked={leaveFormData.weeklyDays.indexOf(day) !== -1}
-                              onChange={e => {
-                                const days = e.target.checked
-                                  ? [...leaveFormData.weeklyDays, day]
-                                  : leaveFormData.weeklyDays.filter(d => d !== day);
-                                setLeaveFormData({ ...leaveFormData, weeklyDays: days });
-                              }}
-                            />
-                            <label className="form-check-label small" htmlFor={`day${day}`}>{day.slice(0, 3)}</label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Monthly Pattern */}
-                  {leaveFormData.recurringFrequency === 'Monthly' && (
-                    <div className="border rounded p-2">
-                      <div className="form-check mb-2">
-                        <input className="form-check-input" type="radio" name="monthlyPattern" id="monthlyDay" checked={leaveFormData.monthlyPattern === 'day'} onChange={() => setLeaveFormData({ ...leaveFormData, monthlyPattern: 'day' })} />
-                        <label className="form-check-label small" htmlFor="monthlyDay">
-                          Day <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" max="31" value={leaveFormData.monthlyDay} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyDay: parseInt(e.target.value) || 1 })} /> of every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.monthlyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyInterval: parseInt(e.target.value) || 1 })} /> month(s)
-                        </label>
-                      </div>
-                      <div className="form-check">
-                        <input className="form-check-input" type="radio" name="monthlyPattern" id="monthlyThe" checked={leaveFormData.monthlyPattern === 'the'} onChange={() => setLeaveFormData({ ...leaveFormData, monthlyPattern: 'the' })} />
-                        <label className="form-check-label small" htmlFor="monthlyThe">
-                          the <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.monthlyWeekNumber} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyWeekNumber: e.target.value as any })}>
-                            <option value="first">first</option>
-                            <option value="second">second</option>
-                            <option value="third">third</option>
-                            <option value="fourth">fourth</option>
-                            <option value="last">last</option>
-                          </select> <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.monthlyWeekDay} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyWeekDay: e.target.value })}>
-                            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d} value={d}>{d}</option>)}
-                          </select> of every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.monthlyIntervalThe} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyIntervalThe: parseInt(e.target.value) || 1 })} /> month(s)
-                        </label>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Yearly Pattern */}
-                  {leaveFormData.recurringFrequency === 'Yearly' && (
-                    <div className="border rounded p-2">
-                      <div className="form-check mb-2">
-                        <input className="form-check-input" type="radio" name="yearlyPattern" id="yearlyEvery" checked={leaveFormData.yearlyPattern === 'every'} onChange={() => setLeaveFormData({ ...leaveFormData, yearlyPattern: 'every' })} />
-                        <label className="form-check-label small" htmlFor="yearlyEvery">
-                          every <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyMonth} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyMonth: e.target.value })}>
-                            {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => <option key={m} value={m}>{m}</option>)}
-                          </select> <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.yearlyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyInterval: parseInt(e.target.value) || 1 })} />
-                        </label>
-                      </div>
-                      <div className="form-check">
-                        <input className="form-check-input" type="radio" name="yearlyPattern" id="yearlyThe" checked={leaveFormData.yearlyPattern === 'the'} onChange={() => setLeaveFormData({ ...leaveFormData, yearlyPattern: 'the' })} />
-                        <label className="form-check-label small" htmlFor="yearlyThe">
-                          the <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyWeekNumber} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyWeekNumber: e.target.value as any })}>
-                            <option value="first">first</option>
-                            <option value="second">second</option>
-                            <option value="third">third</option>
-                            <option value="fourth">fourth</option>
-                            <option value="last">last</option>
-                          </select> <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyWeekDay} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyWeekDay: e.target.value })}>
-                            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d} value={d}>{d}</option>)}
-                          </select> of <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyMonthThe} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyMonthThe: e.target.value })}>
-                            {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => <option key={m} value={m}>{m}</option>)}
-                          </select>
-                        </label>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Date Range */}
-                <div className="col-12">
-                  <label className="form-label fw-bold small text-primary">DATE RANGE</label>
-                  <div className="border rounded p-2">
-                    <div className="mb-2">
-                      <label className="form-label small mb-1">Start Date</label>
-                      <input type="date" className="form-control form-control-sm" value={leaveFormData.startDate} onChange={e => setLeaveFormData({ ...leaveFormData, startDate: e.target.value })} required />
-                    </div>
-                    <div className="form-check mb-2">
-                      <input className="form-check-input" type="radio" name="endDateOption" id="noEnd" checked={leaveFormData.endDateOption === 'noEnd'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'noEnd' })} />
-                      <label className="form-check-label small" htmlFor="noEnd">no end date</label>
-                    </div>
-                    <div className="form-check mb-2">
-                      <input className="form-check-input" type="radio" name="endDateOption" id="endBy" checked={leaveFormData.endDateOption === 'endBy'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endBy' })} />
-                      <label className="form-check-label small" htmlFor="endBy">
-                        end by <input type="date" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '150px' }} value={leaveFormData.recurrenceEndDate} onChange={e => setLeaveFormData({ ...leaveFormData, recurrenceEndDate: e.target.value })} disabled={leaveFormData.endDateOption !== 'endBy'} />
-                      </label>
+                  <label className="form-label fw-bold">Half Day Type</label>
+                  <div className="d-flex gap-3">
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="radio"
+                        name="halfDayType"
+                        id="firstHalf"
+                        value="first"
+                        checked={leaveFormData.halfDayType === 'first'}
+                        onChange={e => setLeaveFormData({ ...leaveFormData, halfDayType: e.target.value as 'first' | 'second' })}
+                      />
+                      <label className="form-check-label" htmlFor="firstHalf">First Half</label>
                     </div>
                     <div className="form-check">
-                      <input className="form-check-input" type="radio" name="endDateOption" id="endAfter" checked={leaveFormData.endDateOption === 'endAfter'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endAfter' })} />
-                      <label className="form-check-label small" htmlFor="endAfter">
-                        end after <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.recurrenceOccurrences} onChange={e => setLeaveFormData({ ...leaveFormData, recurrenceOccurrences: parseInt(e.target.value) || 1 })} disabled={leaveFormData.endDateOption !== 'endAfter'} /> occurrences
-                      </label>
+                      <input
+                        className="form-check-input"
+                        type="radio"
+                        name="halfDayType"
+                        id="secondHalf"
+                        value="second"
+                        checked={leaveFormData.halfDayType === 'second'}
+                        onChange={e => setLeaveFormData({ ...leaveFormData, halfDayType: e.target.value as 'first' | 'second' })}
+                      />
+                      <label className="form-check-label" htmlFor="secondHalf">Second Half</label>
                     </div>
                   </div>
                 </div>
-              </>
-            )}
-            <div className="col-12"><label className="form-label fw-bold">Reason</label><textarea className="form-control" rows={4} value={leaveFormData.reason} onChange={e => setLeaveFormData({ ...leaveFormData, reason: e.target.value })} required></textarea></div>
-          </div>
+              )}
+              <div className="col-12">
+                <button
+                  type="button"
+                  className={`btn popup-option-toggle ${leaveFormData.isRecurring ? 'popup-option-toggle--active' : ''}`}
+                  onClick={() => setLeaveFormData({ ...leaveFormData, isRecurring: !leaveFormData.isRecurring })}
+                  aria-pressed={leaveFormData.isRecurring}
+                >
+                  Recurrence
+                </button>
+              </div>
+              {leaveFormData.isRecurring && (
+                <>
+                  {/* Recurrence Pattern Selection */}
+                  <div className="col-12">
+                    <label className="form-label fw-bold small text-primary">RECURRENCE PATTERN</label>
+                    <div className="d-flex gap-2">
+                      {(['Daily', 'Weekly', 'Monthly', 'Yearly'] as const).map(freq => (
+                        <div key={freq} className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="radio"
+                            name="recurringFrequency"
+                            id={`freq${freq}`}
+                            value={freq}
+                            checked={leaveFormData.recurringFrequency === freq}
+                            onChange={e => setLeaveFormData({ ...leaveFormData, recurringFrequency: e.target.value as typeof freq })}
+                          />
+                          <label className="form-check-label small" htmlFor={`freq${freq}`}>{freq}</label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pattern-specific options */}
+                  <div className="col-12">
+                    <label className="form-label fw-bold small text-primary">PATTERN</label>
+
+                    {/* Daily Pattern */}
+                    {leaveFormData.recurringFrequency === 'Daily' && (
+                      <div className="border rounded p-2">
+                        <div className="form-check mb-2">
+                          <input className="form-check-input" type="radio" name="dailyPattern" id="dailyEvery" checked={!leaveFormData.dailyWeekdaysOnly} onChange={() => setLeaveFormData({ ...leaveFormData, dailyWeekdaysOnly: false })} />
+                          <label className="form-check-label small" htmlFor="dailyEvery">
+                            every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.dailyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, dailyInterval: parseInt(e.target.value) || 1 })} /> days
+                          </label>
+                        </div>
+                        <div className="form-check">
+                          <input className="form-check-input" type="radio" name="dailyPattern" id="dailyWeekdays" checked={leaveFormData.dailyWeekdaysOnly} onChange={() => setLeaveFormData({ ...leaveFormData, dailyWeekdaysOnly: true })} />
+                          <label className="form-check-label small" htmlFor="dailyWeekdays">every weekdays</label>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Weekly Pattern */}
+                    {leaveFormData.recurringFrequency === 'Weekly' && (
+                      <div className="border rounded p-2">
+                        <div className="mb-2 small">
+                          every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.weeklyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, weeklyInterval: parseInt(e.target.value) || 1 })} /> week(s) on
+                        </div>
+                        <div className="d-flex flex-wrap gap-1">
+                          {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
+                            <div key={day} className="form-check form-check-inline">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id={`day${day}`}
+                                checked={leaveFormData.weeklyDays.indexOf(day) !== -1}
+                                onChange={e => {
+                                  const days = e.target.checked
+                                    ? [...leaveFormData.weeklyDays, day]
+                                    : leaveFormData.weeklyDays.filter(d => d !== day);
+                                  setLeaveFormData({ ...leaveFormData, weeklyDays: days });
+                                }}
+                              />
+                              <label className="form-check-label small" htmlFor={`day${day}`}>{day.slice(0, 3)}</label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Monthly Pattern */}
+                    {leaveFormData.recurringFrequency === 'Monthly' && (
+                      <div className="border rounded p-2">
+                        <div className="form-check mb-2">
+                          <input className="form-check-input" type="radio" name="monthlyPattern" id="monthlyDay" checked={leaveFormData.monthlyPattern === 'day'} onChange={() => setLeaveFormData({ ...leaveFormData, monthlyPattern: 'day' })} />
+                          <label className="form-check-label small" htmlFor="monthlyDay">
+                            Day <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" max="31" value={leaveFormData.monthlyDay} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyDay: parseInt(e.target.value) || 1 })} /> of every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.monthlyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyInterval: parseInt(e.target.value) || 1 })} /> month(s)
+                          </label>
+                        </div>
+                        <div className="form-check">
+                          <input className="form-check-input" type="radio" name="monthlyPattern" id="monthlyThe" checked={leaveFormData.monthlyPattern === 'the'} onChange={() => setLeaveFormData({ ...leaveFormData, monthlyPattern: 'the' })} />
+                          <label className="form-check-label small" htmlFor="monthlyThe">
+                            the <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.monthlyWeekNumber} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyWeekNumber: e.target.value as any })}>
+                              <option value="first">first</option>
+                              <option value="second">second</option>
+                              <option value="third">third</option>
+                              <option value="fourth">fourth</option>
+                              <option value="last">last</option>
+                            </select> <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.monthlyWeekDay} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyWeekDay: e.target.value })}>
+                              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d} value={d}>{d}</option>)}
+                            </select> of every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.monthlyIntervalThe} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyIntervalThe: parseInt(e.target.value) || 1 })} /> month(s)
+                          </label>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Yearly Pattern */}
+                    {leaveFormData.recurringFrequency === 'Yearly' && (
+                      <div className="border rounded p-2">
+                        <div className="form-check mb-2">
+                          <input className="form-check-input" type="radio" name="yearlyPattern" id="yearlyEvery" checked={leaveFormData.yearlyPattern === 'every'} onChange={() => setLeaveFormData({ ...leaveFormData, yearlyPattern: 'every' })} />
+                          <label className="form-check-label small" htmlFor="yearlyEvery">
+                            every <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyMonth} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyMonth: e.target.value })}>
+                              {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => <option key={m} value={m}>{m}</option>)}
+                            </select> <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.yearlyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyInterval: parseInt(e.target.value) || 1 })} />
+                          </label>
+                        </div>
+                        <div className="form-check">
+                          <input className="form-check-input" type="radio" name="yearlyPattern" id="yearlyThe" checked={leaveFormData.yearlyPattern === 'the'} onChange={() => setLeaveFormData({ ...leaveFormData, yearlyPattern: 'the' })} />
+                          <label className="form-check-label small" htmlFor="yearlyThe">
+                            the <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyWeekNumber} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyWeekNumber: e.target.value as any })}>
+                              <option value="first">first</option>
+                              <option value="second">second</option>
+                              <option value="third">third</option>
+                              <option value="fourth">fourth</option>
+                              <option value="last">last</option>
+                            </select> <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyWeekDay} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyWeekDay: e.target.value })}>
+                              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d} value={d}>{d}</option>)}
+                            </select> of <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyMonthThe} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyMonthThe: e.target.value })}>
+                              {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Date Range */}
+                  <div className="col-12">
+                    <label className="form-label fw-bold small text-primary">DATE RANGE</label>
+                    <div className="border rounded p-2">
+                      <div className="mb-2">
+                        <label className="form-label small mb-1">Start Date</label>
+                        <input type="date" className="form-control form-control-sm" value={leaveFormData.startDate} onChange={e => setLeaveFormData({ ...leaveFormData, startDate: e.target.value })} required />
+                      </div>
+                      <div className="form-check mb-2">
+                        <input className="form-check-input" type="radio" name="endDateOption" id="noEnd" checked={leaveFormData.endDateOption === 'noEnd'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'noEnd' })} />
+                        <label className="form-check-label small" htmlFor="noEnd">no end date</label>
+                      </div>
+                      <div className="form-check mb-2">
+                        <input className="form-check-input" type="radio" name="endDateOption" id="endBy" checked={leaveFormData.endDateOption === 'endBy'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endBy' })} />
+                        <label className="form-check-label small" htmlFor="endBy">
+                          end by <input type="date" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '150px' }} value={leaveFormData.recurrenceEndDate} onChange={e => setLeaveFormData({ ...leaveFormData, recurrenceEndDate: e.target.value })} disabled={leaveFormData.endDateOption !== 'endBy'} />
+                        </label>
+                      </div>
+                      <div className="form-check">
+                        <input className="form-check-input" type="radio" name="endDateOption" id="endAfter" checked={leaveFormData.endDateOption === 'endAfter'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endAfter' })} />
+                        <label className="form-check-label small" htmlFor="endAfter">
+                          end after <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.recurrenceOccurrences} onChange={e => setLeaveFormData({ ...leaveFormData, recurrenceOccurrences: parseInt(e.target.value) || 1 })} disabled={leaveFormData.endDateOption !== 'endAfter'} /> occurrences
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+              <div className="col-12"><label className="form-label fw-bold">Reason</label><textarea className="form-control" rows={4} value={leaveFormData.reason} onChange={e => setLeaveFormData({ ...leaveFormData, reason: e.target.value })} required></textarea></div>
+            </div>
+          ) : (
+            <div className="row g-3">
+              <div className="col-12">
+                <label className="form-label fw-bold">Work From Home Type</label>
+                <select
+                  className="form-select"
+                  value={workFromHomeFormData.workFromHomeType}
+                  onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, workFromHomeType: e.target.value })}
+                  required
+                >
+                  {workFromHomeTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-md-6">
+                <label className="form-label fw-bold">Start Date</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={workFromHomeFormData.startDate}
+                  onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, startDate: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label fw-bold">End Date</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={workFromHomeFormData.endDate}
+                  onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, endDate: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="col-12">
+                <label className="form-label fw-bold">Reason</label>
+                <textarea
+                  className="form-control"
+                  rows={4}
+                  value={workFromHomeFormData.reason}
+                  onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, reason: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+          )}
         </form>
       </Modal>
 

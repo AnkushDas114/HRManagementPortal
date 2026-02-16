@@ -18,9 +18,11 @@ interface LeaveRequestsTableProps {
   onDelete: (id: number) => void;
   onViewBalance?: (employee: Employee) => void;
   teams: string[];
+  title?: string;
+  showLeaveBalance?: boolean;
 }
 
-const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, employees, leaveQuotas, filter, onFilterChange, onUpdateStatus, onDelete, onViewBalance, teams }) => {
+const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, employees, leaveQuotas, filter, onFilterChange, onUpdateStatus, onDelete, onViewBalance, teams, title = 'Detailed Leave Applications', showLeaveBalance = true }) => {
   const [isCommentModalOpen, setIsCommentModalOpen] = React.useState(false);
   const [selectedRequest, setSelectedRequest] = React.useState<LeaveRequest | null>(null);
   const [comment, setComment] = React.useState('');
@@ -146,6 +148,12 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
   };
 
   const modalTitle = actionType === LeaveStatus.Approved ? 'Approve Leave Request' : 'Reject Leave Request';
+  const getApproverCommentPreview = React.useCallback((rawComment: string): string => {
+    return String(rawComment || '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }, []);
 
   const modalFooter = (
     <>
@@ -174,12 +182,12 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         </div>
       )
     },
-    {
+    ...(showLeaveBalance ? [{
       key: 'leaveBalance',
       header: 'Leave Balance',
       searchable: false,
       filterable: false,
-      render: (request) => {
+      render: (request: LeaveRequest) => {
         const used = calculateUsedLeaves(request.employee.id, request.leaveType);
         const quota = leaveQuotas[request.leaveType] || 0;
         return (
@@ -189,7 +197,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
           </div>
         );
       }
-    },
+    }] : []),
     {
       key: 'leaveType',
       header: 'Type',
@@ -238,8 +246,12 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
             <div className="small text-muted mt-1" style={{ fontSize: '9px' }}>
               by {request.approverName}
               {request.approverComment && (
-                <span className="ms-1" title={request.approverComment}>
+                <span className="approver-comment-tooltip ms-1">
                   <MessageSquare size={12} color="#2F5596" />
+                  <span className="approver-comment-tooltip__box">
+                    <span className="approver-comment-tooltip__label">HR Comment</span>
+                    <span className="approver-comment-tooltip__text">{getApproverCommentPreview(request.approverComment)}</span>
+                  </span>
                 </span>
               )}
             </div>
@@ -266,13 +278,13 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         </div>
       )
     }
-  ]), [leaveQuotas, onViewBalance, calculateUsedLeaves, handleActionClick, handleRevertClick]);
+  ]), [leaveQuotas, onViewBalance, calculateUsedLeaves, handleActionClick, handleRevertClick, getApproverCommentPreview, showLeaveBalance]);
 
   return (
     <>
       <div className="card shadow-sm border-0 bg-white">
         <div className="card-header bg-white d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 py-3 border-bottom-0">
-          <h2 className="h5 mb-0 fw-bold" style={{ color: '#2F5596' }}>Detailed Leave Applications</h2>
+          <h2 className="h5 mb-0 fw-bold" style={{ color: '#2F5596' }}>{title}</h2>
           <div className="d-flex align-items-center gap-2">
             <Filter className="text-muted" width="18" height="18" />
             <select
@@ -293,38 +305,36 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         <div className="px-4 pb-2">
           {/* Team-Based Avatar Filtering */}
           <div className="border-top pt-3 pb-2">
-            <div className="d-flex flex-wrap gap-4">
+            <div className="d-flex flex-wrap gap-5">
               {teams.map(teamName => {
                 const teamMembers = employees.filter(emp => emp.department === teamName);
                 if (teamMembers.length === 0) return null;
+                const teamLabel = /team$/i.test(teamName) ? teamName : `${teamName} Team`;
 
                 return (
-                  <div key={teamName} className="flex-shrink-0">
-                    <div className="small fw-bold text-uppercase text-muted mb-2" style={{ fontSize: '11px', letterSpacing: '0.5px' }}>
-                      {teamName}
+                  <div key={teamName} className="team-filter-group">
+                    <div className="small text-muted border-bottom mb-2 pb-1 fw-bold text-uppercase" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>
+                      {teamLabel}
                     </div>
-                    <div className="d-flex flex-wrap gap-2">
+                    <div className="d-flex align-items-center gap-2">
                       {teamMembers.map(emp => (
                         <div
                           key={emp.id}
-                          className={`avatar-filter ${selectedMemberId === emp.id ? 'active' : ''}`}
+                          className={`avatar-selection cursor-pointer position-relative ${selectedMemberId === emp.id ? 'active' : ''}`}
                           onClick={() => setSelectedMemberId(selectedMemberId === emp.id ? null : emp.id)}
-                          style={{ cursor: 'pointer' }}
                           title={emp.name}
                         >
                           <img
                             src={emp.avatar}
                             alt={emp.name}
-                            width="40"
-                            height="40"
-                            className="rounded-circle border"
-                            style={{
-                              objectFit: 'cover',
-                              borderWidth: selectedMemberId === emp.id ? '3px' : '2px',
-                              borderColor: selectedMemberId === emp.id ? '#2F5596' : '#dee2e6',
-                              transition: 'all 0.2s'
-                            }}
+                            width="34"
+                            height="34"
+                            className={`rounded-circle border-2 border shadow-xs bg-white ${selectedMemberId === emp.id ? 'border-primary' : 'border-transparent'}`}
+                            style={{ objectFit: 'cover', transition: 'all 0.2s' }}
                           />
+                          {selectedMemberId === emp.id && (
+                            <div className="position-absolute bottom-0 end-0 bg-primary rounded-circle border border-white" style={{ width: '8px', height: '8px' }} />
+                          )}
                         </div>
                       ))}
                     </div>

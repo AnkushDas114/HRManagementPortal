@@ -5,7 +5,7 @@ import { LeaveStatus, AttendanceStatus } from '../types';
 import StatCard from '../ui/StatCard';
 import { generateLeaveSummaryReport } from '../services/geminiService';
 import Modal from '../ui/Modal';
-import { Sparkle, Users, CheckCircle, Clock, XCircle, UserCheck, Calendar as CalendarIcon, Flag, PartyPopper, Cake, MessageSquare, Plus, Calendar, Trash2 } from 'lucide-react';
+import { Sparkle, Users, CheckCircle, Clock, XCircle, UserCheck, Calendar as CalendarIcon, Flag, PartyPopper, Cake, MessageSquare, Plus, Calendar, Trash2, Edit3 } from 'lucide-react';
 import { formatDateForDisplayIST, monthNameIST, todayIST, getNowIST } from '../utils/dateTime';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 
@@ -20,7 +20,8 @@ interface DashboardProps {
   holidays: Holiday[];
   teamEvents: TeamEvent[];
   employees: Employee[];
-  onAddTeamEvent: (event: Omit<TeamEvent, 'id'>, employeeId?: string) => void;
+  onAddTeamEvent: (event: Omit<TeamEvent, 'id'>, employeeId?: string) => Promise<void> | void;
+  onUpdateTeamEvent: (eventId: number, event: Omit<TeamEvent, 'id'>, employeeId?: string) => Promise<void> | void;
   onDeleteTeamEvent: (eventId: number) => void;
   onPendingClick?: () => void;
   onOnLeaveTodayClick?: () => void;
@@ -28,9 +29,10 @@ interface DashboardProps {
 }
 
 
-const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, concernsCount, holidays, teamEvents, employees, onAddTeamEvent, onDeleteTeamEvent, onPendingClick, onOnLeaveTodayClick, onConcernsClick }) => {
+const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, concernsCount, holidays, teamEvents, employees, onAddTeamEvent, onUpdateTeamEvent, onDeleteTeamEvent, onPendingClick, onOnLeaveTodayClick, onConcernsClick }) => {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = React.useState(false);
+  const [editingEventId, setEditingEventId] = React.useState<number | null>(null);
   const [summary, setSummary] = React.useState('');
   const [isLoadingSummary, setIsLoadingSummary] = React.useState(false);
   const [insightTab, setInsightTab] = React.useState<'overview' | 'leave' | 'attendance'>('overview');
@@ -58,6 +60,40 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
     setEmployeeSearchTerm(emp.name);
     setShowSuggestions(false);
   };
+
+  const resetEventForm = React.useCallback(() => {
+    setEditingEventId(null);
+    setEventFormData({
+      name: '',
+      type: 'Birthday',
+      date: todayIST()
+    });
+    setSelectedEmployee(null);
+    setEmployeeSearchTerm('');
+    setShowSuggestions(false);
+  }, []);
+
+  const handleOpenAddEventModal = React.useCallback(() => {
+    resetEventForm();
+    setIsEventModalOpen(true);
+  }, [resetEventForm]);
+
+  const handleOpenEditEventModal = React.useCallback((event: TeamEvent) => {
+    const matchedEmployee = event.employee
+      ? employees.find((emp) => emp.id === event.employee?.id || (event.employee?.email && emp.email === event.employee.email)) || event.employee
+      : null;
+
+    setEditingEventId(event.id);
+    setEventFormData({
+      name: event.name,
+      type: event.type,
+      date: event.date
+    });
+    setSelectedEmployee(matchedEmployee);
+    setEmployeeSearchTerm(matchedEmployee?.name || '');
+    setShowSuggestions(false);
+    setIsEventModalOpen(true);
+  }, [employees]);
 
   const stats = React.useMemo(() => {
     const today = todayIST();
@@ -331,17 +367,15 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
     }
   };
 
-  const handleAddEventSubmit = (e: React.FormEvent) => {
+  const handleAddEventSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onAddTeamEvent(eventFormData, selectedEmployee?.id);
+    if (editingEventId !== null) {
+      await Promise.resolve(onUpdateTeamEvent(editingEventId, eventFormData, selectedEmployee?.id));
+    } else {
+      await Promise.resolve(onAddTeamEvent(eventFormData, selectedEmployee?.id));
+    }
     setIsEventModalOpen(false);
-    setEventFormData({
-      name: '',
-      type: 'Birthday',
-      date: todayIST()
-    });
-    setSelectedEmployee(null);
-    setEmployeeSearchTerm('');
+    resetEventForm();
   };
 
   return (
@@ -438,7 +472,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
               <button
                 className="btn btn-sm btn-outline-primary border d-flex align-items-center gap-1 fw-bold px-2 py-1"
                 style={{ fontSize: '10px', color: '#2F5596', borderColor: '#2F5596' }}
-                onClick={() => setIsEventModalOpen(true)}
+                onClick={handleOpenAddEventModal}
               >
                 <Plus size={14} /> Add Event
               </button>
@@ -462,6 +496,15 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                   </div>
                   <div className="d-flex align-items-center gap-2">
                     <div className="small badge bg-light text-dark border-0">{item.dateLabel}</div>
+                    <button
+                      type="button"
+                      className="event-edit-btn"
+                      onClick={() => handleOpenEditEventModal(item)}
+                      aria-label={`Edit ${item.name}`}
+                      title="Edit event"
+                    >
+                      <Edit3 size={14} />
+                    </button>
                     <button
                       type="button"
                       className="event-delete-btn"
@@ -644,12 +687,18 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
       {/* Add Event Modal */}
       <Modal
         isOpen={isEventModalOpen}
-        onClose={() => setIsEventModalOpen(false)}
-        title="Add New Team Event"
+        onClose={() => {
+          setIsEventModalOpen(false);
+          resetEventForm();
+        }}
+        title={editingEventId !== null ? 'Edit Team Event' : 'Add New Team Event'}
         footer={
           <>
-            <button className="btn btn-outline-secondary" onClick={() => setIsEventModalOpen(false)}>Cancel</button>
-            <button type="submit" form="add-event-form" className="btn btn-primary fw-bold px-4">Add Event</button>
+            <button className="btn btn-outline-secondary" onClick={() => {
+              setIsEventModalOpen(false);
+              resetEventForm();
+            }}>Cancel</button>
+            <button type="submit" form="add-event-form" className="btn btn-primary fw-bold px-4">{editingEventId !== null ? 'Update Event' : 'Add Event'}</button>
           </>
         }
       >

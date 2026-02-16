@@ -25,10 +25,13 @@ export enum ConcernStatus {
 
 export enum ConcernType {
   Leave = 'Leave',
+  WorkFromHome = 'Work From Home',
   Attendance = 'Attendance',
   Salary = 'Salary',
   General = 'General'
 }
+
+export type RequestCategory = 'Leave' | 'Work From Home';
 
 export interface LeaveBalance {
   vacation: number;
@@ -73,6 +76,7 @@ export interface Employee {
 export interface LeaveRequest {
   id: number;
   employee: Employee;
+  requestCategory?: RequestCategory;
   leaveType: string;
   startDate: string;
   endDate: string;

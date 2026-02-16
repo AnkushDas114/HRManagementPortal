@@ -49,7 +49,8 @@ export async function createLeaveRequest(
         const leaveData: any = {
             isHalfDay: formData.isHalfDay || false,
             halfDayType: formData.halfDayType || null,
-            isRecurring: formData.isRecurring || false
+            isRecurring: formData.isRecurring || false,
+            requestCategory: formData.requestCategory || 'Leave'
         };
 
         // Add recurrence data if recurring
@@ -285,6 +286,9 @@ function mapItemToLeaveRequest(item: any, employees: Employee[]): LeaveRequest {
     const leaveRequest: LeaveRequest = {
         id: item.Id,
         employee,
+        requestCategory: leaveData.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(item.LeaveType || ''))
+            ? 'Work From Home'
+            : 'Leave',
         leaveType: item.LeaveType || 'Unknown',
         startDate: formatDateIST(item.Startdate),
         endDate: formatDateIST(item.Enddate || item.Startdate),

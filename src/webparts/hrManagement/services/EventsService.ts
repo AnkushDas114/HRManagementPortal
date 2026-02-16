@@ -69,6 +69,36 @@ export async function createEvent(
 }
 
 /**
+ * UPDATE: Modify an existing team event
+ */
+export async function updateEvent(
+    sp: SPFI,
+    eventId: number,
+    event: Omit<TeamEvent, 'id'>,
+    employeeId?: string
+): Promise<void> {
+    try {
+        const payload: any = {
+            Title: event.name,
+            Event_x0020_Type_x0009_: event.type,
+            Date: event.date,
+            EmployeeId: employeeId ? parseInt(employeeId, 10) : null
+        };
+
+        await sp.web.lists
+            .getByTitle(LIST_NAME)
+            .items
+            .getById(eventId)
+            .update(payload);
+
+        console.log('Team event updated successfully');
+    } catch (error) {
+        console.error('Error updating team event:', error);
+        throw error;
+    }
+}
+
+/**
  * DELETE: Remove a team event
  */
 export async function deleteEvent(sp: SPFI, eventId: number): Promise<void> {

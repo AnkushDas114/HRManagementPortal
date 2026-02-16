@@ -113,6 +113,30 @@ header.navbar {
   border-color: var(--hr-border-strong);
 }
 
+/* Keep native date-picker icon visible and clickable across the app */
+input[type='date'] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  padding-right: 2.1rem;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  display: block;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  filter: none;
+}
+
+input[type='date']::-webkit-clear-button {
+  display: none;
+}
+
 .form-control:focus,
 .form-select:focus {
   border-color: #89a4d5;
@@ -276,10 +300,82 @@ header.navbar {
   transition: all 0.15s ease;
 }
 
+.event-edit-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cfd9ec;
+  border-radius: 999px;
+  background: #f5f8ff;
+  color: #2f5596;
+  transition: all 0.15s ease;
+}
+
+.event-edit-btn:hover {
+  background: #eaf0ff;
+  border-color: #b8c9e7;
+  color: #1f3f73;
+}
+
 .event-delete-btn:hover {
   background: #feecec;
   border-color: #e2b8b8;
   color: #991b1b;
+}
+
+.approver-comment-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+}
+
+.approver-comment-tooltip__box {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  min-width: 220px;
+  max-width: 360px;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid #dbe4f0;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 11px;
+  line-height: 1.4;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: normal;
+  word-break: break-word;
+  text-align: left;
+  z-index: 30;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.approver-comment-tooltip:hover .approver-comment-tooltip__box {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.approver-comment-tooltip__label {
+  display: block;
+  font-weight: 700;
+  color: #2f5596;
+  margin-bottom: 0.18rem;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.approver-comment-tooltip__text {
+  display: block;
+  color: #253244;
 }
 
 .avatar-filter img,
@@ -358,6 +454,38 @@ header.navbar {
   border-color: #2f5596;
   color: #ffffff;
   box-shadow: 0 3px 10px rgba(47, 85, 150, 0.2);
+}
+
+.concern-reply-btn {
+  border: 1px solid #2f5596;
+  background: #ffffff;
+  color: #2f5596;
+}
+
+.concern-reply-btn:hover:not(:disabled),
+.concern-reply-btn:focus:not(:disabled),
+.concern-reply-btn:active:not(:disabled) {
+  border-color: #2f5596;
+  background: #ffffff;
+  color: #2f5596;
+  box-shadow: none;
+}
+
+.concern-reply-btn:disabled {
+  border-color: #cfd8e6;
+  background: #f5f7fb;
+  color: #8a96ab;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.onleave-edit-btn:hover,
+.onleave-edit-btn:focus,
+.onleave-edit-btn:active {
+  border-color: #2f5596 !important;
+  background: #ffffff !important;
+  color: #2f5596 !important;
+  box-shadow: none !important;
 }
 
 .btn.popup-option-toggle.popup-option-toggle--active:hover {

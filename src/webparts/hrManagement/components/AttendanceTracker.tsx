@@ -71,6 +71,21 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     return !!numA && !!numB && numA === numB;
   }, [normalizeCompactId, normalizeNumericId]);
 
+  const parseRecordDate = React.useCallback((value: string): Date | null => {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+
+    // Parse YYYY-MM-DD as local noon to avoid timezone shifts.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [year, month, day] = raw.split('-').map(Number);
+      const parsed = new Date(year, month - 1, day, 12, 0, 0);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, []);
+
   const configuredTotalLeaves = React.useMemo(() => {
     return Object.values(leaveQuotas || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
   }, [leaveQuotas]);
@@ -137,15 +152,22 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       const matchesMemberById = selectedMemberId ? employeeIdsMatch(record.employeeId, selectedMemberId) : true;
       const matchesMemberByName = !!selectedEmployee && normalizeText(recordName) === normalizeText(selectedEmployee.name);
       const matchesMember = !selectedMemberId || matchesMemberById || matchesMemberByName;
-      const matchesSearch = !searchQuery ||
-        recordName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(record.employeeId ?? '').toLowerCase().includes(searchQuery.toLowerCase());
+      const query = searchQuery.toLowerCase().trim();
+      const departmentText = (employee?.department || record.department || '').toLowerCase();
+      const roleText = (employee?.position || '').toLowerCase();
+      const matchesSearch = !query ||
+        recordName.toLowerCase().includes(query) ||
+        String(record.employeeId ?? '').toLowerCase().includes(query) ||
+        departmentText.includes(query) ||
+        roleText.includes(query);
 
       if (!matchesMember || !matchesSearch) return false;
 
       // 2. Date presets filtering
-      const recDate = new Date(record.date);
+      const recDate = parseRecordDate(record.date);
+      if (!recDate) return false;
       const recTime = recDate.getTime();
+      const recDateKey = formatDateIST(recDate);
 
       const startOfDay = (d: Date) => {
         const res = new Date(d.getTime());
@@ -154,13 +176,13 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       };
 
       if (selectedDateFilter === 'Today') {
-        return record.date === todayStr;
+        return recDateKey === todayStr;
       }
 
       if (selectedDateFilter === 'Yesterday') {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        return record.date === formatDateIST(yesterday);
+        return recDateKey === formatDateIST(yesterday);
       }
 
       if (selectedDateFilter === 'This Week') {
@@ -202,14 +224,17 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       }
 
       if (selectedDateFilter === 'Custom' && startDate && endDate) {
-        return record.date >= startDate && record.date <= endDate;
+        const start = parseRecordDate(startDate);
+        const end = parseRecordDate(endDate);
+        if (!start || !end) return false;
+        return recTime >= startOfDay(start).getTime() && recTime <= startOfDay(end).getTime();
       }
 
       // 3. View mode filtering (Daily, Weekly, Monthly)
       const refDateStr = formatDateIST(referenceDate);
 
       if (viewMode === 'Daily') {
-        return record.date === refDateStr;
+        return recDateKey === refDateStr;
       }
 
       if (viewMode === 'Weekly') {
@@ -221,15 +246,14 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         endOfWeek.setDate(startOfWeek.getDate() + 6);
         endOfWeek.setHours(23, 59, 59, 999);
 
-        const recStart = new Date(record.date);
+        const recStart = new Date(recDate.getTime());
         recStart.setHours(0, 0, 0, 0);
 
         return recStart >= startOfWeek && recStart <= endOfWeek;
       }
 
       if (viewMode === 'Monthly') {
-        const recDateObj = new Date(record.date);
-        return recDateObj.getMonth() === referenceDate.getMonth() && recDateObj.getFullYear() === referenceDate.getFullYear();
+        return recDate.getMonth() === referenceDate.getMonth() && recDate.getFullYear() === referenceDate.getFullYear();
       }
 
       if (selectedDateFilter === 'All Time') {
@@ -238,7 +262,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
       return true;
     }).sort((a, b) => b.date.localeCompare(a.date));
-  }, [attendanceRecords, employees, selectedMemberId, searchQuery, selectedDateFilter, startDate, endDate, todayStr, today, employeeIdsMatch, normalizeText, viewMode, referenceDate]);
+  }, [attendanceRecords, employees, selectedMemberId, searchQuery, selectedDateFilter, startDate, endDate, todayStr, today, employeeIdsMatch, normalizeText, viewMode, referenceDate, parseRecordDate]);
 
   const handlePrev = () => {
     const nextDate = new Date(referenceDate);

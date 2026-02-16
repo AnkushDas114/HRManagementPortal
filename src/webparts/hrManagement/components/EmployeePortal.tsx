@@ -6,10 +6,12 @@ import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import {
-  Plus, Banknote, Download, FileText, Sun, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, AlertCircle, MessageSquare, ChevronLeft, ChevronRight, Calendar
+  Plus, Download, FileText, Sun, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, AlertCircle, MessageSquare, ChevronLeft, ChevronRight, Calendar
 } from 'lucide-react';
 import { formatDateForDisplayIST, getNowIST, monthNameIST, formatDateIST } from '../utils/dateTime';
 import { numberToWords } from '../utils/numberToWords';
+
+type ShortHoursRange = 'Previous Day' | 'This Week' | 'This Month' | 'Custom Date';
 
 interface EmployeePortalProps {
   user: Employee;
@@ -22,7 +24,7 @@ interface EmployeePortalProps {
   leaveQuotas: Record<string, number>;
   teamEvents: TeamEvent[];
   onRaiseConcern: (type: ConcernType, referenceId: string | number, description: string) => void;
-  onSubmitLeave: () => void;
+  onSubmitLeave: (preferredTab?: 'leave' | 'workFromHome') => void;
   onTabChange?: (tab: string) => void;
   activeTab: string;
 }
@@ -36,6 +38,9 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   const [isBalanceModalOpen, setIsBalanceModalOpen] = React.useState(false);
   const [selectedApprovalNote, setSelectedApprovalNote] = React.useState<LeaveRequest | null>(null);
   const [selectedConcern, setSelectedConcern] = React.useState<Concern | null>(null);
+  const [shortHoursRange, setShortHoursRange] = React.useState<ShortHoursRange>('This Week');
+  const [shortHoursStartDate, setShortHoursStartDate] = React.useState('');
+  const [shortHoursEndDate, setShortHoursEndDate] = React.useState('');
 
   // Attendance Navigation State
   const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
@@ -67,6 +72,29 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     return !!numA && !!numB && numA === numB;
   }, [normalizeCompactId, normalizeNumericId]);
 
+  const parseRecordDate = React.useCallback((value: string): Date | null => {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [year, month, day] = raw.split('-').map(Number);
+      const parsed = new Date(year, month - 1, day, 12, 0, 0);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, []);
+
+  const getWorkDurationMinutes = React.useCallback((value: unknown): number | null => {
+    const raw = String(value || '').trim();
+    if (!raw || raw === '--:--' || raw === '-:--') return null;
+    const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    return (hours * 60) + minutes;
+  }, []);
+
   const extractPayrollEmployeeTokens = React.useCallback((payrollKey: string): { name: string; id: string } => {
     const raw = String(payrollKey || '').trim();
     if (!raw) return { name: '', id: '' };
@@ -91,6 +119,16 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       })
       .sort((a, b) => b.id - a.id),
     [requests, user, idsMatch, normalizeText]);
+
+  const myLeaveRequests = React.useMemo(
+    () => myRequests.filter((request) => request.requestCategory !== 'Work From Home'),
+    [myRequests]
+  );
+
+  const myWorkFromHomeRequests = React.useMemo(
+    () => myRequests.filter((request) => request.requestCategory === 'Work From Home'),
+    [myRequests]
+  );
 
   const mySalaries = React.useMemo(() =>
     salarySlips
@@ -141,12 +179,6 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         return (b.generatedDate || '').localeCompare(a.generatedDate || '');
       }),
     [salarySlips, user.id, user.name, user.email, user.itemId, idsMatch, normalizeText, extractPayrollEmployeeTokens]);
-
-  const currentMonthSalarySlip = React.useMemo(() => {
-    const currentMonth = normalizeText(monthNameIST());
-    const currentYear = String(getNowIST().getFullYear());
-    return mySalaries.find((slip) => normalizeText(slip.month) === currentMonth && String(slip.year) === currentYear);
-  }, [mySalaries, normalizeText]);
 
   const myAttendance = React.useMemo(() => {
     return attendance.filter(a => {
@@ -573,7 +605,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   // Dynamic leave balance calculations
   const leaveStats = React.useMemo(() => {
     // Only count APPROVED leaves for usage
-    const approved = myRequests.filter(r => r.status === LeaveStatus.Approved);
+    const approved = myLeaveRequests.filter(r => r.status === LeaveStatus.Approved);
 
     // Iterate over ALL defined quotas to show them dynamically
     return Object.keys(leaveQuotas).map(type => {
@@ -600,7 +632,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         left: Math.max(0, total - used)
       };
     });
-  }, [myRequests, leaveQuotas]);
+  }, [myLeaveRequests, leaveQuotas]);
 
   const ConcernSection = ({ type }: { type: ConcernType }) => {
     const filteredConcerns = myConcerns.filter(c => c.type === type);
@@ -625,7 +657,9 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 <div className="d-flex justify-content-between align-items-start mb-2">
                   <div className="d-flex align-items-center gap-2">
                     <span className="badge bg-light text-dark border" style={{ fontSize: '10px' }}>Ref: {c.referenceId}</span>
-                    <span className={`badge ${c.status === ConcernStatus.Open ? 'bg-warning text-dark' : 'bg-success text-white'}`} style={{ fontSize: '10px' }}>{c.status}</span>
+                    <span className={`badge ${c.status === ConcernStatus.Open ? 'bg-warning text-dark' : 'bg-success text-white'}`} style={{ fontSize: '10px' }}>
+                      {c.status === ConcernStatus.Open ? 'UnResolved' : c.status}
+                    </span>
                   </div>
                   <span className="small text-muted" style={{ fontSize: '11px' }}>{c.submittedAt}</span>
                 </div>
@@ -761,7 +795,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         <button
           className="btn btn-sm btn-light border text-primary fw-bold"
           style={{ fontSize: '10px' }}
-          onClick={() => handleOpenConcern(ConcernType.Leave, r.id)}
+          onClick={() => handleOpenConcern(r.requestCategory === 'Work From Home' ? ConcernType.WorkFromHome : ConcernType.Leave, r.id)}
         >
           <AlertCircle size={12} className="me-1" /> Raise Concern
         </button>
@@ -775,7 +809,63 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   //     .sort((a, b) => b.id - a.id),
   //   [myRequests]);
 
-  // Independent recent attendance for Dashboard (ignores View Mode)
+  const lowWorkingHoursRecords = React.useMemo(() => {
+    const now = getNowIST();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const previousDayStart = new Date(todayStart);
+    previousDayStart.setDate(previousDayStart.getDate() - 1);
+    const weekStart = new Date(todayStart);
+    const weekOffset = (todayStart.getDay() + 6) % 7; // Monday-first week
+    weekStart.setDate(todayStart.getDate() - weekOffset);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+
+    const customStart = shortHoursStartDate ? parseRecordDate(shortHoursStartDate) : null;
+    const customEnd = shortHoursEndDate ? parseRecordDate(shortHoursEndDate) : null;
+
+    return attendance
+      .filter((record) => {
+        const isMine = idsMatch(record.employeeId, user.id) || normalizeText(record.employeeName) === normalizeText(user.name);
+        if (!isMine) return false;
+
+        const workedMinutes = getWorkDurationMinutes(record.workDuration);
+        const isLowHours = record.status === 'Present' && workedMinutes !== null && workedMinutes > 0 && workedMinutes < 540;
+        if (!isLowHours) return false;
+
+        const recordDate = parseRecordDate(record.date);
+        if (!recordDate) return false;
+        const recordDay = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate(), 0, 0, 0, 0);
+
+        if (shortHoursRange === 'Previous Day') {
+          return recordDay.getTime() === previousDayStart.getTime();
+        }
+        if (shortHoursRange === 'This Week') {
+          return recordDay >= weekStart && recordDay <= todayStart;
+        }
+        if (shortHoursRange === 'This Month') {
+          return recordDay >= monthStart && recordDay <= todayStart;
+        }
+        if (shortHoursRange === 'Custom Date') {
+          if (customStart && customEnd) {
+            const start = new Date(customStart.getFullYear(), customStart.getMonth(), customStart.getDate(), 0, 0, 0, 0);
+            const end = new Date(customEnd.getFullYear(), customEnd.getMonth(), customEnd.getDate(), 0, 0, 0, 0);
+            return recordDay >= start && recordDay <= end;
+          }
+          if (customStart) {
+            const start = new Date(customStart.getFullYear(), customStart.getMonth(), customStart.getDate(), 0, 0, 0, 0);
+            return recordDay >= start;
+          }
+          if (customEnd) {
+            const end = new Date(customEnd.getFullYear(), customEnd.getMonth(), customEnd.getDate(), 0, 0, 0, 0);
+            return recordDay <= end;
+          }
+          return true;
+        }
+
+        return true;
+      })
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [attendance, user, idsMatch, normalizeText, shortHoursRange, shortHoursStartDate, shortHoursEndDate, parseRecordDate, getWorkDurationMinutes]);
+
   const recentAttendanceRecords = React.useMemo(() => {
     return attendance
       .filter(a => idsMatch(a.employeeId, user.id) || normalizeText(a.employeeName) === normalizeText(user.name))
@@ -802,39 +892,60 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <div className="card shadow-sm border-0 h-100 p-4 bg-white">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                 <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-                  <Banknote size={18} color="#2F5596" /> Latest Payroll Summary
+                  <UserCheck size={18} color="#2F5596" /> Low Working Hours (&lt; 9h)
                 </h6>
-                <div className={`badge border ${currentMonthSalarySlip ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'}`}>
-                  {currentMonthSalarySlip ? 'Paid' : 'Not Paid'}
-                </div>
+                <span className="small fw-bold text-danger-emphasis">{lowWorkingHoursRecords.length} record(s)</span>
               </div>
-
-              <div className="d-flex align-items-center gap-3 mb-4 mt-2">
-                <div className="p-3 rounded-circle bg-light d-flex align-items-center justify-content-center" style={{ width: '64px', height: '64px' }}>
-                  <Banknote size={32} color="#2F5596" />
-                </div>
-                <div>
-                  {currentMonthSalarySlip ? (
-                    <>
-                      <div className="small text-muted fw-medium">{currentMonthSalarySlip.month} {currentMonthSalarySlip.year} Slip</div>
-                      <div className="h3 fw-bold mb-0 text-dark">₹{currentMonthSalarySlip.netPay.toLocaleString()}</div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="small text-muted fw-medium">{monthNameIST()} {getNowIST().getFullYear()} Slip</div>
-                      <div className="h5 fw-bold mb-0 text-warning-emphasis">Pending Salary for this month</div>
-                    </>
-                  )}
-                </div>
+              <div className="d-flex flex-wrap gap-2 mb-3">
+                {(['Previous Day', 'This Week', 'This Month', 'Custom Date'] as ShortHoursRange[]).map((range) => (
+                  <button
+                    key={range}
+                    type="button"
+                    className={`btn btn-sm ${shortHoursRange === range ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    onClick={() => setShortHoursRange(range)}
+                  >
+                    {range}
+                  </button>
+                ))}
               </div>
-              <div className="d-grid">
-                <button
-                  className={`btn fw-bold d-flex align-items-center justify-content-center gap-2 py-2 shadow-sm ${currentMonthSalarySlip ? 'btn-primary' : 'btn-outline-secondary'}`}
-                  onClick={() => currentMonthSalarySlip && downloadSalarySlipPdf(currentMonthSalarySlip)}
-                  disabled={!currentMonthSalarySlip}
-                >
-                  <Download size={18} /> {currentMonthSalarySlip ? 'Download Monthly Slip' : 'Salary Pending'}
-                </button>
+              {shortHoursRange === 'Custom Date' && (
+                <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+                  <label className="small text-muted fw-bold mb-0">Start</label>
+                  <input
+                    type="date"
+                    className="form-control form-control-sm"
+                    style={{ width: '140px' }}
+                    value={shortHoursStartDate}
+                    onChange={(e) => setShortHoursStartDate(e.target.value)}
+                  />
+                  <label className="small text-muted fw-bold mb-0">End</label>
+                  <input
+                    type="date"
+                    className="form-control form-control-sm"
+                    style={{ width: '140px' }}
+                    value={shortHoursEndDate}
+                    onChange={(e) => setShortHoursEndDate(e.target.value)}
+                  />
+                </div>
+              )}
+              <div
+                className="d-flex flex-column gap-3 mt-2 pe-1"
+                style={{ maxHeight: lowWorkingHoursRecords.length > 5 ? '320px' : 'none', overflowY: lowWorkingHoursRecords.length > 5 ? 'auto' : 'visible' }}
+              >
+                {lowWorkingHoursRecords.map((rec, i) => (
+                  <div key={`${rec.employeeId}-${rec.date}-${i}`} className="d-flex align-items-center justify-content-between pb-2 border-bottom border-light last-border-none">
+                    <div className="d-flex flex-column">
+                      <div className="small fw-bold text-dark">{formatDateForDisplayIST(rec.date, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                      <div className="small text-muted">{rec.clockIn || '--:--'} - {rec.clockOut || '--:--'}</div>
+                    </div>
+                    <span className="badge bg-danger-subtle text-danger border-0" style={{ fontSize: '10px' }}>
+                      {rec.workDuration || '--:--'} Low
+                    </span>
+                  </div>
+                ))}
+                {lowWorkingHoursRecords.length === 0 && (
+                  <div className="text-center py-4 text-muted small">No low working hour records found for this range.</div>
+                )}
               </div>
             </div>
           </div>
@@ -1080,14 +1191,14 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <h5 className="mb-0 fw-bold" style={{ color: '#2F5596' }}>Leave Request History</h5>
               <p className="small text-muted mb-0">Manage your leave applications</p>
             </div>
-            <button className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm" onClick={onSubmitLeave}>
+            <button className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm" onClick={() => onSubmitLeave('leave')}>
               <Plus size={18} /> New Request
             </button>
           </div>
 
           <div className="card shadow-sm border-0 overflow-hidden mb-4">
             <CommonTable
-              data={myRequests}
+              data={myLeaveRequests}
               columns={leaveColumns}
               getRowId={(row) => row.id}
               globalSearchPlaceholder="Search leave history"
@@ -1139,6 +1250,31 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             </div>
           )} */}
           <ConcernSection type={ConcernType.Leave} />
+        </>
+      )}
+
+      {activeTab === 'work-from-home' && (
+        <>
+          <div className="card shadow-sm border-0 mb-4 py-3 px-3 d-flex flex-row justify-content-between align-items-center bg-white">
+            <div>
+              <h5 className="mb-0 fw-bold" style={{ color: '#2F5596' }}>Work From Home Requests</h5>
+              <p className="small text-muted mb-0">Manage your work from home applications</p>
+            </div>
+            <button className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm" onClick={() => onSubmitLeave('workFromHome')}>
+              <Plus size={18} /> New Request
+            </button>
+          </div>
+
+          <div className="card shadow-sm border-0 overflow-hidden mb-4">
+            <CommonTable
+              data={myWorkFromHomeRequests}
+              columns={leaveColumns}
+              getRowId={(row) => row.id}
+              globalSearchPlaceholder="Search work from home history"
+            />
+          </div>
+
+          <ConcernSection type={ConcernType.WorkFromHome} />
         </>
       )}
 
@@ -1225,7 +1361,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                   <div className="fw-semibold">Ref: {selectedConcern.referenceId}</div>
                 </div>
                 <span className={`badge ${selectedConcern.status === ConcernStatus.Open ? 'bg-warning text-dark' : 'bg-success text-white'}`}>
-                  {selectedConcern.status.toUpperCase()}
+                  {selectedConcern.status === ConcernStatus.Open ? 'UNRESOLVED' : selectedConcern.status.toUpperCase()}
                 </span>
               </div>
               <div className="small text-muted mt-2">Submitted: {selectedConcern.submittedAt}</div>
