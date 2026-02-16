@@ -199,6 +199,89 @@ header.navbar {
   padding-left: 2.1rem;
 }
 
+.event-modal-form {
+  padding-top: 0.2rem;
+}
+
+.event-modal-field {
+  margin-bottom: 0.95rem;
+}
+
+.event-modal-field--last {
+  margin-bottom: 0;
+}
+
+.event-modal-form .form-label {
+  margin-bottom: 0.35rem;
+  color: #5b687d;
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.event-modal-form .form-control,
+.event-modal-form .form-select {
+  height: 40px;
+}
+
+.event-modal-form .smartsearch-box {
+  max-width: 100%;
+}
+
+.event-employee-suggestions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.3rem);
+  z-index: 50;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--hr-border);
+  border-radius: 0.6rem;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(16, 35, 64, 0.14);
+}
+
+.event-employee-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.52rem 0.65rem;
+  cursor: pointer;
+  border-bottom: 1px solid #edf2f8;
+}
+
+.event-employee-suggestion-item:last-child {
+  border-bottom: 0;
+}
+
+.event-employee-suggestion-item:hover {
+  background-color: #f7faff;
+}
+
+.event-employee-department {
+  font-size: 0.68rem;
+}
+
+.event-delete-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e9d8d8;
+  border-radius: 999px;
+  background: #fff7f7;
+  color: #c24141;
+  transition: all 0.15s ease;
+}
+
+.event-delete-btn:hover {
+  background: #feecec;
+  border-color: #e2b8b8;
+  color: #991b1b;
+}
+
 .avatar-filter img,
 .avatar-selection img {
   transition: transform 0.2s ease, box-shadow 0.2s ease;

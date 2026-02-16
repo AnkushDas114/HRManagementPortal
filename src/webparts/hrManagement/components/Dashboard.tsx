@@ -5,7 +5,7 @@ import { LeaveStatus, AttendanceStatus } from '../types';
 import StatCard from '../ui/StatCard';
 import { generateLeaveSummaryReport } from '../services/geminiService';
 import Modal from '../ui/Modal';
-import { Sparkle, Users, CheckCircle, Clock, XCircle, UserCheck, Calendar as CalendarIcon, Flag, PartyPopper, Cake, MessageSquare, Plus, Calendar } from 'lucide-react';
+import { Sparkle, Users, CheckCircle, Clock, XCircle, UserCheck, Calendar as CalendarIcon, Flag, PartyPopper, Cake, MessageSquare, Plus, Calendar, Trash2 } from 'lucide-react';
 import { formatDateForDisplayIST, monthNameIST, todayIST, getNowIST } from '../utils/dateTime';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 
@@ -21,13 +21,14 @@ interface DashboardProps {
   teamEvents: TeamEvent[];
   employees: Employee[];
   onAddTeamEvent: (event: Omit<TeamEvent, 'id'>, employeeId?: string) => void;
+  onDeleteTeamEvent: (eventId: number) => void;
   onPendingClick?: () => void;
   onOnLeaveTodayClick?: () => void;
   onConcernsClick?: () => void;
 }
 
 
-const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, concernsCount, holidays, teamEvents, employees, onAddTeamEvent, onPendingClick, onOnLeaveTodayClick, onConcernsClick }) => {
+const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, concernsCount, holidays, teamEvents, employees, onAddTeamEvent, onDeleteTeamEvent, onPendingClick, onOnLeaveTodayClick, onConcernsClick }) => {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = React.useState(false);
   const [summary, setSummary] = React.useState('');
@@ -443,8 +444,8 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
               </button>
             </div>
             <div className="d-flex flex-column gap-2 mt-1">
-              {formattedEvents.map((item, idx) => (
-                <div key={idx} className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light border border-transparent">
+              {formattedEvents.map((item) => (
+                <div key={item.id} className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light border border-transparent">
                   <div className="d-flex align-items-center gap-3">
                     <div className="p-0 rounded-circle bg-light d-flex align-items-center justify-content-center overflow-hidden" style={{ width: '32px', height: '32px' }}>
                       <img src={(item as any).avatar} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -459,7 +460,18 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                       </div>
                     </div>
                   </div>
-                  <div className="small badge bg-light text-dark border-0">{item.dateLabel}</div>
+                  <div className="d-flex align-items-center gap-2">
+                    <div className="small badge bg-light text-dark border-0">{item.dateLabel}</div>
+                    <button
+                      type="button"
+                      className="event-delete-btn"
+                      onClick={() => onDeleteTeamEvent(item.id)}
+                      aria-label={`Delete ${item.name}`}
+                      title="Delete event"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
               {formattedEvents.length === 0 && (
@@ -636,14 +648,14 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         title="Add New Team Event"
         footer={
           <>
-            <button className="btn btn-default" onClick={() => setIsEventModalOpen(false)}>Cancel</button>
+            <button className="btn btn-outline-secondary" onClick={() => setIsEventModalOpen(false)}>Cancel</button>
             <button type="submit" form="add-event-form" className="btn btn-primary fw-bold px-4">Add Event</button>
           </>
         }
       >
-        <form id="add-event-form" onSubmit={handleAddEventSubmit}>
-          <div className="mb-3">
-            <label className="form-label small text-muted fw-bold">Event Title</label>
+        <form id="add-event-form" className="event-modal-form" onSubmit={handleAddEventSubmit}>
+          <div className="event-modal-field">
+            <label className="form-label fw-bold">Event Title</label>
             <input
               type="text"
               className="form-control"
@@ -653,15 +665,13 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
               placeholder="e.g. Birthday Celebration"
             />
           </div>
-          <div className="mb-3 position-relative">
-            <label className="form-label small text-muted fw-bold">Employee</label>
-            <div className="input-group">
-              <span className="input-group-text bg-white border-end-0">
-                <Users size={14} className="text-muted" />
-              </span>
+          <div className="event-modal-field position-relative">
+            <label className="form-label fw-bold">Employee</label>
+            <div className="smartsearch-box">
+              <Users size={14} className="smartsearch-icon" />
               <input
                 type="text"
-                className="form-control border-start-0"
+                className="form-control"
                 value={employeeSearchTerm}
                 onChange={e => {
                   setEmployeeSearchTerm(e.target.value);
@@ -674,25 +684,25 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
 
             {/* People Picker Suggestions */}
             {showSuggestions && filteredEmployees.length > 0 && (
-              <div className="position-absolute w-100 mt-1 shadow-sm border rounded bg-white" style={{ zIndex: 1000 }}>
+              <div className="event-employee-suggestions">
                 {filteredEmployees.map(emp => (
                   <div
                     key={emp.id}
-                    className="p-2 d-flex align-items-center gap-2 hover-bg-light cursor-pointer border-bottom last-border-0"
+                    className="event-employee-suggestion-item"
                     onClick={() => handleSelectEmployee(emp)}
                   >
                     <img src={emp.avatar} alt={emp.name} className="rounded-circle" width="24" height="24" />
                     <div className="d-flex flex-column">
                       <span className="small fw-bold">{emp.name}</span>
-                      <span className="text-muted" style={{ fontSize: '9px' }}>{emp.department}</span>
+                      <span className="text-muted event-employee-department">{emp.department}</span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
-          <div className="mb-3">
-            <label className="form-label small text-muted fw-bold">Event Type</label>
+          <div className="event-modal-field">
+            <label className="form-label fw-bold">Event Type</label>
             <select
               className="form-select"
               value={eventFormData.type}
@@ -705,8 +715,8 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
               <option value="Other">Other</option>
             </select>
           </div>
-          <div className="mb-3">
-            <label className="form-label small text-muted fw-bold">Date</label>
+          <div className="event-modal-field event-modal-field--last">
+            <label className="form-label fw-bold">Date</label>
             <input
               type="date"
               className="form-control"

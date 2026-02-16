@@ -18,7 +18,7 @@ import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import type { LeaveRequest, AttendanceRecord, Employee, SalarySlip, Policy, Concern, Holiday, TeamEvent } from '../types';
 import { LeaveStatus, UserRole, ConcernStatus, ConcernType } from '../types';
 import { getAllLeaveRequests, createLeaveRequest, updateLeaveRequestStatus, deleteLeaveRequest } from '../services/LeaveRequestsService';
-import { getAllEvents, createEvent } from '../services/EventsService';
+import { getAllEvents, createEvent, deleteEvent } from '../services/EventsService';
 import { getAllConcerns, createConcern, updateConcernReply } from '../services/ConcernsService';
 import {
   getAllEmployees,
@@ -243,6 +243,17 @@ const App: React.FC<AppProps> = ({ sp }) => {
     } catch (error) {
       console.error("Error adding event:", error);
       alert("Failed to add event.");
+    }
+  };
+
+  const handleDeleteTeamEvent = async (eventId: number) => {
+    if (!window.confirm('Delete this team event?')) return;
+    try {
+      await deleteEvent(sp, eventId);
+      await loadEvents();
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      alert("Failed to delete event.");
     }
   };
 
@@ -1518,7 +1529,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={() => handleOpenLeaveModal()} onTabChange={setActiveTab} activeTab={activeTab} />
               ) : (
                 <>
-                  {activeTab === 'overview' && <Dashboard requests={leaveRequests} attendanceRecords={attendanceRecords} concernsCount={openConcernsCount} holidays={holidays} teamEvents={teamEvents} employees={directoryEmployees} onAddTeamEvent={handleAddTeamEvent} onPendingClick={() => setActiveTab('leaves-request')} onOnLeaveTodayClick={() => setActiveTab('onLeaveToday')} onConcernsClick={() => setActiveTab('concerns-admin')} />}
+                  {activeTab === 'overview' && <Dashboard requests={leaveRequests} attendanceRecords={attendanceRecords} concernsCount={openConcernsCount} holidays={holidays} teamEvents={teamEvents} employees={directoryEmployees} onAddTeamEvent={handleAddTeamEvent} onDeleteTeamEvent={handleDeleteTeamEvent} onPendingClick={() => setActiveTab('leaves-request')} onOnLeaveTodayClick={() => setActiveTab('onLeaveToday')} onConcernsClick={() => setActiveTab('concerns-admin')} />}
                   {activeTab === 'leaves-request' && (
                     isLoadingLeaveRequests ? (
                       <div className="d-flex justify-content-center p-5">
