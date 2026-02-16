@@ -181,6 +181,24 @@ header.navbar {
   background-color: #f9fbfe;
 }
 
+.smartsearch-box {
+  position: relative;
+  max-width: 400px;
+}
+
+.smartsearch-box .smartsearch-icon {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  transform: translateY(-50%);
+  color: var(--hr-muted);
+  pointer-events: none;
+}
+
+.smartsearch-box .form-control {
+  padding-left: 2.1rem;
+}
+
 .avatar-filter img,
 .avatar-selection img {
   transition: transform 0.2s ease, box-shadow 0.2s ease;

@@ -386,11 +386,11 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
             </div>
             {isSmartSearchOpen && (
               <div className="ps-4 pb-3 animate-in fade-in">
-                <div className="input-group input-group-sm" style={{ maxWidth: '400px' }}>
-                  <span className="input-group-text bg-white border-end-0 text-muted"><Search size={14} /></span>
+                <div className="smartsearch-box">
+                  <Search size={14} className="smartsearch-icon" />
                   <input
                     type="text"
-                    className="form-control border-start-0 ps-1"
+                    className="form-control form-control-sm shadow-xs"
                     placeholder="Search by name, ID or role..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}

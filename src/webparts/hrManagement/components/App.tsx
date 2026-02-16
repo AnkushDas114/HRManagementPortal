@@ -1634,7 +1634,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       </div>
                       <div className="col-md-4">
                         <div className="card border-0 shadow-sm">
-                          <div className="card-header text-primary bg-white py-3"><h5 className="mb-0 fw-bold">Leave Quotas</h5></div>
+                          <div className="card-header text-primary bg-white py-3"><h5 className="mb-0 fw-bold">Unofficial Leave Quotas</h5></div>
                           {isLoadingQuotas && (
                             <div className="text-center py-4">
                               <div className="spinner-border spinner-border-sm text-primary" role="status">
@@ -2271,7 +2271,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             </div>
           </div>
         </form>
-      </Modal>
+      </Modal >
 
       <Modal isOpen={isBalanceModalOpen} onClose={() => setIsBalanceModalOpen(false)} title="Balance Summary">
         {balanceEmployee && (
