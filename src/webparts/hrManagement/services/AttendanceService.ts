@@ -67,3 +67,29 @@ export async function saveAttendanceRecords(sp: SPFI, records: AttendanceRecord[
         }
     }
 }
+
+export async function updateAttendanceRecord(sp: SPFI, record: AttendanceRecord): Promise<void> {
+    if (!record.id) {
+        throw new Error("Attendance record ID is required for update.");
+    }
+
+    try {
+        await sp.web.lists
+            .getByTitle(LIST_NAME)
+            .items.getById(record.id)
+            .update({
+                Title: record.employeeName || 'Unknown',
+                EmployeeID: record.employeeId,
+                Department: record.department || '',
+                Date: record.date,
+                InTime: record.clockIn || '',
+                OutTime: record.clockOut || '',
+                WorkDuration: record.workDuration || '',
+                Status: record.status,
+                Remarks: record.remarks || ''
+            });
+    } catch (error) {
+        console.error("Error updating attendance record:", error);
+        throw error;
+    }
+}

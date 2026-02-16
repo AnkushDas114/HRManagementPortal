@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { LeaveStatus } from '../types';
 import type { Employee, LeaveRequest, AttendanceRecord, AttendanceStatus } from '../types';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
+import Modal from '../ui/Modal';
 import { Edit3, Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Search, Upload, Calendar, Download } from 'lucide-react';
 import { formatDateIST, getNowIST, todayIST, formatDateForDisplayIST } from '../utils/dateTime';
 
@@ -12,7 +13,7 @@ interface AttendanceTrackerProps {
   leaveRequests: LeaveRequest[];
   attendanceRecords: AttendanceRecord[];
   onImport: (records: AttendanceRecord[]) => Promise<void> | void;
-  onEditEmployeeLeave?: (employee: Employee) => void;
+  onUpdateAttendanceRecord?: (record: AttendanceRecord) => Promise<void> | void;
   onViewBalance?: (employee: Employee) => void;
   isImporting?: boolean;
   selectedUserId?: string | null;
@@ -24,7 +25,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   leaveRequests,
   attendanceRecords,
   onImport,
-  onEditEmployeeLeave,
+  onUpdateAttendanceRecord,
   onViewBalance,
   isImporting: isImportingProp,
   selectedUserId,
@@ -38,6 +39,9 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   const [endDate, setEndDate] = React.useState('');
   const [selectedMemberId, setSelectedMemberId] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [isSavingEdit, setIsSavingEdit] = React.useState(false);
+  const [editingAttendance, setEditingAttendance] = React.useState<AttendanceRecord | null>(null);
 
   const today = getNowIST();
   const todayStr = todayIST();
@@ -102,7 +106,9 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
     const used = leaveRequests
       .filter((request) => {
-        if (request.status !== LeaveStatus.Approved && request.status !== LeaveStatus.Pending) return false;
+        if (request.status !== LeaveStatus.Approved) return false;
+        const isWorkFromHomeRequest = request.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(request.leaveType || ''));
+        if (isWorkFromHomeRequest) return false;
         const requestEmployee = request.employee;
         if (!requestEmployee) return false;
 
@@ -125,6 +131,60 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     const left = Math.max(total - used, 0);
     return { used, total, left };
   }, [configuredTotalLeaves, employeeIdsMatch, leaveRequests, normalizeText]);
+
+  const getMonthlyLeaveUsage = React.useCallback((employee: Employee | undefined, record: AttendanceRecord): { taken: number; totalDaysInMonth: number } => {
+    const targetYear = referenceDate.getFullYear();
+    const targetMonth = referenceDate.getMonth();
+    const totalDaysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    const monthStart = new Date(targetYear, targetMonth, 1, 12, 0, 0);
+    const monthEnd = new Date(targetYear, targetMonth, totalDaysInMonth, 12, 0, 0);
+    const oneDayMs = 1000 * 60 * 60 * 24;
+
+    const recordName = normalizeText(employee?.name || record.employeeName);
+    const recordEmail = normalizeText(employee?.email);
+
+    let taken = 0;
+
+    leaveRequests.forEach((request) => {
+      if (request.status !== LeaveStatus.Approved) return;
+      const isWorkFromHomeRequest = request.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(request.leaveType || ''));
+      if (isWorkFromHomeRequest) return;
+      const requestEmployee = request.employee;
+      if (!requestEmployee) return;
+
+      let isSameEmployee = false;
+      if (employeeIdsMatch(requestEmployee.id, record.employeeId)) isSameEmployee = true;
+      if (!isSameEmployee && employee && employeeIdsMatch(requestEmployee.id, employee.id)) isSameEmployee = true;
+      if (!isSameEmployee) {
+        const requestName = normalizeText(requestEmployee.name);
+        const requestEmail = normalizeText(requestEmployee.email);
+        if (recordEmail && requestEmail && recordEmail === requestEmail) isSameEmployee = true;
+        if (recordName && requestName && recordName === requestName) isSameEmployee = true;
+      }
+      if (!isSameEmployee) return;
+
+      const reqStart = parseRecordDate(request.startDate);
+      const reqEnd = parseRecordDate(request.endDate || request.startDate);
+      if (!reqStart || !reqEnd) return;
+
+      // Half-day requests should only contribute 0.5 for the matched day in the target month.
+      if (request.isHalfDay) {
+        if (reqStart.getFullYear() === targetYear && reqStart.getMonth() === targetMonth) {
+          taken += 0.5;
+        }
+        return;
+      }
+
+      const overlapStart = reqStart > monthStart ? reqStart : monthStart;
+      const overlapEnd = reqEnd < monthEnd ? reqEnd : monthEnd;
+      if (overlapEnd < overlapStart) return;
+
+      const overlapDays = Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / oneDayMs) + 1;
+      if (overlapDays > 0) taken += overlapDays;
+    });
+
+    return { taken, totalDaysInMonth };
+  }, [employeeIdsMatch, leaveRequests, normalizeText, parseRecordDate, referenceDate]);
 
   React.useEffect(() => {
     if (selectedUserId) {
@@ -654,6 +714,37 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
   const isImporting = Boolean(isImportingLocal || isImportingProp);
 
+  const handleOpenEditAttendance = React.useCallback((row: { record: AttendanceRecord; employee: Employee }) => {
+    const { record } = row;
+    setEditingAttendance({
+      ...record,
+      clockIn: record.clockIn || '',
+      clockOut: record.clockOut || '',
+      workDuration: record.workDuration || '',
+      remarks: record.remarks || '',
+      department: record.department || ''
+    });
+    setIsEditModalOpen(true);
+  }, []);
+
+  const handleSaveEditedAttendance = React.useCallback(async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
+    if (!editingAttendance || !editingAttendance.id) return;
+    if (!onUpdateAttendanceRecord) return;
+
+    setIsSavingEdit(true);
+    try {
+      await Promise.resolve(onUpdateAttendanceRecord(editingAttendance));
+      setIsEditModalOpen(false);
+      setEditingAttendance(null);
+    } catch (error) {
+      console.error('Failed to update attendance record:', error);
+      alert('Failed to update attendance record.');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }, [editingAttendance, onUpdateAttendanceRecord]);
+
   const handleExportFilteredAttendance = (): void => {
     if (tableRows.length === 0) {
       alert('No attendance data available to export for current filters.');
@@ -663,6 +754,8 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     const exportRows = tableRows.map(({ record, employee }) => {
       const summary = getLeaveSummary(employee, record);
       const leaveUsedTotal = summary.total ? `${formatLeaveNumber(summary.used)}/${formatLeaveNumber(summary.total)} (${formatLeaveNumber(summary.left)} left)` : '--';
+      const monthlyUsage = getMonthlyLeaveUsage(employee, record);
+      const monthlyLeaveTaken = `${formatLeaveNumber(monthlyUsage.taken)}/${monthlyUsage.totalDaysInMonth}`;
 
       return {
         Employee: employee?.name || record.employeeName || 'Unknown',
@@ -673,7 +766,8 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         'Clock Out': record.clockOut || '--:--',
         'Total Time': record.workDuration || '--:--',
         Status: record.status,
-        'Total Leave Left': leaveUsedTotal
+        'Total Leave Left': leaveUsedTotal,
+        'Leaves This Month': monthlyLeaveTaken
       };
     });
 
@@ -687,7 +781,8 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       { wch: 10 }, // Clock Out
       { wch: 12 }, // Total Time
       { wch: 12 }, // Status
-      { wch: 20 }  // Total Leave Left
+      { wch: 20 }, // Total Leave Left
+      { wch: 18 }  // Leaves This Month
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -779,22 +874,34 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       }
     },
     {
+      key: 'leavesThisMonth',
+      header: 'Leaves This Month',
+      render: ({ employee, record }) => {
+        const monthlyUsage = getMonthlyLeaveUsage(employee, record);
+        return (
+          <span className="fw-bold" style={{ color: '#2F5596' }}>
+            {formatLeaveNumber(monthlyUsage.taken)}/{monthlyUsage.totalDaysInMonth}
+          </span>
+        );
+      }
+    },
+    {
       key: 'actions',
       header: 'Actions',
       searchable: false,
       filterable: false,
       align: 'end',
-      render: ({ employee }) => (
+      render: (row) => (
         <button
           className="btn btn-sm btn-light border d-inline-flex align-items-center gap-1 fw-bold px-3 shadow-xs"
           style={{ fontSize: '11px', borderRadius: '4px' }}
-          onClick={() => onEditEmployeeLeave?.(employee)}
+          onClick={() => handleOpenEditAttendance(row)}
         >
           <Edit3 size={14} /> Edit
         </button>
       )
     }
-  ]), [formatLeaveNumber, getLeaveSummary, onViewBalance, onEditEmployeeLeave]);
+  ]), [formatLeaveNumber, getLeaveSummary, getMonthlyLeaveUsage, onViewBalance, handleOpenEditAttendance]);
 
   return (
     <div className="card shadow-sm border-0 bg-white">
@@ -984,6 +1091,126 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         getRowId={(row) => `${row.record.employeeId}-${row.record.date}`}
         globalSearchPlaceholder="Search attendance"
       />
+
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          if (isSavingEdit) return;
+          setIsEditModalOpen(false);
+          setEditingAttendance(null);
+        }}
+        title="Edit Attendance"
+        footer={
+          <>
+            <button
+              className="btn btn-link text-decoration-none"
+              onClick={() => {
+                if (isSavingEdit) return;
+                setIsEditModalOpen(false);
+                setEditingAttendance(null);
+              }}
+              disabled={isSavingEdit}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="edit-attendance-form"
+              className="btn btn-primary px-4"
+              disabled={isSavingEdit || !editingAttendance?.id}
+            >
+              {isSavingEdit ? 'Updating...' : 'Update Attendance'}
+            </button>
+          </>
+        }
+      >
+        {editingAttendance && (
+          <form id="edit-attendance-form" onSubmit={handleSaveEditedAttendance}>
+            <div className="row g-3">
+              <div className="col-md-6">
+                <label className="form-label fw-bold">Employee</label>
+                <input type="text" className="form-control" value={editingAttendance.employeeName || ''} readOnly />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label fw-bold">Employee ID</label>
+                <input type="text" className="form-control" value={editingAttendance.employeeId || ''} readOnly />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label fw-bold">Department</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={editingAttendance.department || ''}
+                  onChange={(event) => setEditingAttendance({ ...editingAttendance, department: event.target.value })}
+                />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label fw-bold">Date</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={editingAttendance.date || ''}
+                  onChange={(event) => setEditingAttendance({ ...editingAttendance, date: event.target.value })}
+                  required
+                />
+              </div>
+              <div className="col-md-4">
+                <label className="form-label fw-bold">Clock In</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="HH:mm"
+                  value={editingAttendance.clockIn || ''}
+                  onChange={(event) => setEditingAttendance({ ...editingAttendance, clockIn: event.target.value })}
+                />
+              </div>
+              <div className="col-md-4">
+                <label className="form-label fw-bold">Clock Out</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="HH:mm"
+                  value={editingAttendance.clockOut || ''}
+                  onChange={(event) => setEditingAttendance({ ...editingAttendance, clockOut: event.target.value })}
+                />
+              </div>
+              <div className="col-md-4">
+                <label className="form-label fw-bold">Work Duration</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="H:mm"
+                  value={editingAttendance.workDuration || ''}
+                  onChange={(event) => setEditingAttendance({ ...editingAttendance, workDuration: event.target.value })}
+                />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label fw-bold">Status</label>
+                <select
+                  className="form-select"
+                  value={editingAttendance.status}
+                  onChange={(event) => setEditingAttendance({ ...editingAttendance, status: event.target.value as AttendanceStatus })}
+                >
+                  <option value="Present">Present</option>
+                  <option value="Absent">Absent</option>
+                  <option value="On Leave">On Leave</option>
+                  <option value="Weekend">Weekend</option>
+                  <option value="Upcoming">Upcoming</option>
+                </select>
+              </div>
+              <div className="col-12">
+                <label className="form-label fw-bold">Remarks</label>
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  value={editingAttendance.remarks || ''}
+                  onChange={(event) => setEditingAttendance({ ...editingAttendance, remarks: event.target.value })}
+                />
+              </div>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 };

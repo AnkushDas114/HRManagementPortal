@@ -30,7 +30,7 @@ import {
   getProfileGalleryImages,
   type ProfileGalleryImage
 } from '../services/EmployeeService';
-import { getAllAttendanceRecords, saveAttendanceRecords } from '../services/AttendanceService';
+import { getAllAttendanceRecords, saveAttendanceRecords, updateAttendanceRecord } from '../services/AttendanceService';
 import { getAllSalarySlips, createSalarySlip } from '../services/SalarySlipService';
 import { MOCK_LEAVE_REQUESTS, MOCK_ATTENDANCE_RECORDS, MOCK_EMPLOYEES } from '../constants';
 import { Plus, Trash2, Edit, Minus, X } from 'lucide-react';
@@ -532,6 +532,17 @@ const App: React.FC<AppProps> = ({ sp }) => {
       console.error(err);
     } finally {
       setIsImportingAttendance(false);
+    }
+  };
+
+  const handleUpdateAttendanceRecord = async (record: AttendanceRecord) => {
+    if (!sp) return;
+    try {
+      await updateAttendanceRecord(sp, record);
+      await loadAttendance();
+    } catch (error) {
+      console.error("Error updating attendance record:", error);
+      throw error;
     }
   };
 
@@ -1583,6 +1594,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
   }, [loadSalarySlips]);
 
   const openConcernsCount = useMemo(() => concerns.filter(c => c.status === ConcernStatus.Open).length, [concerns]);
+  const leaveOnlyRequests = useMemo(
+    () => leaveRequests.filter((request) => !(request.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(request.leaveType || '')))),
+    [leaveRequests]
+  );
   const workFromHomeRequests = useMemo(
     () => leaveRequests.filter((request) => request.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(request.leaveType || ''))),
     [leaveRequests]
@@ -1682,7 +1697,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                         </div>
                       </div>
                     ) : (
-                      <LeaveRequestsTable requests={leaveRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} />
+                      <LeaveRequestsTable requests={leaveOnlyRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} />
                     )
                   )}
                   {activeTab === 'wfh-request' && (
@@ -1716,7 +1731,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       />
                     </div>
                   )}
-                  {activeTab === 'attendance' && <AttendanceTracker employees={directoryEmployees} leaveRequests={leaveRequests} attendanceRecords={attendanceRecords} onImport={handleImportAttendance} isImporting={isImportingAttendance} onEditEmployeeLeave={handleOpenLeaveModal} onViewBalance={handleViewBalance} leaveQuotas={leaveQuotas} />}
+                  {activeTab === 'attendance' && <AttendanceTracker employees={directoryEmployees} leaveRequests={leaveRequests} attendanceRecords={attendanceRecords} onImport={handleImportAttendance} isImporting={isImportingAttendance} onViewBalance={handleViewBalance} leaveQuotas={leaveQuotas} onUpdateAttendanceRecord={handleUpdateAttendanceRecord} />}
                   {activeTab === 'upload-salary-slip' && (
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white py-3">
