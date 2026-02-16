@@ -30,7 +30,7 @@ const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, activeTab, onTabCha
         </div>
 
         <div className="d-flex align-items-center gap-4">
-          <div className="btn-group btn-group-sm" role="group">
+          <div className="btn-group btn-group-sm gap-2" role="group">
             <button
               type="button"
               className={`btn ${role === UserRole.Employee ? 'btn-primary' : 'btn-outline-primary'}`}

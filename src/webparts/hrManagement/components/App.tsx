@@ -1615,7 +1615,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         onUserChange={setSelectedUserId}
       />
 
-      <main className="container-fluid hr-shell-container hr-main-content py-4">
+      <main className="container-fluid hr-main-content py-4">
         {activeTab === 'profile' ? (
           <Profile
             user={currentUser || hrUser}
