@@ -71,6 +71,11 @@ export interface Employee {
   others?: number;
   pf?: number;
   total?: number;
+  yearlyCTC?: number;
+  employeeESI?: number;
+  employerESI?: number;
+  salaryInsurance?: number;
+  salaryBonus?: number;
 }
 
 export interface LeaveRequest {

@@ -11,8 +11,6 @@ import {
 import { formatDateForDisplayIST, getNowIST, monthNameIST, formatDateIST } from '../utils/dateTime';
 import { numberToWords } from '../utils/numberToWords';
 
-type ShortHoursRange = 'Previous Day' | 'This Week' | 'This Month' | 'Custom Date';
-
 interface EmployeePortalProps {
   user: Employee;
   requests: LeaveRequest[];
@@ -38,10 +36,6 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   const [isBalanceModalOpen, setIsBalanceModalOpen] = React.useState(false);
   const [selectedApprovalNote, setSelectedApprovalNote] = React.useState<LeaveRequest | null>(null);
   const [selectedConcern, setSelectedConcern] = React.useState<Concern | null>(null);
-  const [shortHoursRange, setShortHoursRange] = React.useState<ShortHoursRange>('This Week');
-  const [shortHoursStartDate, setShortHoursStartDate] = React.useState('');
-  const [shortHoursEndDate, setShortHoursEndDate] = React.useState('');
-
   // Attendance Navigation State
   const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
   const [referenceDate, setReferenceDate] = React.useState<Date>(getNowIST());
@@ -812,15 +806,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   const lowWorkingHoursRecords = React.useMemo(() => {
     const now = getNowIST();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const previousDayStart = new Date(todayStart);
-    previousDayStart.setDate(previousDayStart.getDate() - 1);
-    const weekStart = new Date(todayStart);
-    const weekOffset = (todayStart.getDay() + 6) % 7; // Monday-first week
-    weekStart.setDate(todayStart.getDate() - weekOffset);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-
-    const customStart = shortHoursStartDate ? parseRecordDate(shortHoursStartDate) : null;
-    const customEnd = shortHoursEndDate ? parseRecordDate(shortHoursEndDate) : null;
 
     return attendance
       .filter((record) => {
@@ -835,36 +821,10 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         if (!recordDate) return false;
         const recordDay = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate(), 0, 0, 0, 0);
 
-        if (shortHoursRange === 'Previous Day') {
-          return recordDay.getTime() === previousDayStart.getTime();
-        }
-        if (shortHoursRange === 'This Week') {
-          return recordDay >= weekStart && recordDay <= todayStart;
-        }
-        if (shortHoursRange === 'This Month') {
-          return recordDay >= monthStart && recordDay <= todayStart;
-        }
-        if (shortHoursRange === 'Custom Date') {
-          if (customStart && customEnd) {
-            const start = new Date(customStart.getFullYear(), customStart.getMonth(), customStart.getDate(), 0, 0, 0, 0);
-            const end = new Date(customEnd.getFullYear(), customEnd.getMonth(), customEnd.getDate(), 0, 0, 0, 0);
-            return recordDay >= start && recordDay <= end;
-          }
-          if (customStart) {
-            const start = new Date(customStart.getFullYear(), customStart.getMonth(), customStart.getDate(), 0, 0, 0, 0);
-            return recordDay >= start;
-          }
-          if (customEnd) {
-            const end = new Date(customEnd.getFullYear(), customEnd.getMonth(), customEnd.getDate(), 0, 0, 0, 0);
-            return recordDay <= end;
-          }
-          return true;
-        }
-
-        return true;
+        return recordDay >= monthStart && recordDay <= todayStart;
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [attendance, user, idsMatch, normalizeText, shortHoursRange, shortHoursStartDate, shortHoursEndDate, parseRecordDate, getWorkDurationMinutes]);
+  }, [attendance, user, idsMatch, normalizeText, parseRecordDate, getWorkDurationMinutes]);
 
   const recentAttendanceRecords = React.useMemo(() => {
     return attendance
@@ -896,38 +856,6 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 </h6>
                 <span className="small fw-bold text-danger-emphasis">{lowWorkingHoursRecords.length} record(s)</span>
               </div>
-              <div className="d-flex flex-wrap gap-2 mb-3">
-                {(['Previous Day', 'This Week', 'This Month', 'Custom Date'] as ShortHoursRange[]).map((range) => (
-                  <button
-                    key={range}
-                    type="button"
-                    className={`btn btn-sm ${shortHoursRange === range ? 'btn-primary' : 'btn-outline-secondary'}`}
-                    onClick={() => setShortHoursRange(range)}
-                  >
-                    {range}
-                  </button>
-                ))}
-              </div>
-              {shortHoursRange === 'Custom Date' && (
-                <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
-                  <label className="small text-muted fw-bold mb-0">Start</label>
-                  <input
-                    type="date"
-                    className="form-control form-control-sm"
-                    style={{ width: '140px' }}
-                    value={shortHoursStartDate}
-                    onChange={(e) => setShortHoursStartDate(e.target.value)}
-                  />
-                  <label className="small text-muted fw-bold mb-0">End</label>
-                  <input
-                    type="date"
-                    className="form-control form-control-sm"
-                    style={{ width: '140px' }}
-                    value={shortHoursEndDate}
-                    onChange={(e) => setShortHoursEndDate(e.target.value)}
-                  />
-                </div>
-              )}
               <div
                 className="d-flex flex-column gap-3 mt-2 pe-1"
                 style={{ maxHeight: lowWorkingHoursRecords.length > 5 ? '320px' : 'none', overflowY: lowWorkingHoursRecords.length > 5 ? 'auto' : 'visible' }}
@@ -944,7 +872,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                   </div>
                 ))}
                 {lowWorkingHoursRecords.length === 0 && (
-                  <div className="text-center py-4 text-muted small">No low working hour records found for this range.</div>
+                  <div className="text-center py-4 text-muted small">No low working hour records found for this month.</div>
                 )}
               </div>
             </div>

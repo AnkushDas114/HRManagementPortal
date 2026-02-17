@@ -52,6 +52,11 @@ export async function createEmployee(sp: SPFI, employee: Partial<Employee>): Pro
       BankName: employee.bankName,
       IFSCCode: employee.ifscCode,
       Total: String(employee.total || '0'),
+      YearlyCTC: employee.yearlyCTC ?? employee.total ?? 0,
+      EmployeeESI: employee.employeeESI ?? 0,
+      EmployerESI: employee.employerESI ?? 0,
+      SalaryInsurance: employee.salaryInsurance ?? 0,
+      SalaryBonus: employee.salaryBonus ?? 0,
       Phone: employee.phone,
       Location: employee.location,
       ReportingManager: employee.reportingManager
@@ -78,6 +83,11 @@ export async function updateEmployee(sp: SPFI, itemId: number, employee: Partial
       BankName: employee.bankName,
       IFSCCode: employee.ifscCode,
       Total: String(employee.total || '0'),
+      YearlyCTC: employee.yearlyCTC ?? employee.total ?? 0,
+      EmployeeESI: employee.employeeESI ?? 0,
+      EmployerESI: employee.employerESI ?? 0,
+      SalaryInsurance: employee.salaryInsurance ?? 0,
+      SalaryBonus: employee.salaryBonus ?? 0,
       Phone: employee.phone,
       Location: employee.location,
       ReportingManager: employee.reportingManager
@@ -200,6 +210,12 @@ export async function getProfileGalleryImages(sp: SPFI): Promise<ProfileGalleryI
 }
 
 async function mapItemToEmployee(sp: SPFI, item: any): Promise<Employee> {
+  const parseOptionalNumber = (value: unknown): number | undefined => {
+    if (value === null || value === undefined || value === '') return undefined;
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  };
+
   const email = item.Email || item.UserAccount?.EMail || '';
   const avatarSuffix = String(item.Title || item.EmployeeID || email || item.Id || 'employee');
   const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(avatarSuffix)}&background=2f5596&color=ffffff&bold=true&size=128`;
@@ -236,6 +252,11 @@ async function mapItemToEmployee(sp: SPFI, item: any): Promise<Employee> {
     bankName: item.BankName,
     ifscCode: item.IFSCCode,
     total: item.Total ? parseFloat(item.Total) : 0,
+    yearlyCTC: parseOptionalNumber(item.YearlyCTC) ?? (item.Total ? parseFloat(item.Total) : 0),
+    employeeESI: parseOptionalNumber(item.EmployeeESI),
+    employerESI: parseOptionalNumber(item.EmployerESI),
+    salaryInsurance: parseOptionalNumber(item.SalaryInsurance),
+    salaryBonus: parseOptionalNumber(item.SalaryBonus),
     phone: item.Phone,
     location: item.Location,
     reportingManager: item.ReportingManager
