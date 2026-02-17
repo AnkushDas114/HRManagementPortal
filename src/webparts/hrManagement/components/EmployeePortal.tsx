@@ -6,9 +6,9 @@ import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import {
-  Plus, Download, FileText, Sun, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, AlertCircle, MessageSquare, ChevronLeft, ChevronRight, Calendar
+  Plus, Download, FileText, Sun, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, AlertCircle, MessageSquare, ChevronLeft, ChevronRight, Calendar, Users
 } from 'lucide-react';
-import { formatDateForDisplayIST, getNowIST, monthNameIST, formatDateIST } from '../utils/dateTime';
+import { formatDateForDisplayIST, getNowIST, monthNameIST, formatDateIST, todayIST } from '../utils/dateTime';
 import { numberToWords } from '../utils/numberToWords';
 
 interface EmployeePortalProps {
@@ -650,10 +650,8 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <div className="card shadow-sm border h-100 p-3 bg-white hover-bg-light">
                 <div className="d-flex justify-content-between align-items-start mb-2">
                   <div className="d-flex align-items-center gap-2">
-                    <span className="badge bg-light text-dark border" style={{ fontSize: '10px' }}>Ref: {c.referenceId}</span>
-                    <span className={`badge ${c.status === ConcernStatus.Open ? 'bg-warning text-dark' : 'bg-success text-white'}`} style={{ fontSize: '10px' }}>
-                      {c.status === ConcernStatus.Open ? 'UnResolved' : c.status}
-                    </span>
+                    <span className="status-chip status-chip--neutral">Ref: {c.referenceId}</span>
+                    <Badge status={c.status === ConcernStatus.Open ? 'Unresolved' : c.status} />
                   </div>
                   <span className="small text-muted" style={{ fontSize: '11px' }}>{c.submittedAt}</span>
                 </div>
@@ -698,9 +696,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       header: 'Work Status',
       accessor: (rec) => rec.status,
       render: (rec) => (
-        <span className={`badge ${rec.status === 'Present' ? 'bg-success text-white' : 'bg-danger text-white'}`} style={{ fontSize: '9px' }}>
-          {rec.status.toUpperCase()}
-        </span>
+        <Badge status={rec.status} />
       )
     },
     { key: 'clockIn', header: 'Clock In', accessor: (rec) => rec.clockIn || '', render: (rec) => rec.clockIn || '--:--' },
@@ -833,6 +829,20 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       .slice(0, 5);
   }, [attendance, user, idsMatch, normalizeText]);
 
+  const onLeaveWfhTodayRecords = React.useMemo(() => {
+    const today = todayIST();
+    const validTypes = Object.keys(leaveQuotas || {});
+
+    return requests.filter((req) => {
+      const isStatusValid = req.status === LeaveStatus.Approved;
+      const isDateValid = today >= req.startDate && today <= req.endDate;
+      const isWorkFromHomeRequest = req.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(req.leaveType || ''));
+      const isTypeValid = isWorkFromHomeRequest || validTypes.length === 0 || validTypes.indexOf(req.leaveType) !== -1;
+
+      return isStatusValid && isDateValid && isTypeValid;
+    });
+  }, [requests, leaveQuotas]);
+
   const renderDashboardTab = () => {
     return (
       <div className="animate-in fade-in pb-5">
@@ -848,7 +858,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         </div>
 
         <div className="row g-4 mb-4">
-          <div className="col-lg-5">
+          <div className="col-lg-3">
             <div className="card shadow-sm border-0 h-100 p-4 bg-white">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                 <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
@@ -879,6 +889,33 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           </div>
 
           <div className="col-lg-3">
+            <div className="card shadow-sm border-0 h-100 p-4 bg-white">
+              <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                  <Users size={18} color="#2F5596" /> On Leave / WFH Today
+                </h6>
+                <span className="small fw-bold text-primary-emphasis">{onLeaveWfhTodayRecords.length} record(s)</span>
+              </div>
+              <div
+                className="d-flex flex-column gap-3 mt-2 pe-1"
+                style={{ maxHeight: onLeaveWfhTodayRecords.length > 5 ? '320px' : 'none', overflowY: onLeaveWfhTodayRecords.length > 5 ? 'auto' : 'visible' }}
+              >
+                {onLeaveWfhTodayRecords.map((rec, i) => (
+                  <div key={`${rec.id}-${i}`} className="d-flex align-items-center justify-content-between pb-2 border-bottom border-light last-border-none">
+                    <div className="small fw-bold text-dark">{rec.employee.name}</div>
+                    <span className="badge bg-primary-subtle text-primary border-0" style={{ fontSize: '10px' }}>
+                      {rec.requestCategory === 'Work From Home' ? 'Work From Home' : rec.leaveType}
+                    </span>
+                  </div>
+                ))}
+                {onLeaveWfhTodayRecords.length === 0 && (
+                  <div className="text-center py-4 text-muted small">No on leave or WFH records for today.</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="col-lg-3">
             <div className="card shadow-sm border-0 h-100 p-4">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                 <h6 className="fw-bold mb-0 text-dark">Leave Balance</h6>
@@ -886,7 +923,10 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                   <Info size={14} className="text-muted" />
                 </button>
               </div>
-              <div className="d-flex flex-column gap-3">
+              <div
+                className="d-flex flex-column gap-3 pe-1"
+                style={{ maxHeight: leaveStats.length > 5 ? '320px' : 'none', overflowY: leaveStats.length > 5 ? 'auto' : 'visible' }}
+              >
                 {leaveStats.map((item, idx) => (
                   <div key={idx} className="d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2 small fw-medium text-dark">
@@ -908,14 +948,17 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             </div>
           </div>
 
-          <div className="col-lg-4">
+          <div className="col-lg-3">
             <div className="card shadow-sm border-0 h-100 p-4">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                 <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
                   <PartyPopper size={18} color="#E44D26" /> Team Celebrations
                 </h6>
               </div>
-              <div className="d-flex flex-column gap-2 mt-1">
+              <div
+                className="d-flex flex-column gap-2 mt-1 pe-1"
+                style={{ maxHeight: formattedCelebrations.length > 5 ? '320px' : 'none', overflowY: formattedCelebrations.length > 5 ? 'auto' : 'visible' }}
+              >
                 {formattedCelebrations.map((item, idx) => (
                   <div key={idx} className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light transition-all border border-transparent hover-border-light">
                     <div className="d-flex align-items-center gap-3">
@@ -988,9 +1031,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                       <div className="small fw-bold text-dark">{formatDateForDisplayIST(rec.date, 'en-US', { day: 'numeric', month: 'short' })}</div>
                       <div className="small text-muted">{rec.clockIn ? `${rec.clockIn} - ${rec.clockOut || '...'}` : '-'}</div>
                     </div>
-                    <span className={`badge rounded-pill px-3 py-2 text-uppercase ${rec.status === 'Present' ? 'text-bg-success' : 'text-bg-warning'}`} style={{ fontSize: '9px', letterSpacing: '0.5px' }}>
-                      {rec.status}
-                    </span>
+                    <Badge status={rec.status} />
                   </div>
                 ))}
                 {recentAttendanceRecords.length === 0 && (
@@ -1288,9 +1329,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                   <div className="small text-muted mb-1">Reference</div>
                   <div className="fw-semibold">Ref: {selectedConcern.referenceId}</div>
                 </div>
-                <span className={`badge ${selectedConcern.status === ConcernStatus.Open ? 'bg-warning text-dark' : 'bg-success text-white'}`}>
-                  {selectedConcern.status === ConcernStatus.Open ? 'UNRESOLVED' : selectedConcern.status.toUpperCase()}
-                </span>
+                <Badge status={selectedConcern.status === ConcernStatus.Open ? 'Unresolved' : selectedConcern.status} />
               </div>
               <div className="small text-muted mt-2">Submitted: {selectedConcern.submittedAt}</div>
               {selectedConcern.repliedAt && (

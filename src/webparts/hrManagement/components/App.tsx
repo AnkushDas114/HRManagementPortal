@@ -5,6 +5,7 @@ import type { SPFI } from '@pnp/sp';
 import '@pnp/sp/lists';
 import '@pnp/sp/fields';
 import '@pnp/sp/site-users/web';
+import { Web } from '@pnp/sp/webs';
 import './App.bootstrap.css';
 import Header from './Header';
 import Dashboard from './Dashboard';
@@ -15,6 +16,7 @@ import EmployeePortal from './EmployeePortal';
 import Profile from './Profile';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
+import Badge from '../ui/Badge';
 import type { LeaveRequest, AttendanceRecord, Employee, SalarySlip, Policy, Concern, Holiday, TeamEvent } from '../types';
 import { LeaveStatus, UserRole, ConcernStatus, ConcernType } from '../types';
 import { getAllLeaveRequests, createLeaveRequest, updateLeaveRequestStatus, deleteLeaveRequest } from '../services/LeaveRequestsService';
@@ -44,6 +46,12 @@ interface AppProps {
 const OFFICIAL_LEAVES_LIST_ID = '0af5c538-1190-4fe5-8644-d01252e79d4b';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const HR_ALLOWED_NAMES = ['Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi'];
+
+export const getUserId = async (email: string, sp: SPFI) => {
+  const web = Web([sp.web, 'https://smalsusinfolabs.sharepoint.com/sites/HHHHQA/SP']);
+  const ensureUser = await web.ensureUser(email);
+  return ensureUser.data.Id;
+};
 
 const getDaysInMonth = (month: string, year: number): number => {
   const monthIndex = Math.max(0, MONTH_NAMES.indexOf(month));
@@ -500,6 +508,15 @@ const App: React.FC<AppProps> = ({ sp }) => {
         setCurrentUserTitle(title || null);
         setCurrentUserUpn(upn || null);
         setCurrentUserLoginName(loginName || null);
+
+        if (email) {
+          try {
+            const spUserId = await getUserId(email, sp);
+            console.log('Current User SharePoint ID:', spUserId);
+          } catch (idError) {
+            console.error('Error resolving current user ID:', idError);
+          }
+        }
       } catch (error) {
         console.error("Error fetching current user:", error);
       }
@@ -1472,15 +1489,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
         );
       }
     },
-    { key: 'type', header: 'Type', render: (c) => <span className="badge text-bg-light border">{c.type}</span> },
+    { key: 'type', header: 'Type', render: (c) => <span className="status-chip status-chip--neutral">{c.type}</span> },
     { key: 'description', header: 'Summary', render: (c) => <div className="small text-truncate" style={{ maxWidth: '300px' }}>{c.description}</div> },
     {
       key: 'status',
       header: 'Status',
       render: (c) => (
-        <span className={`badge ${c.status === ConcernStatus.Open ? 'text-bg-warning' : 'text-bg-success'}`}>
-          {c.status === ConcernStatus.Open ? 'UnResolved' : c.status}
-        </span>
+        <Badge status={c.status === ConcernStatus.Open ? 'Unresolved' : c.status} />
       )
     },
     {
@@ -1905,12 +1920,14 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     </div>
                   )}
                   {activeTab === 'holiday-admin' && (
-                    <div className="row g-4">
-                      <div className="col-md-8">
-                        <div className="card border-0 shadow-sm">
-                          <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <div className="row g-3">
+                      <div className="col-lg-6">
+                        <div className="card border-0 shadow-sm h-100">
+                          <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <h5 className="mb-0 fw-bold text-primary">Official Holidays</h5>
-                            <button className="btn btn-primary btn-sm" onClick={() => handleOpenHolidayModal()} disabled={isLoadingHolidays}><Plus size={16} /> Add Holiday</button>
+                            <button className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1" onClick={() => handleOpenHolidayModal()} disabled={isLoadingHolidays}>
+                              <Plus size={14} /> Add Holiday
+                            </button>
                           </div>
                           {isLoadingHolidays && (
                             <div className="text-center py-4">
@@ -1934,9 +1951,17 @@ const App: React.FC<AppProps> = ({ sp }) => {
                           )}
                         </div>
                       </div>
-                      <div className="col-md-4">
-                        <div className="card border-0 shadow-sm">
-                          <div className="card-header text-primary bg-white py-3"><h5 className="mb-0 fw-bold">Unofficial Leave Quotas</h5></div>
+                      <div className="col-lg-6">
+                        <div className="card border-0 shadow-sm h-100">
+                          <div className="card-header text-primary bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <h5 className="mb-0 fw-bold">Unofficial Leave Quotas</h5>
+                            <button
+                              className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"
+                              onClick={() => setIsAddLeaveModalOpen(true)}
+                            >
+                              <Plus size={14} /> Add Unofficial Leave
+                            </button>
+                          </div>
                           {isLoadingQuotas && (
                             <div className="text-center py-4">
                               <div className="spinner-border spinner-border-sm text-primary" role="status">
@@ -1955,18 +1980,26 @@ const App: React.FC<AppProps> = ({ sp }) => {
                                 <>
                                   <ul className="list-group list-group-flush">
                                     {Object.entries(leaveQuotas).map(([type, quota]) => (
-                                      <li key={type} className="list-group-item d-flex justify-content-between align-items-center py-2">
-                                        <div className="small">{type}</div>
+                                      <li key={type} className="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
+                                        <div className="small fw-medium">{type}</div>
                                         <span className="badge text-bg-light border fw-bold">{quota}</span>
                                       </li>
                                     ))}
                                   </ul>
-                                  <div className="p-3 bg-light text-center"><button className="btn btn-sm btn-outline-primary w-100" onClick={() => setIsAddLeaveModalOpen(true)} disabled={isLoadingQuotas}>Manage Quotas</button></div>
+                                  <div className="p-3 bg-light text-center border-top">
+                                    <button
+                                      className="btn btn-sm btn-outline-primary w-100"
+                                      onClick={() => setIsAddLeaveModalOpen(true)}
+                                      disabled={isLoadingQuotas}
+                                    >
+                                      Manage Unofficial Leaves
+                                    </button>
+                                  </div>
                                 </>
                               ) : (
                                 <div className="p-4 text-center text-muted">
                                   <p className="mb-2">No leave quotas configured</p>
-                                  <button className="btn btn-sm btn-primary" onClick={() => setIsAddLeaveModalOpen(true)}>Add Quotas</button>
+                                  <button className="btn btn-sm btn-primary" onClick={() => setIsAddLeaveModalOpen(true)}>Add Unofficial Leave</button>
                                 </div>
                               )}
                             </div>

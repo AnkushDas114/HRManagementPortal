@@ -180,6 +180,50 @@ input[type='date']::-webkit-clear-button {
   background-color: #dc3545 !important;
 }
 
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  line-height: 1.2;
+}
+
+.status-chip--success {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #bbf7d0;
+}
+
+.status-chip--danger {
+  color: #b91c1c;
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+.status-chip--pending {
+  color: #0f4c81;
+  background: #dbeafe;
+  border-color: #bfdbfe;
+}
+
+.status-chip--warning {
+  color: #a16207;
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+
+.status-chip--neutral {
+  color: #475569;
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
 /* Shared utility classes used across modules */
 .cursor-pointer {
   cursor: pointer;
@@ -378,6 +422,50 @@ input[type='date']::-webkit-clear-button {
   color: #253244;
 }
 
+.leave-action-group {
+  min-width: 76px;
+}
+
+.leave-action-btn {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background-color 0.15s ease, transform 0.12s ease;
+}
+
+.leave-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.leave-action-btn--approve {
+  color: #15803d;
+}
+
+.leave-action-btn--approve:hover {
+  background-color: rgba(22, 163, 74, 0.14);
+}
+
+.leave-action-btn--reject {
+  color: #dc2626;
+}
+
+.leave-action-btn--reject:hover {
+  background-color: rgba(220, 38, 38, 0.14);
+}
+
+.leave-action-btn--revert {
+  color: #2f5596;
+}
+
+.leave-action-btn--revert:hover {
+  background-color: rgba(47, 85, 150, 0.14);
+}
+
 .avatar-filter img,
 .avatar-selection img {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -483,10 +571,26 @@ input[type='date']::-webkit-clear-button {
 .onleave-edit-btn:hover,
 .onleave-edit-btn:focus,
 .onleave-edit-btn:active {
-  border-color: #2f5596 !important;
-  background: #ffffff !important;
+  background: rgba(47, 85, 150, 0.14) !important;
   color: #2f5596 !important;
   box-shadow: none !important;
+}
+
+.onleave-edit-btn {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #2f5596;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, transform 0.12s ease;
+}
+
+.onleave-edit-btn:hover {
+  transform: translateY(-1px);
 }
 
 .btn.popup-option-toggle.popup-option-toggle--active:hover {
@@ -536,6 +640,41 @@ input[type='date']::-webkit-clear-button {
 .ai-week-insights__head p {
   color: #607792;
   font-size: 0.76rem;
+}
+
+.profile-shell__title {
+  color: #2f5596;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.profile-summary-card,
+.profile-details-card {
+  border-radius: 0.85rem;
+}
+
+.profile-summary-card {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+
+.profile-details-card {
+  background: #ffffff;
+}
+
+.profile-details-card .row > [class*='col-'] > .d-flex {
+  padding: 0.2rem 0;
+}
+
+.profile-details-card .border.rounded {
+  border-color: #d8e3f0 !important;
+  border-radius: 0.7rem !important;
+}
+
+@media (max-width: 991px) {
+  .profile-shell__header {
+    gap: 0.65rem;
+    flex-wrap: wrap;
+  }
 }
 
 .ai-week-insights__tabs {

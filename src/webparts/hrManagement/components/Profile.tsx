@@ -15,13 +15,13 @@ interface ProfileProps {
 }
 
 interface ProfileFormData {
-  phone: string;
-  location: string;
-  reportingManager: string;
-  pan: string;
-  bankName: string;
-  accountNumber: string;
-  ifscCode: string;
+  phone?: string;
+  location?: string;
+  reportingManager?: string;
+  pan?: string;
+  bankName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
 }
 
 const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) => {
@@ -30,9 +30,9 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
   const [isSensitiveDataVisible, setIsSensitiveDataVisible] = React.useState(false);
 
   const [formData, setFormData] = React.useState<ProfileFormData>({
-    phone: '',
-    location: '',
-    reportingManager: '',
+    // phone: '',
+    // location: '',
+    // reportingManager: '',
     pan: '',
     bankName: '',
     accountNumber: '',
@@ -41,9 +41,9 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
 
   React.useEffect(() => {
     setFormData({
-      phone: user.phone || '',
-      location: user.location || '',
-      reportingManager: user.reportingManager || '',
+      // phone: user.phone || '',
+      // location: user.location || '',
+      // reportingManager: user.reportingManager || '',
       pan: user.pan || '',
       bankName: user.bankName || '',
       accountNumber: user.accountNumber || '',
@@ -111,26 +111,26 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
   ];
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="d-flex align-items-center justify-content-between mb-4">
-        <h1 className="h2 mb-0" style={{ color: '#2F5596' }}>User Profile</h1>
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 profile-shell">
+      <div className="d-flex align-items-center justify-content-between mb-3 profile-shell__header">
+        <h1 className="h3 mb-0 profile-shell__title">User Profile</h1>
         <button
-          className="btn btn-default btn-sm d-flex align-items-center gap-2"
+          className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2"
           onClick={onBack}
         >
           <Calendar size={16} /> Back to Dashboard
         </button>
       </div>
 
-      <div className="row g-4">
+      <div className="row g-3 profile-shell__grid">
         <div className="col-lg-4">
-          <div className="card shadow-sm border-0 text-center p-4 h-100">
-            <div className="position-relative d-inline-block mx-auto mb-3">
+          <div className="card shadow-sm border-0 text-center p-3 h-100 profile-summary-card">
+            <div className="position-relative d-inline-block mx-auto mb-2">
               <img
                 src={user.avatar}
                 alt={user.name}
                 className="rounded-circle border border-4 border-white shadow-sm"
-                style={{ width: '120px', height: '120px', objectFit: 'cover' }}
+                style={{ width: '108px', height: '108px', objectFit: 'cover' }}
               />
               <button
                 className="btn btn-primary btn-sm position-absolute bottom-0 end-0 rounded-circle p-2 d-flex align-items-center justify-content-center shadow"
@@ -142,8 +142,8 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
               </button>
             </div>
             <h3 className="h5 fw-bold mb-1">{displayText(user.name)}</h3>
-            <p className="text-muted small mb-3">{displayText(user.department)} Department</p>
-            <div className="d-flex justify-content-center gap-2 mb-4">
+            <p className="text-muted small mb-2">{displayText(user.department)} Department</p>
+            <div className="d-flex justify-content-center gap-2 mb-3">
               <span className="badge rounded-pill px-3 py-2" style={{ backgroundColor: '#2F5596', fontSize: '10px' }}>
                 {role === UserRole.HR ? 'ADMINISTRATOR' : 'EMPLOYEE'}
               </span>
@@ -151,7 +151,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
                 ACTIVE
               </span>
             </div>
-            <hr className="my-4" />
+            <hr className="my-3" />
             <div className="d-grid gap-2">
               <button
                 className="btn btn-primary d-flex align-items-center justify-content-center gap-2 py-2"
@@ -165,12 +165,12 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
         </div>
 
         <div className="col-lg-8">
-          <div className="card shadow-sm border-0 p-4 h-100">
-            <h3 className="h5 fw-bold mb-4 d-flex align-items-center gap-2" style={{ color: '#2F5596' }}>
+          <div className="card shadow-sm border-0 p-3 p-md-4 h-100 profile-details-card">
+            <h3 className="h5 fw-bold mb-3 d-flex align-items-center gap-2" style={{ color: '#2F5596' }}>
               <ShieldCheck size={20} /> Professional Information
             </h3>
 
-            <div className="row g-4">
+            <div className="row g-3">
               <div className="col-md-6">
                 <div className="d-flex align-items-start gap-3">
                   <div className="p-2 rounded bg-light">
@@ -244,7 +244,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
               </div>
             </div>
 
-            <div className="d-flex align-items-center justify-content-between mt-5 mb-4 flex-wrap gap-2">
+            <div className="d-flex align-items-center justify-content-between mt-4 mb-3 flex-wrap gap-2">
               <h3 className="h5 fw-bold mb-0 d-flex align-items-center gap-2" style={{ color: '#2F5596' }}>
                 <Landmark size={20} /> Bank & Payroll Details
               </h3>
@@ -258,7 +258,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
               </button>
             </div>
 
-            <div className="row g-3 mb-4">
+            <div className="row g-2 g-md-3 mb-3">
               <div className="col-md-6">
                 <div className="border rounded p-3 bg-light h-100">
                   <label className="text-muted small fw-bold text-uppercase d-block mb-1">PAN Number</label>
@@ -285,10 +285,10 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
               </div>
             </div>
 
-            <h4 className="h6 fw-bold mb-3 d-flex align-items-center gap-2" style={{ color: '#2F5596' }}>
+            <h4 className="h6 fw-bold mb-2 d-flex align-items-center gap-2" style={{ color: '#2F5596' }}>
               <Wallet size={16} /> Salary Structure
             </h4>
-            <div className="row g-3">
+            <div className="row g-2 g-md-3">
               {payrollFields.map((field) => (
                 <div className="col-md-4" key={field.label}>
                   <div className="border rounded p-3 h-100">
@@ -326,45 +326,9 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
       >
         <form id="edit-profile-form" onSubmit={handleSave}>
           <div className="row g-4">
-            <div className="col-md-6">
+            <div className="col-12">
               <div className="border rounded p-3 h-100">
-                <h6 className="fw-bold mb-3" style={{ color: '#2F5596' }}>Contact Details</h6>
-                <div className="mb-3">
-                  <label className="form-label fw-semibold">Phone Number</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.phone}
-                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+91 XXXXX XXXXX"
-                  />
-                </div>
-                <div>
-                  <label className="form-label fw-semibold">Location</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.location}
-                    onChange={e => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="City, Country"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="col-md-6">
-              <div className="border rounded p-3 h-100">
-                <h6 className="fw-bold mb-3" style={{ color: '#2F5596' }}>Reporting & Bank Details</h6>
-                <div className="mb-3">
-                  <label className="form-label fw-semibold">Reporting Manager</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.reportingManager}
-                    onChange={e => setFormData({ ...formData, reportingManager: e.target.value })}
-                    placeholder="Manager Name"
-                  />
-                </div>
+                <h6 className="fw-bold mb-3" style={{ color: '#2F5596' }}>Bank Details</h6>
                 <div className="mb-3">
                   <label className="form-label fw-semibold">PAN Number</label>
                   <input

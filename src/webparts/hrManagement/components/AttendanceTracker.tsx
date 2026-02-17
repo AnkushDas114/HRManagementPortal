@@ -3,6 +3,7 @@ import * as React from 'react';
 import * as XLSX from 'xlsx';
 import { LeaveStatus } from '../types';
 import type { Employee, LeaveRequest, AttendanceRecord, AttendanceStatus } from '../types';
+import Badge from '../ui/Badge';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import Modal from '../ui/Modal';
 import { Edit3, Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Search, Upload, Calendar, Download } from 'lucide-react';
@@ -851,9 +852,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       header: 'Status',
       accessor: ({ record }) => record.status,
       render: ({ record }) => (
-        <span className={`badge ${record.status === 'Present' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} border-0`} style={{ fontSize: '10px' }}>
-          {record.status}
-        </span>
+        <Badge status={record.status} />
       )
     },
     {

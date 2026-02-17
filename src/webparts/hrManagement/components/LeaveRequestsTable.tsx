@@ -266,14 +266,35 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       filterable: false,
       align: 'end',
       render: (request) => (
-        <div className="d-flex align-items-center justify-content-end gap-2">
+        <div className="d-flex align-items-center justify-content-end gap-1 leave-action-group">
           {request.status === LeaveStatus.Pending ? (
             <>
-              <button onClick={() => handleActionClick(request, LeaveStatus.Approved)} className="btn btn-sm btn-outline-success rounded p-1"><Check size={16} /></button>
-              <button onClick={() => handleActionClick(request, LeaveStatus.Rejected)} className="btn btn-sm btn-outline-danger rounded p-1"><X size={16} /></button>
+              <button
+                onClick={() => handleActionClick(request, LeaveStatus.Approved)}
+                className="leave-action-btn leave-action-btn--approve"
+                title="Approve request"
+                aria-label="Approve request"
+              >
+                <Check size={17} strokeWidth={2.4} />
+              </button>
+              <button
+                onClick={() => handleActionClick(request, LeaveStatus.Rejected)}
+                className="leave-action-btn leave-action-btn--reject"
+                title="Reject request"
+                aria-label="Reject request"
+              >
+                <X size={17} strokeWidth={2.4} />
+              </button>
             </>
           ) : (
-            <button onClick={() => handleRevertClick(request)} className="btn btn-sm btn-outline-secondary rounded p-1" style={{ opacity: 0.7 }}><RotateCcw size={16} /></button>
+            <button
+              onClick={() => handleRevertClick(request)}
+              className="leave-action-btn leave-action-btn--revert"
+              title="Revert to pending"
+              aria-label="Revert to pending"
+            >
+              <RotateCcw size={16} strokeWidth={2.2} />
+            </button>
           )}
         </div>
       )

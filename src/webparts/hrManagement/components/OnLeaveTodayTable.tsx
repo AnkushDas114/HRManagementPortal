@@ -196,11 +196,12 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       render: (request) => (
         <button
           type="button"
-          className="btn btn-sm btn-outline-primary onleave-edit-btn d-inline-flex align-items-center gap-2 px-3 py-2 fw-medium"
-          style={{ borderColor: '#2F5596', color: '#2F5596' }}
+          className="onleave-edit-btn"
           onClick={() => onEdit?.(request)}
+          title="Edit request"
+          aria-label="Edit request"
         >
-          <Edit size={14} /> Edit
+          <Edit size={15} />
         </button>
       )
     }

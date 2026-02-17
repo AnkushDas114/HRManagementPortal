@@ -1,28 +1,39 @@
 
 import * as React from 'react';
-import { LeaveStatus } from '../types';
+import { LeaveStatus, ConcernStatus } from '../types';
 
 interface BadgeProps {
-  status: LeaveStatus;
+  status: LeaveStatus | ConcernStatus | string;
 }
 
 const Badge: React.FC<BadgeProps> = ({ status }) => {
-  let colorClass = 'text-bg-secondary';
-  
-  switch(status) {
-    case LeaveStatus.Approved:
-      colorClass = 'text-bg-success';
+  const normalized = String(status || '').trim().toLowerCase();
+  let toneClass = 'status-chip--neutral';
+
+  switch (normalized) {
+    case LeaveStatus.Approved.toLowerCase():
+    case 'accepted':
+    case ConcernStatus.Resolved.toLowerCase():
+    case 'present':
+      toneClass = 'status-chip--success';
       break;
-    case LeaveStatus.Rejected:
-      colorClass = 'text-bg-warning';
+    case LeaveStatus.Rejected.toLowerCase():
+    case 'absent':
+      toneClass = 'status-chip--danger';
       break;
-    case LeaveStatus.Pending:
-      colorClass = 'text-bg-info text-white';
+    case LeaveStatus.Pending.toLowerCase():
+      toneClass = 'status-chip--pending';
       break;
+    case ConcernStatus.Open.toLowerCase():
+    case 'unresolved':
+      toneClass = 'status-chip--warning';
+      break;
+    default:
+      toneClass = 'status-chip--neutral';
   }
 
   return (
-    <span className={`badge rounded-pill px-3 py-2 text-uppercase ${colorClass}`} style={{ fontSize: '9px', letterSpacing: '0.5px' }}>
+    <span className={`status-chip ${toneClass}`}>
       {status}
     </span>
   );
