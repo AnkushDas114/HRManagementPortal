@@ -43,13 +43,14 @@ interface AppProps {
 
 const OFFICIAL_LEAVES_LIST_ID = '0af5c538-1190-4fe5-8644-d01252e79d4b';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const HR_ALLOWED_NAMES = ['Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi'];
 
 const getDaysInMonth = (month: string, year: number): number => {
   const monthIndex = Math.max(0, MONTH_NAMES.indexOf(month));
   return new Date(year, monthIndex + 1, 0).getDate();
 };
 
-const calculateSalary = (monthlyCTC: number): {
+const calculateSalary = (monthlyCTC: number, insuranceOptIn = true): {
   basic: number;
   hra: number;
   other: number;
@@ -65,44 +66,55 @@ const calculateSalary = (monthlyCTC: number): {
 } => {
   const basic = monthlyCTC * 0.5;
   const hra = basic * 0.5;
-  const employeePF = basic * 0.12;
-  const employerPF = basic * 0.13;
-  const bonus = basic / 12;
+  const pfEligibleBasic = Math.min(basic, 15000);
+  const employeePF = pfEligibleBasic * 0.12;
+  const employerPF = pfEligibleBasic * 0.13;
+  const bonus = basic * 0.0833;
 
-  let insurance = 0;
+  const insurance = 800;
   let esi = 0;
   let employerEsi = 0;
 
-  const grossWithInsurance = monthlyCTC - employerPF - bonus - 800;
-  let gross = grossWithInsurance;
-  const useInsurance = monthlyCTC >= 21000;
+  const grossWithoutInsurance = monthlyCTC - employerPF - bonus;
+  let gross = grossWithoutInsurance;
 
-  if (!useInsurance) {
-    insurance = 0;
-    gross = (monthlyCTC - employerPF - bonus) / 1.0325;
+  if (grossWithoutInsurance <= 21000) {
+    gross = grossWithoutInsurance / 1.0325;
     esi = gross * 0.0075;
     employerEsi = gross * 0.0325;
-  } else {
-    insurance = 800;
   }
 
   const other = gross - basic - hra;
-  const inhand = gross - employeePF - esi;
-  const round = (value: number): number => Math.round(value);
+  const ceil = (value: number): number => Math.ceil(value);
+
+  const roundedBasic = ceil(basic);
+  const roundedHra = ceil(hra);
+  const roundedOther = ceil(other);
+  const roundedEmployeePF = ceil(employeePF);
+  const roundedEsi = ceil(esi);
+  const roundedEmployerPF = ceil(employerPF);
+  const roundedEmployerEsi = ceil(employerEsi);
+  const roundedBonus = ceil(bonus);
+  const roundedInsurance = ceil(insurance);
+  const roundedGross = roundedBasic + roundedHra + roundedOther;
+  let roundedInhand = roundedGross - roundedEmployeePF - roundedEsi;
+  if (insuranceOptIn) {
+    roundedInhand -= 800;
+  }
 
   return {
-    basic: round(basic),
-    hra: round(hra),
-    other: round(other),
-    gross: round(gross),
-    employerPF: round(employerPF),
-    employeePF: round(employeePF),
-    bonus: round(bonus),
-    insurance: round(insurance),
-    esi: round(esi),
-    employerEsi: round(employerEsi),
-    inhand: round(inhand),
-    yearlyCTC: round(monthlyCTC * 12)
+    basic: roundedBasic,
+    hra: roundedHra,
+    other: roundedOther,
+    gross: roundedGross,
+    employerPF: roundedEmployerPF,
+    employeePF: roundedEmployeePF,
+    bonus: roundedBonus,
+    insurance: roundedInsurance,
+    esi: roundedEsi,
+    employerEsi: roundedEmployerEsi,
+    inhand: roundedInhand,
+    yearlyCTC: ceil(monthlyCTC * 12)
   };
 };
 
@@ -363,7 +375,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
     insurance: 0,
     esi: 0,
     employerEsi: 0,
-    inhand: 0
+    inhand: 0,
+    insuranceTaken: 'Yes' as 'Yes' | 'No'
   });
   const [salaryYearlyCtc, setSalaryYearlyCtc] = useState<string>('');
   const [isSalaryManualMode, setIsSalaryManualMode] = useState(false);
@@ -402,7 +415,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
     employeeESI: 0,
     employerESI: 0,
     salaryInsurance: 0,
-    salaryBonus: 0
+    salaryBonus: 0,
+    insuranceTaken: 'Yes'
   });
 
   // Leave Form Modal State
@@ -467,6 +481,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   // Current User State
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [currentUserTitle, setCurrentUserTitle] = useState<string | null>(null);
+  const [currentUserUpn, setCurrentUserUpn] = useState<string | null>(null);
+  const [currentUserLoginName, setCurrentUserLoginName] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   React.useEffect(() => {
@@ -476,7 +493,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
         console.log("Current User:", user);
         // Fallback to UserPrincipalName or LoginName if Email is empty (common in some SPO setups)
         const email = user.Email || user.UserPrincipalName || (user.LoginName ? user.LoginName.split('|').pop() : null) || null;
+        const title = String((user as { Title?: string }).Title || '').trim();
+        const upn = String((user as { UserPrincipalName?: string }).UserPrincipalName || '').trim();
+        const loginName = String((user as { LoginName?: string }).LoginName || '').trim();
         setCurrentUserEmail(email);
+        setCurrentUserTitle(title || null);
+        setCurrentUserUpn(upn || null);
+        setCurrentUserLoginName(loginName || null);
       } catch (error) {
         console.error("Error fetching current user:", error);
       }
@@ -485,12 +508,40 @@ const App: React.FC<AppProps> = ({ sp }) => {
   }, [sp]);
 
   const inferredCurrentUser = React.useMemo(() => {
-    if (!currentUserEmail || directoryEmployees.length === 0) {
+    if (directoryEmployees.length === 0) {
       return directoryEmployees[0] || employees[0];
     }
-    const found = directoryEmployees.find(emp => emp.email && emp.email.toLowerCase() === currentUserEmail.toLowerCase());
-    return found || directoryEmployees[0] || employees[0];
-  }, [currentUserEmail, directoryEmployees, employees]);
+    const normalizeName = (value: unknown): string => String(value || '').trim().toLowerCase();
+    const normalizeEmail = (value: unknown): string => {
+      const raw = String(value || '').trim().toLowerCase();
+      if (!raw) return '';
+      if (raw.indexOf('|') !== -1) {
+        const parts = raw.split('|');
+        return parts[parts.length - 1].trim();
+      }
+      return raw;
+    };
+
+    const byTitle = normalizeName(currentUserTitle);
+    if (byTitle) {
+      const matchByTitle = directoryEmployees.find((emp) => normalizeName(emp.name) === byTitle);
+      if (matchByTitle) return matchByTitle;
+    }
+
+    const byUpn = normalizeEmail(currentUserUpn || currentUserEmail);
+    if (byUpn) {
+      const matchByUpn = directoryEmployees.find((emp) => normalizeEmail(emp.email) === byUpn);
+      if (matchByUpn) return matchByUpn;
+    }
+
+    const byLogin = normalizeEmail(currentUserLoginName);
+    if (byLogin) {
+      const matchByLogin = directoryEmployees.find((emp) => normalizeEmail(emp.email) === byLogin);
+      if (matchByLogin) return matchByLogin;
+    }
+
+    return directoryEmployees[0] || employees[0];
+  }, [currentUserTitle, currentUserUpn, currentUserEmail, currentUserLoginName, directoryEmployees, employees]);
 
   React.useEffect(() => {
     if (!directoryEmployees.length) return;
@@ -509,17 +560,26 @@ const App: React.FC<AppProps> = ({ sp }) => {
     const selected = selectedUserId ? directoryEmployees.find(emp => emp.id === selectedUserId) : undefined;
     return selected || inferredCurrentUser || directoryEmployees[0];
   }, [directoryEmployees, inferredCurrentUser, selectedUserId]);
-  const hrUser: Employee = {
-    id: 'HR001',
-    name: 'Alex Morgan',
-    department: 'Engineering',
-    avatar: 'https://i.pravatar.cc/150?u=hr-manager',
-    joiningDate: '2020-01-01'
-  };
+
+  const canAccessHr = React.useMemo(() => {
+    const normalize = (value: unknown): string => String(value || '').trim().toLowerCase();
+    const allowed = HR_ALLOWED_NAMES.map(normalize);
+    const currentName = normalize(currentUserTitle || inferredCurrentUser?.name);
+    return currentName ? allowed.indexOf(currentName) !== -1 : false;
+  }, [currentUserTitle, inferredCurrentUser]);
+
+  React.useEffect(() => {
+    if (canAccessHr) return;
+    if (role === UserRole.HR) {
+      setRole(UserRole.Employee);
+      setActiveTab('dashboard');
+    }
+  }, [canAccessHr, role]);
 
   const handleUpdateRequestStatus = async (id: number, status: LeaveStatus, comment: string) => {
     try {
-      const approver = status === LeaveStatus.Pending ? "" : "HR Manager";
+      const approverName = (currentUserTitle && String(currentUserTitle).trim()) || inferredCurrentUser?.name || "HR Manager";
+      const approver = status === LeaveStatus.Pending ? "" : (canAccessHr ? approverName : "HR Manager");
       const finalComment = status === LeaveStatus.Pending ? "" : comment;
 
       await updateLeaveRequestStatus(sp, id, status, approver, finalComment);
@@ -812,7 +872,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const applySalaryFromYearlyCtc = (
     yearlyCtcValue: string,
     paidDaysValue?: number,
-    yearValue?: string
+    yearValue?: string,
+    insuranceTakenValue?: 'Yes' | 'No'
   ): void => {
     const yearly = Number(yearlyCtcValue);
     if (!yearlyCtcValue || Number.isNaN(yearly) || yearly <= 0) {
@@ -841,7 +902,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
     const fullMonthlyCtc = yearly / 12;
     const paidRatio = workingDays > 0 ? Math.min(effectivePaidDays, workingDays) / workingDays : 0;
     const monthly = Number((fullMonthlyCtc * paidRatio).toFixed(2));
-    const salary = calculateSalary(monthly);
+    const isInsuranceOptIn = (insuranceTakenValue ?? salaryFormData.insuranceTaken ?? 'Yes') === 'Yes';
+    const salary = calculateSalary(monthly, isInsuranceOptIn);
     const deductions = salary.employeePF + salary.esi;
 
     setSalaryFormData((prev) => ({
@@ -858,7 +920,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
       insurance: salary.insurance,
       esi: salary.esi,
       employerEsi: salary.employerEsi,
-      inhand: salary.inhand
+      inhand: salary.inhand,
+      insuranceTaken: insuranceTakenValue ?? prev.insuranceTaken
     }));
   };
 
@@ -870,6 +933,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     const initialYearlyCtc = employee.yearlyCTC
       ? String(employee.yearlyCTC)
       : (employee.total ? String(employee.total) : '');
+    const insuranceTaken: 'Yes' | 'No' = String(employee.insuranceTaken || '').trim().toLowerCase() === 'no' ? 'No' : 'Yes';
     setTargetEmployee(employee);
     setSalaryFormData({
       month: currentMonth,
@@ -892,10 +956,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
       insurance: 0,
       esi: 0,
       employerEsi: 0,
-      inhand: 0
+      inhand: 0,
+      insuranceTaken
     });
     setSalaryYearlyCtc(initialYearlyCtc);
-    applySalaryFromYearlyCtc(initialYearlyCtc, workingDays, String(currentYear));
+    applySalaryFromYearlyCtc(initialYearlyCtc, workingDays, String(currentYear), insuranceTaken);
     setIsSalaryManualMode(false);
     setIsSalaryModalOpen(true);
   };
@@ -965,6 +1030,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   const handleOpenEmployeeModal = (emp?: Employee) => {
     if (emp) {
+      const normalizedInsuranceTaken: 'Yes' | 'No' = String(emp.insuranceTaken || '').trim().toLowerCase() === 'no' ? 'No' : 'Yes';
       setEditingEmployee(emp);
       setEmployeeFormData({
         ...emp,
@@ -973,7 +1039,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
         employeeESI: emp.employeeESI ?? 0,
         employerESI: emp.employerESI ?? 0,
         salaryInsurance: emp.salaryInsurance ?? 0,
-        salaryBonus: emp.salaryBonus ?? 0
+        salaryBonus: emp.salaryBonus ?? 0,
+        insuranceTaken: normalizedInsuranceTaken
       });
     } else {
       setEditingEmployee(null);
@@ -997,7 +1064,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
         employeeESI: 0,
         employerESI: 0,
         salaryInsurance: 0,
-        salaryBonus: 0
+        salaryBonus: 0,
+        insuranceTaken: 'Yes'
       });
     }
     setEmployeeModalTab('professional');
@@ -1607,6 +1675,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
   };
 
   const handleRoleToggle = (newRole: UserRole) => {
+    if (newRole === UserRole.HR && !canAccessHr) return;
     setRole(newRole);
     setActiveTab(newRole === UserRole.Employee ? 'dashboard' : 'overview');
   };
@@ -1662,17 +1731,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
       <Header
         role={role}
         onRoleToggle={handleRoleToggle}
+        canAccessHr={canAccessHr}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         users={directoryEmployees}
-        selectedUserId={currentUser?.id}
-        onUserChange={setSelectedUserId}
       />
 
       <main className="container-fluid hr-main-content py-4">
         {activeTab === 'profile' ? (
           <Profile
-            user={currentUser || hrUser}
+            user={currentUser || inferredCurrentUser || employees[0]}
             role={role}
             sp={sp}
             onBack={() => setActiveTab(role === UserRole.HR ? 'overview' : 'dashboard')}
@@ -2853,7 +2921,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     onChange={e => {
                       const yearly = Math.max(0, Number(e.target.value) || 0);
                       const monthly = yearly / 12;
-                      const salary = calculateSalary(monthly);
+                      const salary = calculateSalary(monthly, (employeeFormData.insuranceTaken ?? 'Yes') === 'Yes');
                       setEmployeeFormData({
                         ...employeeFormData,
                         yearlyCTC: yearly,
@@ -2865,6 +2933,30 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       });
                     }}
                   />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">Insurance Opt</label>
+                  <select
+                    className="form-select"
+                    value={employeeFormData.insuranceTaken ?? 'Yes'}
+                    onChange={e => {
+                      const insuranceTaken = e.target.value === 'No' ? 'No' : 'Yes';
+                      const yearly = Math.max(0, Number(employeeFormData.yearlyCTC) || 0);
+                      const monthly = yearly / 12;
+                      const salary = calculateSalary(monthly, insuranceTaken === 'Yes');
+                      setEmployeeFormData({
+                        ...employeeFormData,
+                        insuranceTaken,
+                        salaryBonus: Number(salary.bonus.toFixed(2)),
+                        salaryInsurance: Number(salary.insurance.toFixed(2)),
+                        employeeESI: Number(salary.esi.toFixed(2)),
+                        employerESI: Number(salary.employerEsi.toFixed(2))
+                      });
+                    }}
+                  >
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
                 </div>
                 <div className="col-md-6">
                   <label className="form-label fw-bold">Salary Bonus (₹)</label>

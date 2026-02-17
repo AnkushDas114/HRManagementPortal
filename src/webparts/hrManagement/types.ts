@@ -76,6 +76,7 @@ export interface Employee {
   employerESI?: number;
   salaryInsurance?: number;
   salaryBonus?: number;
+  insuranceTaken?: 'Yes' | 'No';
 }
 
 export interface LeaveRequest {

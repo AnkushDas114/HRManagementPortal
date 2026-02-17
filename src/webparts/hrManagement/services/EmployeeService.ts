@@ -57,6 +57,7 @@ export async function createEmployee(sp: SPFI, employee: Partial<Employee>): Pro
       EmployerESI: employee.employerESI ?? 0,
       SalaryInsurance: employee.salaryInsurance ?? 0,
       SalaryBonus: employee.salaryBonus ?? 0,
+      InsuranceTaken: employee.insuranceTaken ?? 'Yes',
       Phone: employee.phone,
       Location: employee.location,
       ReportingManager: employee.reportingManager
@@ -88,6 +89,7 @@ export async function updateEmployee(sp: SPFI, itemId: number, employee: Partial
       EmployerESI: employee.employerESI ?? 0,
       SalaryInsurance: employee.salaryInsurance ?? 0,
       SalaryBonus: employee.salaryBonus ?? 0,
+      ...(employee.insuranceTaken !== undefined ? { InsuranceTaken: employee.insuranceTaken } : {}),
       Phone: employee.phone,
       Location: employee.location,
       ReportingManager: employee.reportingManager
@@ -215,6 +217,10 @@ async function mapItemToEmployee(sp: SPFI, item: any): Promise<Employee> {
     const parsed = Number(value);
     return Number.isNaN(parsed) ? undefined : parsed;
   };
+  const normalizeInsuranceTaken = (value: unknown): 'Yes' | 'No' => {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return normalized === 'no' ? 'No' : 'Yes';
+  };
 
   const email = item.Email || item.UserAccount?.EMail || '';
   const avatarSuffix = String(item.Title || item.EmployeeID || email || item.Id || 'employee');
@@ -257,6 +263,7 @@ async function mapItemToEmployee(sp: SPFI, item: any): Promise<Employee> {
     employerESI: parseOptionalNumber(item.EmployerESI),
     salaryInsurance: parseOptionalNumber(item.SalaryInsurance),
     salaryBonus: parseOptionalNumber(item.SalaryBonus),
+    insuranceTaken: normalizeInsuranceTaken(item.InsuranceTaken),
     phone: item.Phone,
     location: item.Location,
     reportingManager: item.ReportingManager

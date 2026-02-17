@@ -6,19 +6,13 @@ import { Calendar } from 'lucide-react';
 interface HeaderProps {
   role: UserRole;
   onRoleToggle: (role: UserRole) => void;
+  canAccessHr?: boolean;
   activeTab?: string;
   onTabChange?: (tab: string) => void;
   users: Employee[];
-  selectedUserId?: string;
-  onUserChange?: (userId: string) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, activeTab, onTabChange, users, selectedUserId, onUserChange }) => {
-  const selectedUser = React.useMemo(
-    () => users.find((u) => u.id === selectedUserId) || users[0],
-    [users, selectedUserId]
-  );
-
+const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, canAccessHr = true }) => {
   return (
     <header className="navbar navbar-expand-lg navbar-light border-bottom shadow-sm sticky-top py-2">
       <div className="container-fluid hr-shell-container">
@@ -38,40 +32,15 @@ const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, activeTab, onTabCha
             >
               Employee
             </button>
-            <button
-              type="button"
-              className={`btn ${role === UserRole.HR ? 'btn-primary' : 'btn-outline-primary'}`}
-              onClick={() => onRoleToggle(UserRole.HR)}
-            >
-              HR Admin
-            </button>
-          </div>
-
-          <div className="d-flex align-items-center gap-2 ps-3 border-start">
-            <div className="text-end d-none d-sm-block">
-              <select
-                className="form-select form-select-sm fw-bold"
-                style={{ minWidth: '180px', fontSize: '0.75rem' }}
-                value={selectedUser?.id || ''}
-                onChange={(e) => onUserChange?.(e.target.value)}
+            {canAccessHr && (
+              <button
+                type="button"
+                className={`btn ${role === UserRole.HR ? 'btn-primary' : 'btn-outline-primary'}`}
+                onClick={() => onRoleToggle(UserRole.HR)}
               >
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name}
-                  </option>
-                ))}
-              </select>
-              <div className="text-muted text-truncate" style={{ fontSize: '0.68rem', maxWidth: '180px' }}>
-                {selectedUser?.department || (role === UserRole.HR ? 'Admin' : 'Employee')}
-              </div>
-            </div>
-            <img
-              src={selectedUser?.avatar || "https://i.pravatar.cc/150?u=user"}
-              alt={selectedUser?.name || "User"}
-              className="rounded-circle border shadow-xs cursor-pointer"
-              style={{ width: '34px', height: '34px', objectFit: 'cover' }}
-              onClick={() => onTabChange?.('profile')}
-            />
+                HR Admin
+              </button>
+            )}
           </div>
         </div>
       </div>
