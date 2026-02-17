@@ -7,12 +7,11 @@ interface HeaderProps {
   role: UserRole;
   onRoleToggle: (role: UserRole) => void;
   canAccessHr?: boolean;
-  activeTab?: string;
+  currentUser?: Employee;
   onTabChange?: (tab: string) => void;
-  users: Employee[];
 }
 
-const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, canAccessHr = true }) => {
+const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, canAccessHr = true, currentUser, onTabChange }) => {
   return (
     <header className="navbar navbar-expand-lg navbar-light border-bottom shadow-sm sticky-top py-2">
       <div className="container-fluid hr-shell-container">
@@ -42,6 +41,20 @@ const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, canAccessHr = true 
               </button>
             )}
           </div>
+          <button
+            type="button"
+            className="btn p-0 border-0 bg-transparent d-flex align-items-center ms-2"
+            onClick={() => onTabChange?.('profile')}
+            title="Open Profile"
+            aria-label="Open Profile"
+          >
+            <img
+              src={currentUser?.avatar || "https://i.pravatar.cc/150?u=user"}
+              alt={currentUser?.name || "User"}
+              className="rounded-circle border shadow-xs"
+              style={{ width: '34px', height: '34px', objectFit: 'cover' }}
+            />
+          </button>
         </div>
       </div>
     </header>

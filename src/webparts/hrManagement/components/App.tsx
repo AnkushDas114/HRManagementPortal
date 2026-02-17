@@ -1732,9 +1732,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
         role={role}
         onRoleToggle={handleRoleToggle}
         canAccessHr={canAccessHr}
-        activeTab={activeTab}
+        currentUser={currentUser}
         onTabChange={setActiveTab}
-        users={directoryEmployees}
       />
 
       <main className="container-fluid hr-main-content py-4">
