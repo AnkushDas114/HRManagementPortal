@@ -1,8 +1,9 @@
 .common-table {
-  border: 1px solid #d9e4f0;
+  border: 1px solid #d5dfeb;
   background: #fff;
-  border-radius: 0.75rem;
+  border-radius: 0.9rem;
   overflow: hidden;
+  box-shadow: 0 8px 22px rgba(14, 30, 52, 0.06);
 }
 
 .common-table__toolbar {
@@ -10,14 +11,14 @@
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.85rem 1rem;
-  background: linear-gradient(180deg, #f7faff 0%, #f3f7fd 100%);
-  border-bottom: 1px solid #dce7f3;
+  padding: 0.82rem 0.95rem;
+  background: linear-gradient(180deg, #fbfdff 0%, #f6f9fd 100%);
+  border-bottom: 1px solid #e2e9f2;
 }
 
 .common-table__count {
-  font-size: 0.74rem;
-  color: #56708f;
+  font-size: 0.72rem;
+  color: #60758f;
   font-weight: 600;
 }
 
@@ -40,13 +41,13 @@
 
 .common-table__search-group .form-control {
   font-size: 0.8rem;
-  border-color: #bbcbdf;
+  border-color: #c8d5e5;
 }
 
 .common-table__icon-btn {
-  border-color: #c4d2e4;
+  border-color: #ccd8e7;
   background: #fff;
-  color: #375a89;
+  color: #31547f;
   width: 2rem;
   height: 2rem;
   display: inline-flex;
@@ -67,6 +68,7 @@
 .common-table__mode {
   min-width: 120px;
   font-size: 0.78rem;
+  border-color: #c8d5e5;
 }
 
 .common-table__actions {
@@ -80,7 +82,7 @@
 }
 
 .common-table__responsive {
-  border-top: 1px solid #edf2f8;
+  border-top: 1px solid #edf2f7;
 }
 
 .common-table__head-cell {
@@ -88,7 +90,7 @@
 }
 
 .common-table__header-label {
-  color: #324e72;
+  color: #3a516d;
   font-size: 0.73rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -96,7 +98,7 @@
 
 .common-table__filter {
   font-size: 0.75rem;
-  border-color: #ccdaeb;
+  border-color: #d1dceb;
 }
 
 .common-table__filter::placeholder {
@@ -104,15 +106,15 @@
 }
 
 .common-table__cell {
-  color: #263a57;
+  color: #27384f;
 }
 
 .common-table .table thead th {
-  background: #f6f9fd;
+  background: #f8fbff;
 }
 
 .common-table .table tbody tr:hover {
-  background: #f8fbff;
+  background: #f6f9fc;
 }
 
 .common-table .table > :not(caption) > * > * {

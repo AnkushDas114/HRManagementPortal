@@ -895,7 +895,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
     yearlyCtcValue: string,
     paidDaysValue?: number,
     yearValue?: string,
-    insuranceTakenValue?: 'Yes' | 'No'
+    insuranceTakenValue?: 'Yes' | 'No',
+    workingDaysValue?: number
   ): void => {
     const yearly = Number(yearlyCtcValue);
     if (!yearlyCtcValue || Number.isNaN(yearly) || yearly <= 0) {
@@ -920,9 +921,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
     const selectedYear = Number(yearValue || salaryFormData.year) || getNowIST().getFullYear();
     const effectivePaidDays = Math.max(0, paidDaysValue ?? salaryFormData.paidDays);
-    const workingDays = Math.max(0, salaryFormData.workingDays || getDaysInMonth(salaryFormData.month, selectedYear));
+    const workingDays = Math.max(
+      0,
+      workingDaysValue ?? (salaryFormData.workingDays || getDaysInMonth(salaryFormData.month, selectedYear))
+    );
+    const cappedPaidDays = Math.min(effectivePaidDays, workingDays);
     const fullMonthlyCtc = yearly / 12;
-    const paidRatio = workingDays > 0 ? Math.min(effectivePaidDays, workingDays) / workingDays : 0;
+    const paidRatio = workingDays > 0 ? cappedPaidDays / workingDays : 0;
     const monthly = Number((fullMonthlyCtc * paidRatio).toFixed(2));
     const isInsuranceOptIn = (insuranceTakenValue ?? salaryFormData.insuranceTaken ?? 'Yes') === 'Yes';
     const salary = calculateSalary(monthly, isInsuranceOptIn);
@@ -944,9 +949,111 @@ const App: React.FC<AppProps> = ({ sp }) => {
       esi: salary.esi,
       employerEsi: salary.employerEsi,
       inhand: computedInhand,
+      paidDays: cappedPaidDays,
       insuranceTaken: insuranceTakenValue ?? prev.insuranceTaken
     }));
   };
+
+  // Keep salary breakup synced with driver inputs (yearly CTC, month/year, working/paid days, insurance).
+  // This guarantees net pay and components update whenever paid days changes.
+  React.useEffect(() => {
+    if (!isSalaryModalOpen) return;
+
+    setSalaryFormData((prev) => {
+      const yearly = Number(salaryYearlyCtc);
+      const selectedYear = Number(prev.year) || getNowIST().getFullYear();
+      const resolvedWorkingDays = Math.max(0, Number(prev.workingDays) || getDaysInMonth(prev.month, selectedYear));
+      const resolvedPaidDays = Math.min(Math.max(0, Number(prev.paidDays) || 0), resolvedWorkingDays);
+
+      if (!salaryYearlyCtc || Number.isNaN(yearly) || yearly <= 0) {
+        const zeroed = {
+          basic: 0,
+          hra: 0,
+          allowances: 0,
+          deductions: 0,
+          monthlyCtc: 0,
+          gross: 0,
+          employerPF: 0,
+          employeePF: 0,
+          bonus: 0,
+          insurance: 0,
+          esi: 0,
+          employerEsi: 0,
+          inhand: 0,
+          paidDays: resolvedPaidDays
+        };
+
+        const noChange =
+          prev.basic === zeroed.basic &&
+          prev.hra === zeroed.hra &&
+          prev.allowances === zeroed.allowances &&
+          prev.deductions === zeroed.deductions &&
+          prev.monthlyCtc === zeroed.monthlyCtc &&
+          prev.gross === zeroed.gross &&
+          prev.employerPF === zeroed.employerPF &&
+          prev.employeePF === zeroed.employeePF &&
+          prev.bonus === zeroed.bonus &&
+          prev.insurance === zeroed.insurance &&
+          prev.esi === zeroed.esi &&
+          prev.employerEsi === zeroed.employerEsi &&
+          prev.inhand === zeroed.inhand &&
+          prev.paidDays === zeroed.paidDays;
+
+        return noChange ? prev : { ...prev, ...zeroed };
+      }
+
+      const fullMonthlyCtc = yearly / 12;
+      const paidRatio = resolvedWorkingDays > 0 ? resolvedPaidDays / resolvedWorkingDays : 0;
+      const monthly = Number((fullMonthlyCtc * paidRatio).toFixed(2));
+      const isInsuranceOptIn = normalizeInsuranceTakenValue(prev.insuranceTaken) === 'Yes';
+      const salary = calculateSalary(monthly, isInsuranceOptIn);
+      const deductions = salary.employeePF + salary.esi;
+      const computedInhand = Math.max(0, salary.gross - deductions - (isInsuranceOptIn ? salary.insurance : 0));
+
+      const next = {
+        basic: salary.basic,
+        hra: salary.hra,
+        allowances: salary.other,
+        deductions,
+        monthlyCtc: Number(monthly.toFixed(2)),
+        gross: salary.gross,
+        employerPF: salary.employerPF,
+        employeePF: salary.employeePF,
+        bonus: salary.bonus,
+        insurance: salary.insurance,
+        esi: salary.esi,
+        employerEsi: salary.employerEsi,
+        inhand: computedInhand,
+        paidDays: resolvedPaidDays
+      };
+
+      const noChange =
+        prev.basic === next.basic &&
+        prev.hra === next.hra &&
+        prev.allowances === next.allowances &&
+        prev.deductions === next.deductions &&
+        prev.monthlyCtc === next.monthlyCtc &&
+        prev.gross === next.gross &&
+        prev.employerPF === next.employerPF &&
+        prev.employeePF === next.employeePF &&
+        prev.bonus === next.bonus &&
+        prev.insurance === next.insurance &&
+        prev.esi === next.esi &&
+        prev.employerEsi === next.employerEsi &&
+        prev.inhand === next.inhand &&
+        prev.paidDays === next.paidDays;
+
+      return noChange ? prev : { ...prev, ...next };
+    });
+  }, [
+    isSalaryModalOpen,
+    salaryYearlyCtc,
+    salaryFormData.month,
+    salaryFormData.year,
+    salaryFormData.workingDays,
+    salaryFormData.paidDays,
+    salaryFormData.insuranceTaken
+  ]);
 
   const handleUploadSalarySlip = (employee?: Employee) => {
     if (!employee) return;
@@ -983,7 +1090,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       insuranceTaken
     });
     setSalaryYearlyCtc(initialYearlyCtc);
-    applySalaryFromYearlyCtc(initialYearlyCtc, workingDays, String(currentYear), insuranceTaken);
+    applySalaryFromYearlyCtc(initialYearlyCtc, workingDays, String(currentYear), insuranceTaken, workingDays);
     setIsSalaryManualMode(false);
     setIsSalaryModalOpen(true);
   };
@@ -2457,13 +2564,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     workingDays: nextWorkingDays,
                     paidDays: nextPaidDays
                   });
-                  if (!isSalaryManualMode) {
-                    applySalaryFromYearlyCtc(
-                      salaryYearlyCtc,
-                      nextPaidDays,
-                      salaryFormData.year
-                    );
-                  }
+                  applySalaryFromYearlyCtc(
+                    salaryYearlyCtc,
+                    nextPaidDays,
+                    salaryFormData.year,
+                    undefined,
+                    nextWorkingDays
+                  );
                 }}
               >
                 {MONTH_NAMES.map(m => (
@@ -2488,13 +2595,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     workingDays: nextWorkingDays,
                     paidDays: nextPaidDays
                   });
-                  if (!isSalaryManualMode) {
-                    applySalaryFromYearlyCtc(
-                      salaryYearlyCtc,
-                      nextPaidDays,
-                      nextYear
-                    );
-                  }
+                  applySalaryFromYearlyCtc(
+                    salaryYearlyCtc,
+                    nextPaidDays,
+                    nextYear,
+                    undefined,
+                    nextWorkingDays
+                  );
                 }}
               >
                 {[getNowIST().getFullYear() - 1, getNowIST().getFullYear(), getNowIST().getFullYear() + 1].map((year) => (
@@ -2513,13 +2620,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   const nextWorkingDays = Math.max(0, Number(e.target.value) || 0);
                   const nextPaidDays = Math.min(salaryFormData.paidDays, nextWorkingDays);
                   setSalaryFormData({ ...salaryFormData, workingDays: nextWorkingDays, paidDays: nextPaidDays });
-                  if (!isSalaryManualMode) {
-                    applySalaryFromYearlyCtc(
-                      salaryYearlyCtc,
-                      nextPaidDays,
-                      salaryFormData.year
-                    );
-                  }
+                  applySalaryFromYearlyCtc(
+                    salaryYearlyCtc,
+                    nextPaidDays,
+                    salaryFormData.year,
+                    undefined,
+                    nextWorkingDays
+                  );
                 }}
               />
             </div>
@@ -2534,13 +2641,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   const enteredPaidDays = Math.max(0, Number(e.target.value) || 0);
                   const nextPaidDays = Math.min(enteredPaidDays, salaryFormData.workingDays);
                   setSalaryFormData({ ...salaryFormData, paidDays: nextPaidDays });
-                  if (!isSalaryManualMode) {
-                    applySalaryFromYearlyCtc(
-                      salaryYearlyCtc,
-                      nextPaidDays,
-                      salaryFormData.year
-                    );
-                  }
+                  applySalaryFromYearlyCtc(
+                    salaryYearlyCtc,
+                    nextPaidDays,
+                    salaryFormData.year,
+                    undefined,
+                    salaryFormData.workingDays
+                  );
                 }}
               />
             </div>
@@ -2560,7 +2667,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   applySalaryFromYearlyCtc(
                     value,
                     salaryFormData.paidDays,
-                    salaryFormData.year
+                    salaryFormData.year,
+                    undefined,
+                    salaryFormData.workingDays
                   );
                 }}
                 required

@@ -1,15 +1,20 @@
 /* Global Bootstrap-first UI layer for the HR app */
 
 :root {
-  --hr-primary: #2f5596;
-  --hr-primary-strong: #21427a;
-  --hr-primary-soft: #eef4ff;
-  --hr-text: #1f2937;
-  --hr-muted: #6b7280;
-  --hr-border: #d7e2ee;
-  --hr-border-strong: #c8d6e8;
+  --hr-primary: #1f4b7a;
+  --hr-primary-strong: #173a5e;
+  --hr-primary-soft: #edf4fb;
+  --hr-text: #162235;
+  --hr-muted: #5f6f86;
+  --hr-border: #d7e1ed;
+  --hr-border-strong: #c5d3e4;
   --hr-surface: #ffffff;
-  --hr-muted-bg: #f4f8fd;
+  --hr-muted-bg: #f2f5f9;
+  --hr-radius-sm: 0.55rem;
+  --hr-radius-md: 0.85rem;
+  --hr-radius-lg: 1rem;
+  --hr-shadow-soft: 0 10px 24px rgba(16, 33, 56, 0.06);
+  --hr-shadow-float: 0 16px 38px rgba(16, 33, 56, 0.11);
 }
 
 body,
@@ -20,11 +25,13 @@ body,
 .ms-Fabric {
   background-color: var(--hr-muted-bg);
   color: var(--hr-text);
-  font-family: 'Segoe UI', 'Calibri', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Manrope', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 
 .bg-light.min-vh-100 {
-  background: radial-gradient(circle at top right, #f9fcff 0%, var(--hr-muted-bg) 40%, #eef4fb 100%) !important;
+  background:
+    radial-gradient(circle at 100% 0%, #ffffff 0%, #f6f9fd 28%, transparent 62%),
+    linear-gradient(180deg, #f7f9fc 0%, var(--hr-muted-bg) 100%) !important;
 }
 
 header.navbar {
@@ -48,25 +55,29 @@ header.navbar {
 
 .nav.nav-pills {
   border: 1px solid var(--hr-border);
-  border-radius: 0.75rem;
+  border-radius: var(--hr-radius-md);
   background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .nav.nav-pills .nav-link {
-  color: #3b4d67;
-  border-radius: 0.5rem;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  color: #42556f;
+  border-radius: calc(var(--hr-radius-md) - 0.3rem);
+  transition: background-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  font-weight: 600;
 }
 
 .nav.nav-pills .nav-link:hover {
-  background-color: #f3f7fd;
+  background-color: #f3f6fb;
+  color: #2b425e;
 }
 
 .nav.nav-pills .nav-link.active,
 .nav.nav-pills .show>.nav-link {
   background-color: var(--hr-primary);
   color: #fff !important;
-  box-shadow: 0 4px 10px rgba(36, 72, 131, 0.22);
+  box-shadow: 0 8px 18px rgba(26, 63, 104, 0.23);
+  transform: translateY(-1px);
 }
 
 .nav.nav-pills .nav-link.active:hover,
@@ -80,9 +91,9 @@ header.navbar {
 
 .card {
   border: 1px solid var(--hr-border);
-  border-radius: 0.75rem;
+  border-radius: var(--hr-radius-md);
   background: var(--hr-surface);
-  box-shadow: 0 8px 26px rgba(26, 46, 79, 0.06);
+  box-shadow: var(--hr-shadow-soft);
 }
 
 .card-header {
@@ -99,18 +110,20 @@ header.navbar {
 }
 
 .table-responsive {
-  border-radius: 0 0 0.75rem 0.75rem;
+  border-radius: 0 0 var(--hr-radius-md) var(--hr-radius-md);
 }
 
 .form-control,
 .form-select,
 .btn {
-  border-radius: 0.5rem;
+  border-radius: var(--hr-radius-sm);
 }
 
 .form-control,
 .form-select {
   border-color: var(--hr-border-strong);
+  color: var(--hr-text);
+  background-color: #fff;
 }
 
 /* Keep native date-picker icon visible and clickable across the app */
@@ -139,8 +152,8 @@ input[type='date']::-webkit-clear-button {
 
 .form-control:focus,
 .form-select:focus {
-  border-color: #89a4d5;
-  box-shadow: 0 0 0 0.2rem rgba(47, 85, 150, 0.14);
+  border-color: #89a7c7;
+  box-shadow: 0 0 0 0.18rem rgba(31, 75, 122, 0.16);
 }
 
 .form-check-input:checked {
@@ -150,11 +163,17 @@ input[type='date']::-webkit-clear-button {
 
 .btn {
   font-weight: 600;
+  transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
 }
 
 .btn-primary {
   background-color: var(--hr-primary);
   border-color: var(--hr-primary);
+  box-shadow: 0 6px 14px rgba(24, 62, 102, 0.18);
 }
 
 .btn-primary:hover,
@@ -162,6 +181,7 @@ input[type='date']::-webkit-clear-button {
 .btn-primary:active {
   background-color: var(--hr-primary-strong);
   border-color: var(--hr-primary-strong);
+  transform: translateY(0);
 }
 
 .btn-outline-primary {
@@ -176,6 +196,21 @@ input[type='date']::-webkit-clear-button {
   color: var(--hr-primary-strong);
 }
 
+.btn:disabled,
+.btn.disabled {
+  opacity: 0.58;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.form-control[readonly],
+.form-control:disabled,
+.form-select:disabled {
+  background-color: #f6f8fb;
+  border-color: #d6dfeb;
+  color: #5d6b80;
+}
+
 .badge.text-bg-danger {
   background-color: #dc3545 !important;
 }
@@ -186,7 +221,7 @@ input[type='date']::-webkit-clear-button {
   justify-content: center;
   padding: 0.28rem 0.62rem;
   border-radius: 999px;
-  font-size: 0.64rem;
+  font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -246,7 +281,7 @@ input[type='date']::-webkit-clear-button {
 }
 
 .accordion-filter:hover {
-  background-color: #f9fbfe;
+  background-color: #f6f9fc;
 }
 
 .smartsearch-box {
@@ -522,12 +557,12 @@ input[type='date']::-webkit-clear-button {
   justify-content: center;
   min-width: 190px;
   padding: 0.42rem 0.95rem;
-  border: 2px solid #9eb2ce;
+  border: 1px solid #a9bdd7;
   background: #ffffff;
-  color: #2d425f;
+  color: #2b425f;
   font-weight: 600;
   font-size: 0.86rem;
-  border-radius: 0.55rem;
+  border-radius: var(--hr-radius-sm);
   transition: all 0.15s ease;
   box-shadow: 0 1px 3px rgba(16, 42, 77, 0.08);
 }
@@ -539,10 +574,10 @@ input[type='date']::-webkit-clear-button {
 }
 
 .btn.popup-option-toggle.popup-option-toggle--active {
-  background: #2f5596;
-  border-color: #2f5596;
+  background: var(--hr-primary);
+  border-color: var(--hr-primary);
   color: #ffffff;
-  box-shadow: 0 3px 10px rgba(47, 85, 150, 0.2);
+  box-shadow: 0 8px 16px rgba(26, 63, 104, 0.2);
 }
 
 .concern-reply-btn {
@@ -594,8 +629,8 @@ input[type='date']::-webkit-clear-button {
 }
 
 .btn.popup-option-toggle.popup-option-toggle--active:hover {
-  background: #274a85;
-  border-color: #274a85;
+  background: #173d66;
+  border-color: #173d66;
   color: #ffffff;
 }
 
@@ -604,7 +639,7 @@ input[type='date']::-webkit-clear-button {
   margin: 0;
   padding: 1rem 1.05rem;
   border: 1px solid #dbe5f2;
-  border-radius: 0.9rem;
+  border-radius: var(--hr-radius-lg);
   background: #f8fbff;
   box-shadow: inset 0 1px 0 #ffffff;
 }
@@ -620,7 +655,7 @@ input[type='date']::-webkit-clear-button {
   max-width: none;
   margin: 0;
   border: 1px solid #d9e4f2;
-  border-radius: 0.9rem;
+  border-radius: var(--hr-radius-lg);
   background: #ffffff;
   padding: 0.85rem 0.9rem 0.95rem;
 }
@@ -650,7 +685,7 @@ input[type='date']::-webkit-clear-button {
 
 .profile-summary-card,
 .profile-details-card {
-  border-radius: 0.85rem;
+  border-radius: var(--hr-radius-lg);
 }
 
 .profile-summary-card {

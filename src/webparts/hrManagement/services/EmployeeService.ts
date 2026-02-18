@@ -72,28 +72,31 @@ export async function createEmployee(sp: SPFI, employee: Partial<Employee>): Pro
 
 export async function updateEmployee(sp: SPFI, itemId: number, employee: Partial<Employee>): Promise<void> {
   try {
-    await sp.web.lists.getByTitle(EMPLOYEE_MASTER_LIST_TITLE).items.getById(itemId).update({
-      Title: employee.name,
-      EmployeeID: employee.id,
-      Email: employee.email,
-      Department: employee.department,
-      Designation: employee.position,
-      DOJ: employee.joiningDate,
-      PAN: employee.pan,
-      AccountNumber: employee.accountNumber,
-      BankName: employee.bankName,
-      IFSCCode: employee.ifscCode,
-      Total: String(employee.total || '0'),
-      YearlyCTC: employee.yearlyCTC ?? employee.total ?? 0,
-      EmployeeESI: employee.employeeESI ?? 0,
-      EmployerESI: employee.employerESI ?? 0,
-      SalaryInsurance: employee.salaryInsurance ?? 0,
-      SalaryBonus: employee.salaryBonus ?? 0,
-      ...(employee.insuranceTaken !== undefined ? { InsuranceTaken: employee.insuranceTaken } : {}),
-      Phone: employee.phone,
-      Location: employee.location,
-      ReportingManager: employee.reportingManager
-    });
+    const payload: Record<string, unknown> = {};
+
+    if (employee.name !== undefined) payload.Title = employee.name;
+    if (employee.id !== undefined) payload.EmployeeID = employee.id;
+    if (employee.email !== undefined) payload.Email = employee.email;
+    if (employee.department !== undefined) payload.Department = employee.department;
+    if (employee.position !== undefined) payload.Designation = employee.position;
+    if (employee.joiningDate !== undefined) payload.DOJ = employee.joiningDate;
+    if (employee.pan !== undefined) payload.PAN = employee.pan;
+    if (employee.accountNumber !== undefined) payload.AccountNumber = employee.accountNumber;
+    if (employee.bankName !== undefined) payload.BankName = employee.bankName;
+    if (employee.ifscCode !== undefined) payload.IFSCCode = employee.ifscCode;
+    if (employee.total !== undefined) payload.Total = String(employee.total || '0');
+    if (employee.yearlyCTC !== undefined) payload.YearlyCTC = employee.yearlyCTC;
+    if (employee.employeeESI !== undefined) payload.EmployeeESI = employee.employeeESI;
+    if (employee.employerESI !== undefined) payload.EmployerESI = employee.employerESI;
+    if (employee.salaryInsurance !== undefined) payload.SalaryInsurance = employee.salaryInsurance;
+    if (employee.salaryBonus !== undefined) payload.SalaryBonus = employee.salaryBonus;
+    if (employee.insuranceTaken !== undefined) payload.InsuranceTaken = employee.insuranceTaken;
+    if (employee.phone !== undefined) payload.Phone = employee.phone;
+    if (employee.location !== undefined) payload.Location = employee.location;
+    if (employee.reportingManager !== undefined) payload.ReportingManager = employee.reportingManager;
+
+    if (!Object.keys(payload).length) return;
+    await sp.web.lists.getByTitle(EMPLOYEE_MASTER_LIST_TITLE).items.getById(itemId).update(payload);
   } catch (error) {
     console.error('Error updating employee:', error);
     throw error;
