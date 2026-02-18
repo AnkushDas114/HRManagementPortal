@@ -224,7 +224,7 @@ input[type='date']::-webkit-clear-button {
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+  /* text-transform: uppercase; */
   border: 1px solid transparent;
   line-height: 1.2;
 }
@@ -236,15 +236,15 @@ input[type='date']::-webkit-clear-button {
 }
 
 .status-chip--danger {
-  color: #b91c1c;
-  background: #fee2e2;
-  border-color: #fecaca;
+  color: #fff;
+  background: #dc3545;
+  border-color: #dc3545;
 }
 
 .status-chip--pending {
-  color: #a16207;
-  background: #fef3c7;
-  border-color: #fde68a;
+  color: #fff;
+  background: #f59e0b;
+  border-color: #f59e0b;
 }
 
 .status-chip--warning {
@@ -896,4 +896,13 @@ input[type='date']::-webkit-clear-button {
 #spPageCanvasContent [data-automation-id="CanvasSection"],
 #spPageCanvasContent [data-automation-id="CanvasZone-SectionContainer"] {
   max-width: 100% !important;
+}
+.card-bg-primary{
+  background-color: #2f5596 !important;
+}
+.color-primary{
+  color: #2f5596 !important;
+}
+.common-table__icon-btn svg {
+  margin-left: -7px;
 }

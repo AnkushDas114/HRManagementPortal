@@ -938,7 +938,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                       style={{ objectFit: 'cover', transition: 'all 0.2s' }}
                     />
                     {selectedMemberId && employeeIdsMatch(selectedMemberId, m.id) && (
-                      <div className="position-absolute bottom-0 end-0 bg-primary rounded-circle border border-white" style={{ width: '8px', height: '8px' }} />
+                      <div className="position-absolute bottom-0 end-0 card-bg-primary rounded-circle border border-white" style={{ width: '8px', height: '8px' }} />
                     )}
                   </div>
                 ))}
@@ -1066,7 +1066,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         footer={
           <>
             <button
-              className="btn btn-link text-decoration-none"
+              className="btn btn-default text-decoration-none"
               onClick={() => {
                 if (isSavingEdit) return;
                 setIsEditModalOpen(false);

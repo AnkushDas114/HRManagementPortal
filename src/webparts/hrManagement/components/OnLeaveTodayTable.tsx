@@ -250,7 +250,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
         title="Apply Leave for Employee"
         footer={
           <>
-            <button className="btn btn-link text-decoration-none" onClick={() => setIsAddLeaveModalOpen(false)}>Cancel</button>
+            <button className="btn btn-default text-decoration-none" onClick={() => setIsAddLeaveModalOpen(false)}>Cancel</button>
             <button
               type="submit"
               form="apply-employee-leave-form"

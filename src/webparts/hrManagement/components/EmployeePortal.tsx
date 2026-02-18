@@ -667,7 +667,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 {c.reply ? (
                   <div className="p-2 rounded mt-2" style={{ backgroundColor: '#f0f9ff', borderLeft: '3px solid #0ea5e9' }}>
                     <div className="d-flex justify-content-between mb-1">
-                      <span className="small fw-bold text-primary">HR Resolution:</span>
+                      <span className="small fw-bold color-primary">HR Resolution:</span>
                       <span className="small text-muted" style={{ fontSize: '10px' }}>{c.repliedAt}</span>
                     </div>
                     <p
@@ -715,7 +715,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       align: 'end',
       render: (rec) => (
         <button
-          className="btn btn-sm btn-light border text-primary fw-bold"
+          className="btn btn-sm btn-light border color-primary fw-bold"
           style={{ fontSize: '10px' }}
           onClick={() => handleOpenConcern(ConcernType.Attendance, rec.date)}
         >
@@ -742,7 +742,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <Download size={14} /> PDF
           </button>
           <button
-            className="btn btn-sm btn-light border text-primary fw-bold"
+            className="btn btn-sm btn-light border color-primary fw-bold"
             style={{ fontSize: '10px' }}
             onClick={() => handleOpenConcern(ConcernType.Salary, slip.id)}
           >
@@ -783,7 +783,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       align: 'end',
       render: (r) => (
         <button
-          className="btn btn-sm btn-light border text-primary fw-bold"
+          className="btn btn-sm btn-light border color-primary fw-bold"
           style={{ fontSize: '10px' }}
           onClick={() => handleOpenConcern(r.requestCategory === 'Work From Home' ? ConcernType.WorkFromHome : ConcernType.Leave, r.id)}
         >
@@ -848,7 +848,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       <div className="animate-in fade-in pb-5">
         <div className="mb-4 d-flex justify-content-between align-items-end p-4">
           <div>
-            <h2 className="h2 fw-bold mb-1" style={{ color: '#333' }}>Welcome, {user.name.split(' ')[0]}!</h2>
+            <h2 className="h2 fw-bold mb-1 color-primary">Welcome, {user.name.split(' ')[0]}!</h2>
             <p className="text-muted small mb-0">Here is your summary for today.</p>
           </div>
           <div className="text-end d-none d-md-block">
@@ -857,7 +857,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           </div>
         </div>
 
-        <div className="row g-4 mb-4">
+        <div className="row g-4 mb-4 mx-2">
           <div className="col-lg-3">
             <div className="card shadow-sm border-0 h-100 p-4 bg-white">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
@@ -903,7 +903,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 {onLeaveWfhTodayRecords.map((rec, i) => (
                   <div key={`${rec.id}-${i}`} className="d-flex align-items-center justify-content-between pb-2 border-bottom border-light last-border-none">
                     <div className="small fw-bold text-dark">{rec.employee.name}</div>
-                    <span className="badge bg-primary-subtle text-primary border-0" style={{ fontSize: '10px' }}>
+                    <span className="badge card-bg-primary-subtle text-primary border-0" style={{ fontSize: '10px' }}>
                       {rec.requestCategory === 'Work From Home' ? 'Work From Home' : rec.leaveType}
                     </span>
                   </div>
@@ -997,7 +997,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                   currentMonthHolidays.map(holiday => (
                     <div key={holiday.id} className="col-md-6">
                       <div className="p-3 rounded border bg-light d-flex align-items-center gap-3">
-                        <div className={`p-2 rounded d-flex align-items-center justify-content-center ${holiday.type === 'Public' ? 'bg-primary' : 'bg-secondary'}`} style={{ width: '40px', height: '40px' }}>
+                        <div className={`p-2 rounded d-flex align-items-center justify-content-center ${holiday.type === 'Public' ? 'card-bg-primary' : 'bg-secondary'}`} style={{ width: '40px', height: '40px' }}>
                           <CalendarIcon size={18} className="text-white" />
                         </div>
                         <div>

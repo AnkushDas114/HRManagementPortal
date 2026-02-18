@@ -1488,7 +1488,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       render: (emp) => (
         <div className="d-flex align-items-center gap-3">
           <img src={emp.avatar} width="32" height="32" className="rounded-circle border" />
-          <div className="fw-bold text-primary small">{emp.name}</div>
+          <div className="fw-bold color-primary small">{emp.name}</div>
         </div>
       )
     },
@@ -1574,7 +1574,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const holidayColumns = React.useMemo<ColumnDef<Holiday>[]>(() => ([
     { key: 'name', header: 'Holiday' },
     { key: 'date', header: 'Date' },
-    { key: 'type', header: 'Type', render: (h) => <span className={`badge ${h.type === 'Public' ? 'text-bg-primary' : 'text-bg-secondary'}`}>{h.type}</span> },
+    { key: 'type', header: 'Type', render: (h) => <span className={`badge ${h.type === 'Public' ? 'btn-primary' : 'text-bg-secondary'}`}>{h.type}</span> },
     {
       key: 'actions',
       header: 'Actions',
@@ -1969,7 +1969,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   {activeTab === 'global-directory' && (
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                        <h5 className="mb-0 fw-bold text-primary">Employee Global Directory</h5>
+                        <h5 className="mb-0 fw-bold color-primary">Employee Global Directory</h5>
                         <button className="btn btn-primary btn-sm d-flex align-items-center gap-2" onClick={() => handleOpenEmployeeModal()}>
                           <Plus size={16} /> Add User
                         </button>
@@ -1990,7 +1990,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   {activeTab === 'upload-salary-slip' && (
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white py-3">
-                        <h5 className="mb-0 fw-bold text-primary">Upload Salary Slip</h5>
+                        <h5 className="mb-0 fw-bold color-primary">Upload Salary Slip</h5>
                       </div>
                       <CommonTable
                         data={directoryEmployees}
@@ -2013,7 +2013,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   {activeTab === 'policy-admin' && (
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                        <h5 className="mb-0 fw-bold text-primary">Leave Policies</h5>
+                        <h5 className="mb-0 fw-bold color-primary">Leave Policies</h5>
                         <button className="btn btn-primary btn-sm" onClick={() => handleOpenPolicyModal()} disabled={isLoadingPolicies}><Plus size={16} /> Add Policy</button>
                       </div>
                       {isLoadingPolicies && (
@@ -2043,7 +2043,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       <div className="col-lg-6">
                         <div className="card border-0 shadow-sm h-100">
                           <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <h5 className="mb-0 fw-bold text-primary">Official Holidays</h5>
+                            <h5 className="mb-0 fw-bold color-primary">Official Holidays</h5>
                             <button className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1" onClick={() => handleOpenHolidayModal()} disabled={isLoadingHolidays}>
                               <Plus size={14} /> Add Holiday
                             </button>
@@ -2072,7 +2072,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       </div>
                       <div className="col-lg-6">
                         <div className="card border-0 shadow-sm h-100">
-                          <div className="card-header text-primary bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                          <div className="card-header color-primary bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <h5 className="mb-0 fw-bold">Unofficial Leave Quotas</h5>
                             <button
                               className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"
@@ -2107,7 +2107,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                                   </ul>
                                   <div className="p-3 bg-light text-center border-top">
                                     <button
-                                      className="btn btn-sm btn-outline-primary w-100"
+                                      className="btn btn-sm btn-primary"
                                       onClick={() => setIsAddLeaveModalOpen(true)}
                                       disabled={isLoadingQuotas}
                                     >
@@ -2129,7 +2129,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   )}
                   {activeTab === 'concerns-admin' && (
                     <div className="card border-0 shadow-sm">
-                      <div className="card-header bg-white py-3"><h5 className="mb-0 fw-bold text-primary">Employee Concerns</h5></div>
+                      <div className="card-header bg-white py-3"><h5 className="mb-0 fw-bold color-primary">Employee Concerns</h5></div>
                       <CommonTable
                         data={concerns}
                         columns={concernColumns}
@@ -2150,7 +2150,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       </Modal>
 
       <Modal isOpen={isAddLeaveModalOpen} onClose={() => setIsAddLeaveModalOpen(false)} title="Manage Quotas" footer={<button className="btn btn-primary px-4" onClick={handleSaveQuotas} disabled={isLoadingQuotas}>{isLoadingQuotas ? 'Saving...' : 'Save'}</button>}>
-        <div className="mb-4"><label className="form-label small fw-bold text-muted">ADD NEW TYPE</label><div className="input-group input-group-sm"><input type="text" className="form-control" value={newLeaveTypeName} onChange={(e) => setNewLeaveTypeName(e.target.value)} placeholder="Enter leave type name" /><button className="btn btn-primary" onClick={handleAddNewLeaveType} disabled={isLoadingQuotas}>Add</button></div></div>
+        <div className="mb-4"><label className="form-label small fw-bold text-muted">ADD NEW TYPE</label><div className="input-group input-group-sm gap-2"><input type="text" className="form-control" value={newLeaveTypeName} onChange={(e) => setNewLeaveTypeName(e.target.value)} placeholder="Enter leave type name" /><button className="btn btn-primary" onClick={handleAddNewLeaveType} disabled={isLoadingQuotas}>Add</button></div></div>
         {Object.keys(leaveQuotas).length > 0 ? (
           <div className="list-group list-group-flush overflow-auto" style={{ maxHeight: '400px' }}>
             {Object.entries(leaveQuotas).map(([type, count]) => (
@@ -2187,9 +2187,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   </div>
                 )}
                 <div className="d-flex align-items-center gap-3">
-                  <button className="btn btn-sm btn-outline-secondary rounded-circle px-2" onClick={() => handleUpdateQuota(type, -1)} disabled={isLoadingQuotas}><Minus size={14} /></button>
+                  <button className="btn-default rounded-circle px-2" onClick={() => handleUpdateQuota(type, -1)} disabled={isLoadingQuotas}><Minus size={14} /></button>
                   <div className="fw-bold" style={{ width: '20px', textAlign: 'center' }}>{count}</div>
-                  <button className="btn btn-sm btn-outline-primary rounded-circle px-2" onClick={() => handleUpdateQuota(type, 1)} disabled={isLoadingQuotas}><Plus size={14} /></button>
+                  <button className="btn-primary rounded-circle" onClick={() => handleUpdateQuota(type, 1)} disabled={isLoadingQuotas}><Plus size={14} /></button>
                   <button className="btn btn-link text-danger p-0 ms-2" onClick={() => handleDeleteQuotaType(type)} disabled={isLoadingQuotas}><X size={18} /></button>
                 </div>
               </div>
@@ -2202,7 +2202,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         )}
       </Modal>
 
-      <Modal isOpen={isHolidayModalOpen} onClose={() => setIsHolidayModalOpen(false)} title={editingHolidayId ? "Edit Holiday" : "New Holiday"} footer={<><button className="btn btn-link text-decoration-none" onClick={() => setIsHolidayModalOpen(false)}>Cancel</button><button type="submit" form="holiday-form" className="btn btn-primary">{editingHolidayId ? "Update" : "Save"}</button></>}>
+      <Modal isOpen={isHolidayModalOpen} onClose={() => setIsHolidayModalOpen(false)} title={editingHolidayId ? "Edit Holiday" : "New Holiday"} footer={<><button className="btn btn-default text-decoration-none" onClick={() => setIsHolidayModalOpen(false)}>Cancel</button><button type="submit" form="holiday-form" className="btn btn-primary">{editingHolidayId ? "Update" : "Save"}</button></>}>
         <form id="holiday-form" onSubmit={handleSaveHoliday}><div className="mb-3"><label className="form-label fw-bold">Name</label><input type="text" className="form-control" value={holidayFormData.name} onChange={e => setHolidayFormData({ ...holidayFormData, name: e.target.value })} required /></div><div className="mb-3"><label className="form-label fw-bold">Date</label><input type="date" className="form-control" value={holidayFormData.date} onChange={e => setHolidayFormData({ ...holidayFormData, date: e.target.value })} required /></div><div className="mb-3"><label className="form-label fw-bold">Type</label><select className="form-select" value={holidayFormData.type} onChange={e => setHolidayFormData({ ...holidayFormData, type: e.target.value as any })}>{leaveCategories.length > 0 ? leaveCategories.map(cat => <option key={cat} value={cat}>{cat}</option>) : <><option value="Public">Public</option><option value="Restricted">Restricted</option></>}</select></div></form>
       </Modal>
 
@@ -2516,7 +2516,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             {/* Employee Information Section - Dense box */}
             <div className="col-12">
               <div className="p-3 rounded border bg-light shadow-xs mb-1">
-                <div className="fw-bold text-primary d-flex align-items-center gap-2 mb-2 small text-uppercase">
+                <div className="fw-bold color-primary d-flex align-items-center gap-2 mb-2 small text-uppercase">
                   Employee Information
                 </div>
                 <div className="row g-2">
@@ -2977,7 +2977,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         onClose={() => setIsEmployeeModalOpen(false)}
         title={editingEmployee ? "Edit Employee Details" : "Add New Employee"}
         size="lg"
-        footer={<><button className="btn btn-link" onClick={() => setIsEmployeeModalOpen(false)}>Cancel</button><button type="submit" form="employee-form" className="btn btn-primary">Save Employee</button></>}
+        footer={<><button className="btn btn-default" onClick={() => setIsEmployeeModalOpen(false)}>Cancel</button><button type="submit" form="employee-form" className="btn btn-primary">Save Employee</button></>}
       >
         <form id="employee-form" onSubmit={handleSaveEmployee}>
           <ul className="nav nav-tabs mb-3">
@@ -3021,7 +3021,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
           <div className="row g-3">
             {employeeModalTab === 'professional' && (
               <>
-                <h6 className="fw-bold text-primary border-bottom pb-2">Professional Details</h6>
+                <h6 className="fw-bold color-primary border-bottom pb-2">Professional Details</h6>
                 <div className="col-md-6">
                   <label className="form-label fw-bold">Full Name</label>
                   <input type="text" className="form-control" value={employeeFormData.name} onChange={e => setEmployeeFormData({ ...employeeFormData, name: e.target.value })} required />
@@ -3061,7 +3061,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
             {employeeModalTab === 'banking' && (
               <>
-                <h6 className="fw-bold text-primary border-bottom pb-2">Banking Details</h6>
+                <h6 className="fw-bold color-primary border-bottom pb-2">Banking Details</h6>
                 <div className="col-md-6">
                   <label className="form-label fw-bold">PAN Number</label>
                   <input type="text" className="form-control" value={employeeFormData.pan || ''} onChange={e => setEmployeeFormData({ ...employeeFormData, pan: e.target.value })} />
@@ -3083,7 +3083,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
             {employeeModalTab === 'salary' && (
               <>
-                <h6 className="fw-bold text-primary border-bottom pb-2">Salary Details</h6>
+                <h6 className="fw-bold color-primary border-bottom pb-2">Salary Details</h6>
                 <div className="col-md-6">
                   <label className="form-label fw-bold">Yearly CTC (₹)</label>
                   <input
@@ -3176,7 +3176,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
             {employeeModalTab === 'image' && (
               <>
-                <h6 className="fw-bold text-primary border-bottom pb-2">Profile Image</h6>
+                <h6 className="fw-bold color-primary border-bottom pb-2">Profile Image</h6>
                 <div className="col-12 d-flex align-items-center gap-3">
                   <img
                     src={employeeFormData.avatar || editingEmployee?.avatar || 'https://i.pravatar.cc/150?u=employee'}
@@ -3221,7 +3221,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 <div className="col-12">
                   <div className="d-flex justify-content-between align-items-center">
                     <label className="form-label fw-bold mb-0">Choose from Gallery Folders</label>
-                    <button type="button" className="btn btn-sm btn-link" onClick={() => void loadProfileImageGallery()}>Refresh</button>
+                    <button type="button" className="btn btn-sm color-primary" onClick={() => void loadProfileImageGallery()}>Refresh</button>
                   </div>
                 </div>
                 {isLoadingProfileGallery && <div className="col-12 text-muted small">Loading gallery images...</div>}

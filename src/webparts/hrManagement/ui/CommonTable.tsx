@@ -184,7 +184,7 @@ const CommonTable = <T,>({
   }, [data, sortedColumns, columnFilters, globalQuery, searchMode, searchVisible]);
 
   return (
-    <div className="common-table">
+    <div className="common-table m-2">
       {searchVisible && (
         <div className="common-table__toolbar">
           <div className="common-table__count">Showing {filtered.length} of {data.length}</div>
@@ -328,7 +328,7 @@ const CommonTable = <T,>({
 
           <div className="common-table-settings__panel common-table-settings__panel--wide">
             <div className="fw-bold mb-2">Column Settings</div>
-            <div className="border rounded overflow-auto">
+            <div className="border rounded overflow-auto px-2">
               <div className="row g-0 border-bottom bg-light small fw-bold text-muted">
                 <div className="col-5 p-2">Columns</div>
                 <div className="col-4 p-2">Column Width</div>

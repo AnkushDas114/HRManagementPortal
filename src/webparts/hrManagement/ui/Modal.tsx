@@ -60,7 +60,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
               {children}
             </div>
             {footer && (
-              <div className="modal-footer hr-modal-footer">
+              <div className="modal-footer hr-modal-footer gap-2">
                 {footer}
               </div>
             )}

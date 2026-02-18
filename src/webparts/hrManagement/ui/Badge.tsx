@@ -16,7 +16,7 @@ const Badge: React.FC<BadgeProps> = ({ status }) => {
     case 'accepted':
     case ConcernStatus.Resolved.toLowerCase():
     case 'present':
-      toneClass = 'status-chip--success';
+      toneClass = 'btn-success';
       break;
     case LeaveStatus.Rejected.toLowerCase():
     case 'absent':
@@ -24,11 +24,11 @@ const Badge: React.FC<BadgeProps> = ({ status }) => {
       break;
     case LeaveStatus.Pending.toLowerCase():
       toneClass = 'status-chip--pending';
-      inlineStyle = {
-        color: '#a16207',
-        background: '#fef3c7',
-        borderColor: '#fde68a'
-      };
+      // inlineStyle = {
+      //   color: '#a16207',
+      //   background: '#fef3c7',
+      //   borderColor: '#fde68a'
+      // };
       break;
     case ConcernStatus.Open.toLowerCase():
     case 'unresolved':

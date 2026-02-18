@@ -381,7 +381,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4 p-3">
-        <h2 className="h3 fw-semibold text-secondary">Dashboard Overview</h2>
+        <h2 className="h3 fw-semibold color-primary">Dashboard Overview</h2>
         <button
           onClick={handleGenerateSummary}
           disabled={isLoadingSummary}
@@ -392,7 +392,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         </button>
       </div>
 
-      <div className="row g-4">
+      <div className="row g-4 px-3">
         <div className="col-12 col-sm-6 col-lg-4 col-xl-2">
           <StatCard title="Present Today" value={stats.presentToday} icon={<UserCheck className="text-info" />} />
         </div>
@@ -445,7 +445,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                 currentMonthHolidays.map(holiday => (
                   <div key={holiday.id} className="col-md-6 col-xl-4">
                     <div className="p-3 rounded border bg-light d-flex align-items-center gap-2">
-                      <div className={`p-2 rounded d-flex align-items-center justify-content-center ${holiday.type === 'Public' ? 'bg-primary' : 'bg-secondary'}`} style={{ minWidth: '36px', height: '36px' }}>
+                      <div className={`p-2 rounded d-flex align-items-center justify-content-center ${holiday.type === 'Public' ? 'card-bg-primary' : 'bg-secondary'}`} style={{ minWidth: '36px', height: '36px' }}>
                         <CalendarIcon size={16} className="text-white" />
                       </div>
                       <div className="overflow-hidden">
@@ -470,7 +470,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                 <PartyPopper size={18} color="#E44D26" /> Team Celebrations
               </h6>
               <button
-                className="btn btn-sm btn-outline-primary border d-flex align-items-center gap-1 fw-bold px-2 py-1"
+                className="btn btn-sm border d-flex align-items-center gap-1 fw-bold px-2 py-1"
                 style={{ fontSize: '10px', color: '#2F5596', borderColor: '#2F5596' }}
                 onClick={handleOpenAddEventModal}
               >
@@ -487,7 +487,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                     <div>
                       <div className="small fw-bold text-dark">{item.employee?.name || 'Team Event'}</div>
                       <div className="text-muted d-flex flex-column gap-0" style={{ fontSize: '10px' }}>
-                        <div className="fw-medium text-primary mb-1">{item.name}</div>
+                        <div className="fw-medium mb-1">{item.name}</div>
                         <div className="d-flex align-items-center gap-1">
                           {item.icon} {item.type}
                         </div>
