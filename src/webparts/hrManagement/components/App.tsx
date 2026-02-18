@@ -862,6 +862,14 @@ const App: React.FC<AppProps> = ({ sp }) => {
     });
   }, [balanceEmployee, leaveQuotas, getQuotaForLeaveType, getUsedLeavesForEmployee]);
 
+  const totalLeavesTaken = React.useMemo(() => {
+    return balanceSummary.reduce((sum, item) => sum + (Number(item.used) || 0), 0);
+  }, [balanceSummary]);
+
+  const totalLeavesLeft = React.useMemo(() => {
+    return balanceSummary.reduce((sum, item) => sum + (Number(item.left) || 0), 0);
+  }, [balanceSummary]);
+
   const handleRaiseConcern = async (type: ConcernType, referenceId: string | number, description: string) => {
     try {
       await createConcern(sp, { type, referenceId, description, status: ConcernStatus.Open }, currentUser.id);
@@ -2946,12 +2954,29 @@ const App: React.FC<AppProps> = ({ sp }) => {
         </form>
       </Modal >
 
-      <Modal isOpen={isBalanceModalOpen} onClose={() => setIsBalanceModalOpen(false)} title="Balance Summary">
+      <Modal isOpen={isBalanceModalOpen} onClose={() => setIsBalanceModalOpen(false)} title="Balance Summary" size="sm">
         {balanceEmployee && (
           <div>
-            <div className="small text-muted mb-3">
-              {balanceEmployee.name} (ID: {balanceEmployee.id})
+            <div className="text-center mb-3">
+              <div className="fw-bold text-primary">{balanceEmployee.name}</div>
+              <div className="small text-muted">Employee ID: {balanceEmployee.id}</div>
             </div>
+
+            <div className="row g-2 mb-3">
+              <div className="col-6">
+                <div className="p-2 border rounded bg-light text-center h-100">
+                  <div className="small text-muted fw-semibold">Total Leaves Left</div>
+                  <div className="h5 mb-0 text-primary fw-bold">{totalLeavesLeft}</div>
+                </div>
+              </div>
+              <div className="col-6">
+                <div className="p-2 border rounded bg-light text-center h-100">
+                  <div className="small text-muted fw-semibold">Total Leaves Taken</div>
+                  <div className="h5 mb-0 text-danger fw-bold">{totalLeavesTaken}</div>
+                </div>
+              </div>
+            </div>
+
             <div className="row g-3">
               {balanceSummary.length === 0 && (
                 <div className="col-12">
@@ -2959,11 +2984,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
               )}
               {balanceSummary.map((item) => (
-                <div key={item.type} className="col-12 col-md-4 col-lg-3">
+                <div key={item.type} className="col-12">
                   <div className="p-3 bg-white border rounded text-center shadow-sm h-100">
-                    <div className="h4 fw-bold mb-1 text-primary">{item.left}</div>
-                    <div className="small text-muted text-truncate" title={item.type}>{item.type}</div>
-                    <div className="small text-muted mt-1">Used {item.used} / {item.quota}</div>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <div className="small fw-semibold text-truncate text-start" title={item.type}>{item.type}</div>
+                      <div className="small text-muted">{item.used}/{item.quota} used</div>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center mt-2">
+                      <div className="small text-muted">Leaves Left</div>
+                      <div className="h6 mb-0 fw-bold text-primary">{item.left}</div>
+                    </div>
                   </div>
                 </div>
               ))}

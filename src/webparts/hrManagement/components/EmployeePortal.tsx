@@ -628,6 +628,16 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     });
   }, [myLeaveRequests, leaveQuotas]);
 
+  const totalLeavesTaken = React.useMemo(
+    () => leaveStats.reduce((sum, item) => sum + (Number(item.used) || 0), 0),
+    [leaveStats]
+  );
+
+  const totalLeavesLeft = React.useMemo(
+    () => leaveStats.reduce((sum, item) => sum + (Number(item.left) || 0), 0),
+    [leaveStats]
+  );
+
   const ConcernSection = ({ type }: { type: ConcernType }) => {
     const filteredConcerns = myConcerns.filter(c => c.type === type);
 
@@ -1048,18 +1058,41 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           isOpen={isBalanceModalOpen}
           onClose={() => setIsBalanceModalOpen(false)}
           title="Balance Summary"
+          size="sm"
+          scrollable={false}
         >
-          <div className="text-center mb-4">
+          <div className="text-center mb-2">
             <h5 className="fw-bold text-primary mb-1">{user.name}</h5>
             <p className="text-muted small">Employee ID: {user.id}</p>
           </div>
-          <div className="row g-3">
+
+          <div className="row g-2 mb-2">
+            <div className="col-6">
+              <div className="p-2 border rounded bg-light text-center h-100">
+                <div className="small text-muted fw-semibold" style={{ fontSize: '11px' }}>Total Leaves Left</div>
+                <div className="h6 mb-0 text-primary fw-bold">{totalLeavesLeft}</div>
+              </div>
+            </div>
+            <div className="col-6">
+              <div className="p-2 border rounded bg-light text-center h-100">
+                <div className="small text-muted fw-semibold" style={{ fontSize: '11px' }}>Total Leaves Taken</div>
+                <div className="h6 mb-0 text-danger fw-bold">{totalLeavesTaken}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="row g-2">
+            {leaveStats.length === 0 && (
+              <div className="col-12">
+                <div className="text-muted small text-center">No leave quota data found.</div>
+              </div>
+            )}
             {leaveStats.map((item, idx) => (
-              <div key={idx} className="col-6">
-                <div className="card h-100 border p-3 text-center shadow-xs hover-shadow-sm transition-all" style={{ borderRadius: '12px' }}>
-                  <div className="display-5 fw-bold text-primary mb-1">{item.left}</div>
-                  <div className="small fw-bold text-dark mb-2">{item.label}</div>
-                  <div className="progress mb-2" style={{ height: '4px' }}>
+              <div key={idx} className="col-12">
+                <div className="card h-100 border p-2 text-center shadow-xs" style={{ borderRadius: '10px' }}>
+                  <div className="fw-bold text-primary mb-1" style={{ fontSize: '2rem', lineHeight: 1 }}>{item.left}</div>
+                  <div className="small fw-bold text-dark mb-1" style={{ fontSize: '12px' }}>{item.label}</div>
+                  <div className="progress mb-1" style={{ height: '3px' }}>
                     <div
                       className="progress-bar bg-primary"
                       role="progressbar"
@@ -1073,7 +1106,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               </div>
             ))}
           </div>
-          <div className="mt-4 pt-3 border-top text-center">
+          <div className="mt-3 pt-2 border-top text-center">
             <button className="btn btn-light border fw-bold px-4" onClick={() => setIsBalanceModalOpen(false)}>Close</button>
           </div>
         </Modal>
