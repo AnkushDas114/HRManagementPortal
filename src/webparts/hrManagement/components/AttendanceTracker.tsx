@@ -779,6 +779,147 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     XLSX.writeFile(workbook, `attendance_export_${todayIST()}.xlsx`);
   };
 
+  const parseTimeToMinutes = React.useCallback((value: string | undefined): number | null => {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return null;
+
+    const match = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?$/i);
+    if (!match) return null;
+
+    let hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    const meridiem = (match[3] || '').toLowerCase();
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+
+    if (meridiem === 'pm' && hours < 12) hours += 12;
+    if (meridiem === 'am' && hours === 12) hours = 0;
+
+    return (hours * 60) + minutes;
+  }, []);
+
+  const parseDurationToMinutes = React.useCallback((value: string | undefined): number | null => {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return null;
+
+    // HH:mm or H:mm
+    const hhmm = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (hhmm) {
+      const h = Number(hhmm[1]);
+      const m = Number(hhmm[2]);
+      if (!Number.isNaN(h) && !Number.isNaN(m)) return (h * 60) + m;
+    }
+
+    // "8h 30m" style
+    const hm = raw.match(/(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?/);
+    if (hm && (hm[1] || hm[2])) {
+      const h = Number(hm[1] || 0);
+      const m = Number(hm[2] || 0);
+      if (!Number.isNaN(h) && !Number.isNaN(m)) return (h * 60) + m;
+    }
+
+    // Decimal hours, e.g. 8.5
+    const asNumber = Number(raw);
+    if (!Number.isNaN(asNumber)) return Math.round(asNumber * 60);
+
+    return null;
+  }, []);
+
+  const exportDailyFlaggedAttendance = React.useCallback((mode: 'short-hours' | 'late-login'): void => {
+    if (viewMode !== 'Daily') {
+      alert('This export is available only in Daily view.');
+      return;
+    }
+
+    if (tableRows.length === 0) {
+      alert('No attendance data available for selected day.');
+      return;
+    }
+
+    const flaggedRows = tableRows
+      .map(({ record, employee }) => {
+        const clockInMinutes = parseTimeToMinutes(record.clockIn);
+        const clockOutMinutes = parseTimeToMinutes(record.clockOut);
+        const durationMinutes = parseDurationToMinutes(record.workDuration);
+        const derivedDuration = durationMinutes !== null
+          ? durationMinutes
+          : (clockInMinutes !== null && clockOutMinutes !== null && clockOutMinutes >= clockInMinutes
+            ? (clockOutMinutes - clockInMinutes)
+            : null);
+
+        const isShortHours = derivedDuration !== null && derivedDuration < (9 * 60);
+        const isLateLogin = clockInMinutes !== null && clockInMinutes > ((10 * 60) + 20);
+        const isMatch = mode === 'short-hours' ? isShortHours : isLateLogin;
+        if (!isMatch) return null;
+
+        const summary = getLeaveSummary(employee, record);
+        const leaveUsedTotal = summary.total
+          ? `${formatLeaveNumber(summary.used)}/${formatLeaveNumber(summary.total)} (${formatLeaveNumber(summary.left)} left)`
+          : '--';
+
+        return {
+          Employee: employee?.name || record.employeeName || 'Unknown',
+          'Employee ID': record.employeeId,
+          Department: employee?.department || record.department || 'N/A',
+          Date: record.date,
+          'Clock In': record.clockIn || '--:--',
+          'Clock Out': record.clockOut || '--:--',
+          'Total Time': record.workDuration || '--:--',
+          Status: record.status,
+          'Total Leave Left': leaveUsedTotal,
+          Flag: mode === 'short-hours' ? 'Short Hours (< 9h)' : 'Late Login (> 10:20)'
+        };
+      })
+      .filter((row) => row !== null);
+
+    if (flaggedRows.length === 0) {
+      alert(mode === 'short-hours'
+        ? 'No employees found with working hours less than 9 hours for this day.'
+        : 'No employees found with login after 10:20 for this day.');
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(flaggedRows);
+    worksheet['!cols'] = [
+      { wch: 24 }, // Employee
+      { wch: 14 }, // Employee ID
+      { wch: 16 }, // Department
+      { wch: 12 }, // Date
+      { wch: 10 }, // Clock In
+      { wch: 10 }, // Clock Out
+      { wch: 12 }, // Total Time
+      { wch: 12 }, // Status
+      { wch: 20 }, // Total Leave Left
+      { wch: 24 }  // Flag
+    ];
+
+    // Highlight entire row for flagged entries.
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+    const highlightColor = mode === 'short-hours' ? 'FFFDE68A' : 'FFFCA5A5';
+    for (let row = 1; row <= range.e.r; row += 1) {
+      for (let col = range.s.c; col <= range.e.c; col += 1) {
+        const address = XLSX.utils.encode_cell({ r: row, c: col });
+        const cell = worksheet[address];
+        if (!cell) continue;
+        (cell as any).s = {
+          fill: { patternType: 'solid', fgColor: { rgb: highlightColor } }
+        };
+      }
+    }
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, mode === 'short-hours' ? 'Short Hours' : 'Late Login');
+    const dateToken = formatDateIST(referenceDate);
+    XLSX.writeFile(workbook, `${mode.replace('-', '_')}_${dateToken}.xlsx`);
+  }, [
+    viewMode,
+    tableRows,
+    parseTimeToMinutes,
+    parseDurationToMinutes,
+    getLeaveSummary,
+    formatLeaveNumber,
+    referenceDate
+  ]);
+
   const columns = React.useMemo<ColumnDef<{ record: AttendanceRecord; employee: Employee }>[]>(() => ([
     {
       key: 'employee',
@@ -913,6 +1054,26 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             >
               <Download size={14} /> Export Attendance
             </button>
+            {viewMode === 'Daily' && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
+                  onClick={() => exportDailyFlaggedAttendance('short-hours')}
+                  disabled={tableRows.length === 0 || isImporting}
+                >
+                  <Download size={14} /> Get Short Hours
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
+                  onClick={() => exportDailyFlaggedAttendance('late-login')}
+                  disabled={tableRows.length === 0 || isImporting}
+                >
+                  <Download size={14} /> Late Login
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
