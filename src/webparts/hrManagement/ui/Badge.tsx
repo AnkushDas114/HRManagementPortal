@@ -9,6 +9,7 @@ interface BadgeProps {
 const Badge: React.FC<BadgeProps> = ({ status }) => {
   const normalized = String(status || '').trim().toLowerCase();
   let toneClass = 'status-chip--neutral';
+  let inlineStyle: React.CSSProperties | undefined;
 
   switch (normalized) {
     case LeaveStatus.Approved.toLowerCase():
@@ -23,6 +24,11 @@ const Badge: React.FC<BadgeProps> = ({ status }) => {
       break;
     case LeaveStatus.Pending.toLowerCase():
       toneClass = 'status-chip--pending';
+      inlineStyle = {
+        color: '#a16207',
+        background: '#fef3c7',
+        borderColor: '#fde68a'
+      };
       break;
     case ConcernStatus.Open.toLowerCase():
     case 'unresolved':
@@ -33,7 +39,7 @@ const Badge: React.FC<BadgeProps> = ({ status }) => {
   }
 
   return (
-    <span className={`status-chip ${toneClass}`}>
+    <span className={`status-chip ${toneClass}`} style={inlineStyle}>
       {status}
     </span>
   );

@@ -5,7 +5,7 @@ import { LeaveStatus } from '../types';
 import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
-import { Check, X, Filter, MessageSquare, Info, RotateCcw, ChevronDown, ChevronRight, Search, Clock } from 'lucide-react';
+import { Check, X, Filter, MessageSquare, Info, RotateCcw, ChevronDown, ChevronRight, Clock } from 'lucide-react';
 import { formatDateIST, getNowIST, todayIST } from '../utils/dateTime';
 
 interface LeaveRequestsTableProps {
@@ -29,13 +29,11 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
   const [actionType, setActionType] = React.useState<LeaveStatus.Approved | LeaveStatus.Rejected | null>(null);
 
   // Advanced Filtering State
-  const [isDateAccordionOpen, setIsDateAccordionOpen] = React.useState(true);
-  const [isSmartSearchOpen, setIsSmartSearchOpen] = React.useState(false);
+  const [isDateAccordionOpen, setIsDateAccordionOpen] = React.useState(false);
   const [selectedDateFilter, setSelectedDateFilter] = React.useState('All Time');
   const [startDate, setStartDate] = React.useState('');
   const [endDate, setEndDate] = React.useState('');
   const [selectedMemberId, setSelectedMemberId] = React.useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = React.useState('');
 
   const today = getNowIST();
   const todayStr = todayIST();
@@ -49,17 +47,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       // 2. Member Selection Filter (Avatar)
       if (selectedMemberId && req.employee.id !== selectedMemberId) return false;
 
-      // 3. Search Query Filter (Name, ID, Role)
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matches = req.employee.name.toLowerCase().includes(query) ||
-          req.employee.id.toLowerCase().includes(query) ||
-          req.employee.department.toLowerCase().includes(query) ||
-          req.leaveType.toLowerCase().includes(query);
-        if (!matches) return false;
-      }
-
-      // 4. Date Presets Filter
+      // 3. Date Presets Filter
       const reqDate = new Date(req.submittedAt);
       const reqTime = reqDate.getTime();
       const startOfDay = (d: Date) => { d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -108,7 +96,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
 
       return true;
     }).sort((a, b) => b.id - a.id);
-  }, [requests, filter, selectedMemberId, searchQuery, selectedDateFilter, startDate, endDate, todayStr]);
+  }, [requests, filter, selectedMemberId, selectedDateFilter, startDate, endDate, todayStr]);
 
   const handleActionClick = (request: LeaveRequest, status: LeaveStatus.Approved | LeaveStatus.Rejected) => {
     setSelectedRequest(request);
@@ -137,7 +125,6 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     setStartDate('');
     setEndDate('');
     setSelectedMemberId(null);
-    setSearchQuery('');
   };
 
   // Calculate used leaves for a specific type and employee
@@ -406,30 +393,6 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
             )}
           </div>
 
-          {/* SmartSearch Accordion */}
-          <div className="accordion-filter border-top mb-2">
-            <div
-              className="d-flex align-items-center gap-2 py-2 cursor-pointer"
-              onClick={() => setIsSmartSearchOpen(!isSmartSearchOpen)}
-            >
-              {isSmartSearchOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-              <span className="fw-bold small">SmartSearch – Filters</span>
-            </div>
-            {isSmartSearchOpen && (
-              <div className="ps-4 pb-3 animate-in fade-in">
-                <div className="smartsearch-box">
-                  <Search size={14} className="smartsearch-icon" />
-                  <input
-                    type="text"
-                    className="form-control form-control-sm shadow-xs"
-                    placeholder="Search by name, ID or role..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         <CommonTable

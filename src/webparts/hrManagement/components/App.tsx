@@ -58,6 +58,11 @@ const getDaysInMonth = (month: string, year: number): number => {
   return new Date(year, monthIndex + 1, 0).getDate();
 };
 
+const normalizeInsuranceTakenValue = (value: unknown): 'Yes' | 'No' => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized === 'no' ? 'No' : 'Yes';
+};
+
 const calculateSalary = (monthlyCTC: number, insuranceOptIn = true): {
   basic: number;
   hra: number;
@@ -922,6 +927,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     const isInsuranceOptIn = (insuranceTakenValue ?? salaryFormData.insuranceTaken ?? 'Yes') === 'Yes';
     const salary = calculateSalary(monthly, isInsuranceOptIn);
     const deductions = salary.employeePF + salary.esi;
+    const computedInhand = Math.max(0, salary.gross - deductions - (isInsuranceOptIn ? salary.insurance : 0));
 
     setSalaryFormData((prev) => ({
       ...prev,
@@ -937,7 +943,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       insurance: salary.insurance,
       esi: salary.esi,
       employerEsi: salary.employerEsi,
-      inhand: salary.inhand,
+      inhand: computedInhand,
       insuranceTaken: insuranceTakenValue ?? prev.insuranceTaken
     }));
   };
@@ -950,7 +956,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     const initialYearlyCtc = employee.yearlyCTC
       ? String(employee.yearlyCTC)
       : (employee.total ? String(employee.total) : '');
-    const insuranceTaken: 'Yes' | 'No' = String(employee.insuranceTaken || '').trim().toLowerCase() === 'no' ? 'No' : 'Yes';
+    const insuranceTaken = normalizeInsuranceTakenValue(employee.insuranceTaken);
     setTargetEmployee(employee);
     setSalaryFormData({
       month: currentMonth,
@@ -985,7 +991,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const saveSalarySlip = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetEmployee) return;
-    const netPay = salaryFormData.inhand;
+    const insuranceDeduction = normalizeInsuranceTakenValue(salaryFormData.insuranceTaken) === 'Yes'
+      ? (Number(salaryFormData.insurance) || 0)
+      : 0;
+    const netPay = Math.max(0, (Number(salaryFormData.gross) || 0) - (Number(salaryFormData.deductions) || 0) - insuranceDeduction);
     const newSlip: SalarySlip = {
       id: `S${Date.now()}`,
       employeeId: targetEmployee.id,
@@ -1031,7 +1040,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
     }
   };
 
-  const salaryNetPay = salaryFormData.inhand;
+  const salaryInsuranceDeduction = normalizeInsuranceTakenValue(salaryFormData.insuranceTaken) === 'Yes'
+    ? (Number(salaryFormData.insurance) || 0)
+    : 0;
+  const salaryNetPay = Math.max(0, (Number(salaryFormData.gross) || 0) - (Number(salaryFormData.deductions) || 0) - salaryInsuranceDeduction);
 
   const loadSalarySlips = React.useCallback(async () => {
     if (!sp) return;
@@ -1047,7 +1059,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   const handleOpenEmployeeModal = (emp?: Employee) => {
     if (emp) {
-      const normalizedInsuranceTaken: 'Yes' | 'No' = String(emp.insuranceTaken || '').trim().toLowerCase() === 'no' ? 'No' : 'Yes';
+      const normalizedInsuranceTaken = normalizeInsuranceTakenValue(emp.insuranceTaken);
       setEditingEmployee(emp);
       setEmployeeFormData({
         ...emp,
@@ -1422,7 +1434,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
           className="btn btn-sm btn-primary"
           onClick={() => handleUploadSalarySlip(emp)}
         >
-          Add Salary
+          Salary Slip
         </button>
       )
     }
@@ -1766,7 +1778,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
               {role === UserRole.HR ? (
                 <>
                   <li className="nav-item">
-                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Leave Overview</button>
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Dashboard</button>
                   </li>
                   <li className="nav-item">
                     <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'leaves-request' ? 'active' : ''}`} onClick={() => setActiveTab('leaves-request')}>Leaves request</button>
@@ -2433,6 +2445,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
               <select
                 className="form-select"
                 value={salaryFormData.month}
+                disabled={!isSalaryManualMode}
                 onChange={e => {
                   const nextMonth = e.target.value;
                   const selectedYear = Number(salaryFormData.year) || getNowIST().getFullYear();
@@ -2463,6 +2476,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
               <select
                 className="form-select"
                 value={salaryFormData.year}
+                disabled={!isSalaryManualMode}
                 onChange={e => {
                   const nextYear = e.target.value;
                   const parsedYear = Number(nextYear) || getNowIST().getFullYear();
@@ -2494,6 +2508,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 type="number"
                 className="form-control"
                 value={salaryFormData.workingDays}
+                readOnly={!isSalaryManualMode}
                 onChange={e => {
                   const nextWorkingDays = Math.max(0, Number(e.target.value) || 0);
                   const nextPaidDays = Math.min(salaryFormData.paidDays, nextWorkingDays);
@@ -2514,6 +2529,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 type="number"
                 className="form-control"
                 value={salaryFormData.paidDays}
+                readOnly={!isSalaryManualMode}
                 onChange={e => {
                   const enteredPaidDays = Math.max(0, Number(e.target.value) || 0);
                   const nextPaidDays = Math.min(enteredPaidDays, salaryFormData.workingDays);
@@ -2537,6 +2553,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 min="0"
                 className="form-control"
                 value={salaryYearlyCtc}
+                readOnly={!isSalaryManualMode}
                 onChange={(e) => {
                   const value = e.target.value;
                   setSalaryYearlyCtc(value);
@@ -2567,9 +2584,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   <label className="form-label small fw-bold text-muted mb-1">Monthly CTC (₹)</label>
                   <input
                     type="number"
-                    className={`form-control bg-light`}
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
                     value={salaryFormData.monthlyCtc}
-                    readOnly
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setSalaryFormData(prev => ({
+                        ...prev,
+                        monthlyCtc: val
+                      }));
+                    }}
+                    readOnly={!isSalaryManualMode}
                   />
                 </div>
                 {/* Basic Pay */}
@@ -2652,9 +2676,17 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   <label className="form-label small fw-bold text-muted mb-1">Gross (₹)</label>
                   <input
                     type="number"
-                    className="form-control bg-light"
+                    className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
                     value={salaryFormData.gross}
-                    readOnly
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setSalaryFormData(prev => ({
+                        ...prev,
+                        gross: val,
+                        inhand: Math.max(0, val - (prev.deductions || 0))
+                      }));
+                    }}
+                    readOnly={!isSalaryManualMode}
                   />
                 </div>
                 {/* Employer PF */}

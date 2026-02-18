@@ -6,7 +6,7 @@ import type { Employee, LeaveRequest, AttendanceRecord, AttendanceStatus } from 
 import Badge from '../ui/Badge';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import Modal from '../ui/Modal';
-import { Edit3, Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Search, Upload, Calendar, Download } from 'lucide-react';
+import { Edit3, Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Upload, Calendar, Download } from 'lucide-react';
 import { formatDateIST, getNowIST, todayIST, formatDateForDisplayIST } from '../utils/dateTime';
 
 interface AttendanceTrackerProps {
@@ -33,13 +33,11 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   leaveQuotas
 }) => {
   const [isImportingLocal, setIsImportingLocal] = React.useState(false);
-  const [isDateAccordionOpen, setIsDateAccordionOpen] = React.useState(true);
-  const [isSmartSearchOpen, setIsSmartSearchOpen] = React.useState(false);
+  const [isDateAccordionOpen, setIsDateAccordionOpen] = React.useState(false);
   const [selectedDateFilter, setSelectedDateFilter] = React.useState('All Time');
   const [startDate, setStartDate] = React.useState('');
   const [endDate, setEndDate] = React.useState('');
   const [selectedMemberId, setSelectedMemberId] = React.useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = React.useState('');
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
   const [isSavingEdit, setIsSavingEdit] = React.useState(false);
   const [editingAttendance, setEditingAttendance] = React.useState<AttendanceRecord | null>(null);
@@ -208,21 +206,12 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       const employee = employees.find(e => employeeIdsMatch(e.id, record.employeeId));
       const selectedEmployee = selectedMemberId ? employees.find(e => employeeIdsMatch(e.id, selectedMemberId)) : undefined;
 
-      // 1. Member selection and search query filtering
+      // 1. Member selection filtering
       const recordName = employee?.name || record.employeeName || 'Unknown';
       const matchesMemberById = selectedMemberId ? employeeIdsMatch(record.employeeId, selectedMemberId) : true;
       const matchesMemberByName = !!selectedEmployee && normalizeText(recordName) === normalizeText(selectedEmployee.name);
       const matchesMember = !selectedMemberId || matchesMemberById || matchesMemberByName;
-      const query = searchQuery.toLowerCase().trim();
-      const departmentText = (employee?.department || record.department || '').toLowerCase();
-      const roleText = (employee?.position || '').toLowerCase();
-      const matchesSearch = !query ||
-        recordName.toLowerCase().includes(query) ||
-        String(record.employeeId ?? '').toLowerCase().includes(query) ||
-        departmentText.includes(query) ||
-        roleText.includes(query);
-
-      if (!matchesMember || !matchesSearch) return false;
+      if (!matchesMember) return false;
 
       // 2. Date presets filtering
       const recDate = parseRecordDate(record.date);
@@ -323,7 +312,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
       return true;
     }).sort((a, b) => b.date.localeCompare(a.date));
-  }, [attendanceRecords, employees, selectedMemberId, searchQuery, selectedDateFilter, startDate, endDate, todayStr, today, employeeIdsMatch, normalizeText, viewMode, referenceDate, parseRecordDate]);
+  }, [attendanceRecords, employees, selectedMemberId, selectedDateFilter, startDate, endDate, todayStr, today, employeeIdsMatch, normalizeText, viewMode, referenceDate, parseRecordDate]);
 
   const handlePrev = () => {
     const nextDate = new Date(referenceDate);
@@ -421,7 +410,6 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     setStartDate('');
     setEndDate('');
     setSelectedMemberId(null);
-    setSearchQuery('');
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1019,30 +1007,6 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
           )}
         </div>
 
-        {/* SmartSearch Filter */}
-        <div className="accordion-filter border-top">
-          <div
-            className="d-flex align-items-center gap-2 py-2 cursor-pointer"
-            onClick={() => setIsSmartSearchOpen(!isSmartSearchOpen)}
-          >
-            {isSmartSearchOpen ? <ChevronDown size={18} className="text-dark" /> : <ChevronRight size={18} className="text-dark" />}
-            <span className="fw-bold small text-dark">SmartSearch – Filters</span>
-          </div>
-          {isSmartSearchOpen && (
-            <div className="ps-4 pb-3 animate-in fade-in">
-              <div className="smartsearch-box">
-                <Search size={14} className="smartsearch-icon" />
-                <input
-                  type="text"
-                  className="form-control form-control-sm shadow-xs"
-                  placeholder="Search by name, ID or role..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       <div className="px-4 py-2 border-top">

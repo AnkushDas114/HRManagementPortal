@@ -207,9 +207,9 @@ input[type='date']::-webkit-clear-button {
 }
 
 .status-chip--pending {
-  color: #0f4c81;
-  background: #dbeafe;
-  border-color: #bfdbfe;
+  color: #a16207;
+  background: #fef3c7;
+  border-color: #fde68a;
 }
 
 .status-chip--warning {

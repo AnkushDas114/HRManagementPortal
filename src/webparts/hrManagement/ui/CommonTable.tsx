@@ -190,7 +190,7 @@ const CommonTable = <T,>({
           <div className="common-table__count">Showing {filtered.length} of {data.length}</div>
           <div className="common-table__search">
             <div className="input-group input-group-sm common-table__search-group">
-              <span className="input-group-text">Search</span>
+              {/* <span className="input-group-text">Search</span> */}
               <input
                 type="text"
                 className="form-control"
@@ -275,7 +275,7 @@ const CommonTable = <T,>({
                       />
                     </td>
                   )}
-                {sortedColumns.map(col => (
+                  {sortedColumns.map(col => (
                     <td key={col.key} className={`${col.align ? `text-${col.align}` : ''} common-table__cell`.trim()}>
                       {col.render ? col.render(row) : normalize(col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key])}
                     </td>
