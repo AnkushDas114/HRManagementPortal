@@ -45,7 +45,7 @@ interface AppProps {
 
 const OFFICIAL_LEAVES_LIST_ID = '0af5c538-1190-4fe5-8644-d01252e79d4b';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const HR_ALLOWED_NAMES = ['Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi'];
+const HR_ALLOWED_NAMES = ['Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi'];
 
 export const getUserId = async (email: string, sp: SPFI) => {
   const web = Web([sp.web, 'https://smalsusinfolabs.sharepoint.com/sites/HHHHQA/SP']);
@@ -1951,7 +1951,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={(preferredTab) => handleOpenLeaveModal(undefined, preferredTab)} onTabChange={setActiveTab} activeTab={activeTab} />
               ) : (
                 <>
-                  {activeTab === 'overview' && <Dashboard requests={leaveRequests} attendanceRecords={attendanceRecords} concernsCount={openConcernsCount} holidays={holidays} teamEvents={teamEvents} employees={directoryEmployees} onAddTeamEvent={handleAddTeamEvent} onUpdateTeamEvent={handleUpdateTeamEvent} onDeleteTeamEvent={handleDeleteTeamEvent} onPendingClick={() => setActiveTab('leaves-request')} onOnLeaveTodayClick={() => setActiveTab('onLeaveToday')} onConcernsClick={() => setActiveTab('concerns-admin')} />}
+                  {activeTab === 'overview' && <Dashboard requests={leaveRequests} attendanceRecords={attendanceRecords} concernsCount={openConcernsCount} holidays={holidays} teamEvents={teamEvents} onAddTeamEvent={handleAddTeamEvent} onUpdateTeamEvent={handleUpdateTeamEvent} onDeleteTeamEvent={handleDeleteTeamEvent} onPendingClick={() => setActiveTab('leaves-request')} onOnLeaveTodayClick={() => setActiveTab('onLeaveToday')} onConcernsClick={() => setActiveTab('concerns-admin')} />}
                   {activeTab === 'leaves-request' && (
                     isLoadingLeaveRequests ? (
                       <div className="d-flex justify-content-center p-5">

@@ -1,6 +1,6 @@
 
 import * as React from 'react';
-import type { LeaveRequest, AttendanceRecord, Holiday, TeamEvent, Employee } from '../types';
+import type { LeaveRequest, AttendanceRecord, Holiday, TeamEvent } from '../types';
 import { LeaveStatus, AttendanceStatus } from '../types';
 import StatCard from '../ui/StatCard';
 import { generateLeaveSummaryReport } from '../services/geminiService';
@@ -19,7 +19,6 @@ interface DashboardProps {
   concernsCount: number;
   holidays: Holiday[];
   teamEvents: TeamEvent[];
-  employees: Employee[];
   onAddTeamEvent: (event: Omit<TeamEvent, 'id'>, employeeId?: string) => Promise<void> | void;
   onUpdateTeamEvent: (eventId: number, event: Omit<TeamEvent, 'id'>, employeeId?: string) => Promise<void> | void;
   onDeleteTeamEvent: (eventId: number) => void;
@@ -29,7 +28,7 @@ interface DashboardProps {
 }
 
 
-const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, concernsCount, holidays, teamEvents, employees, onAddTeamEvent, onUpdateTeamEvent, onDeleteTeamEvent, onPendingClick, onOnLeaveTodayClick, onConcernsClick }) => {
+const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, concernsCount, holidays, teamEvents, onAddTeamEvent, onUpdateTeamEvent, onDeleteTeamEvent, onPendingClick, onOnLeaveTodayClick, onConcernsClick }) => {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = React.useState(false);
   const [editingEventId, setEditingEventId] = React.useState<number | null>(null);
@@ -41,36 +40,18 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
   const [eventFormData, setEventFormData] = React.useState<Omit<TeamEvent, 'id'>>({
     name: '',
     type: 'Birthday',
-    date: todayIST()
+    date: todayIST(),
+    description: ''
   });
-  const [employeeSearchTerm, setEmployeeSearchTerm] = React.useState('');
-  const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null);
-  const [showSuggestions, setShowSuggestions] = React.useState(false);
-
-  const filteredEmployees = React.useMemo(() => {
-    if (!employeeSearchTerm) return [];
-    return employees.filter(emp =>
-      emp.name.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
-      (emp.email && emp.email.toLowerCase().includes(employeeSearchTerm.toLowerCase()))
-    ).slice(0, 5);
-  }, [employees, employeeSearchTerm]);
-
-  const handleSelectEmployee = (emp: Employee) => {
-    setSelectedEmployee(emp);
-    setEmployeeSearchTerm(emp.name);
-    setShowSuggestions(false);
-  };
 
   const resetEventForm = React.useCallback(() => {
     setEditingEventId(null);
     setEventFormData({
       name: '',
       type: 'Birthday',
-      date: todayIST()
+      date: todayIST(),
+      description: ''
     });
-    setSelectedEmployee(null);
-    setEmployeeSearchTerm('');
-    setShowSuggestions(false);
   }, []);
 
   const handleOpenAddEventModal = React.useCallback(() => {
@@ -79,21 +60,15 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
   }, [resetEventForm]);
 
   const handleOpenEditEventModal = React.useCallback((event: TeamEvent) => {
-    const matchedEmployee = event.employee
-      ? employees.find((emp) => emp.id === event.employee?.id || (event.employee?.email && emp.email === event.employee.email)) || event.employee
-      : null;
-
     setEditingEventId(event.id);
     setEventFormData({
       name: event.name,
       type: event.type,
-      date: event.date
+      date: event.date,
+      description: event.description || ''
     });
-    setSelectedEmployee(matchedEmployee);
-    setEmployeeSearchTerm(matchedEmployee?.name || '');
-    setShowSuggestions(false);
     setIsEventModalOpen(true);
-  }, [employees]);
+  }, []);
 
   const stats = React.useMemo(() => {
     const today = todayIST();
@@ -370,9 +345,9 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
   const handleAddEventSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingEventId !== null) {
-      await Promise.resolve(onUpdateTeamEvent(editingEventId, eventFormData, selectedEmployee?.id));
+      await Promise.resolve(onUpdateTeamEvent(editingEventId, eventFormData));
     } else {
-      await Promise.resolve(onAddTeamEvent(eventFormData, selectedEmployee?.id));
+      await Promise.resolve(onAddTeamEvent(eventFormData));
     }
     setIsEventModalOpen(false);
     resetEventForm();
@@ -714,42 +689,6 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
               placeholder="e.g. Birthday Celebration"
             />
           </div>
-          <div className="event-modal-field position-relative">
-            <label className="form-label fw-bold">Employee</label>
-            <div className="smartsearch-box">
-              <Users size={14} className="smartsearch-icon" />
-              <input
-                type="text"
-                className="form-control"
-                value={employeeSearchTerm}
-                onChange={e => {
-                  setEmployeeSearchTerm(e.target.value);
-                  setShowSuggestions(true);
-                }}
-                onFocus={() => setShowSuggestions(true)}
-                placeholder="Search employee..."
-              />
-            </div>
-
-            {/* People Picker Suggestions */}
-            {showSuggestions && filteredEmployees.length > 0 && (
-              <div className="event-employee-suggestions">
-                {filteredEmployees.map(emp => (
-                  <div
-                    key={emp.id}
-                    className="event-employee-suggestion-item"
-                    onClick={() => handleSelectEmployee(emp)}
-                  >
-                    <img src={emp.avatar} alt={emp.name} className="rounded-circle" width="24" height="24" />
-                    <div className="d-flex flex-column">
-                      <span className="small fw-bold">{emp.name}</span>
-                      <span className="text-muted event-employee-department">{emp.department}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
           <div className="event-modal-field">
             <label className="form-label fw-bold">Event Type</label>
             <select
@@ -763,6 +702,16 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
               <option value="Festival">Festival</option>
               <option value="Other">Other</option>
             </select>
+          </div>
+          <div className="event-modal-field">
+            <label className="form-label fw-bold">Description</label>
+            <textarea
+              className="form-control"
+              rows={4}
+              value={eventFormData.description || ''}
+              onChange={e => setEventFormData({ ...eventFormData, description: e.target.value })}
+              placeholder="Add event details..."
+            />
           </div>
           <div className="event-modal-field event-modal-field--last">
             <label className="form-label fw-bold">Date</label>

@@ -36,6 +36,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   const [isBalanceModalOpen, setIsBalanceModalOpen] = React.useState(false);
   const [selectedApprovalNote, setSelectedApprovalNote] = React.useState<LeaveRequest | null>(null);
   const [selectedConcern, setSelectedConcern] = React.useState<Concern | null>(null);
+  const [selectedCelebration, setSelectedCelebration] = React.useState<TeamEvent | null>(null);
   // Attendance Navigation State
   const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
   const [referenceDate, setReferenceDate] = React.useState<Date>(getNowIST());
@@ -587,14 +588,15 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         ...event,
         dateLabel,
         icon,
-        avatar: event.employee?.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(event.name)}`
+        avatar: event.employee?.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(event.name)}`,
+        plainDescription: toPlainText(event.description)
       };
     }).sort((a, b) => {
       if (!a.date) return 1;
       if (!b.date) return -1;
       return new Date(a.date).getTime() - new Date(b.date).getTime();
     }).slice(0, 5); // Just show top 5 for portal view
-  }, [teamEvents]);
+  }, [teamEvents, toPlainText]);
 
   // Dynamic leave balance calculations
   const leaveStats = React.useMemo(() => {
@@ -970,7 +972,13 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 style={{ maxHeight: formattedCelebrations.length > 5 ? '320px' : 'none', overflowY: formattedCelebrations.length > 5 ? 'auto' : 'visible' }}
               >
                 {formattedCelebrations.map((item, idx) => (
-                  <div key={idx} className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light transition-all border border-transparent hover-border-light">
+                  <button
+                    key={idx}
+                    type="button"
+                    className="btn text-start p-0 border-0 bg-transparent"
+                    onClick={() => setSelectedCelebration(item)}
+                  >
+                    <div className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light transition-all border border-transparent hover-border-light">
                     <div className="d-flex align-items-center gap-3">
                       <div className="p-0 rounded-circle bg-light d-flex align-items-center justify-content-center overflow-hidden" style={{ width: '32px', height: '32px' }}>
                         <img src={item.avatar} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -980,10 +988,19 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                         <div className="text-muted d-flex align-items-center gap-1" style={{ fontSize: '10px' }}>
                           {item.icon} {item.type}
                         </div>
+                        {item.plainDescription && (
+                          <div
+                            className="text-muted"
+                            style={{ fontSize: '10px', maxWidth: '180px', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                          >
+                            {item.plainDescription}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="small badge bg-light text-dark border-0">{item.dateLabel}</div>
-                  </div>
+                    </div>
+                  </button>
                 ))}
                 {formattedCelebrations.length === 0 && (
                   <div className="text-center py-4 text-muted small">No upcoming team events.</div>
@@ -1379,6 +1396,33 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <div className="small text-muted mb-1">HR Resolution</div>
               <div style={{ whiteSpace: 'pre-wrap' }}>
                 {toPlainText(selectedConcern.reply, 'No HR resolution yet.')}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!selectedCelebration}
+        onClose={() => setSelectedCelebration(null)}
+        title="Team Event Details"
+      >
+        {selectedCelebration && (
+          <div className="d-flex flex-column gap-3">
+            <div className="p-3 border rounded bg-light">
+              <div className="small text-muted mb-1">Event</div>
+              <div className="fw-bold">{selectedCelebration.name}</div>
+              <div className="small text-muted mt-1">
+                {selectedCelebration.type} • {formatDateForDisplayIST(selectedCelebration.date, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </div>
+              {selectedCelebration.employee?.name && (
+                <div className="small text-muted mt-1">Employee: {selectedCelebration.employee.name}</div>
+              )}
+            </div>
+            <div className="p-3 border rounded bg-white">
+              <div className="small text-muted mb-1">Description</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>
+                {toPlainText(selectedCelebration.description, 'No description provided.')}
               </div>
             </div>
           </div>

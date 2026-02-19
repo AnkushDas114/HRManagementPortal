@@ -169,5 +169,6 @@ export interface TeamEvent {
   name: string;
   type: 'Birthday' | 'Work Anniversary' | 'Meeting' | 'Festival' | 'Other';
   date: string;
+  description?: string;
   employee?: Employee;
 }
