@@ -190,11 +190,6 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [leaveFilter, setLeaveFilter] = useState<LeaveStatus | 'All'>('All');
 
-  //userGroup call-->
-
-
-
-
   // Add Leave Modal State
   const [isAddLeaveModalOpen, setIsAddLeaveModalOpen] = useState(false);
   const [newLeaveTypeName, setNewLeaveTypeName] = useState('');
