@@ -3,7 +3,7 @@
   "solution": {
     "name": "hr-management-client-side-solution",
     "id": "30a39e5e-e747-445e-aa10-b1480714bd8e",
-    "version": "1.0.0.11",
+    "version": "1.0.0.12",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,

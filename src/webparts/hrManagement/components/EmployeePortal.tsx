@@ -264,15 +264,6 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     setIsConcernModalOpen(false);
   };
 
-  const formatCurrencyINR = React.useCallback((value: number): string => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(Number.isFinite(value) ? value : 0);
-  }, []);
-
   const escapeHtml = React.useCallback((value: unknown): string => {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -312,23 +303,19 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     const monthShort = String(slip.month || '').slice(0, 3);
     const yearShort = String(slip.year || '').slice(-2);
     const monthLabel = `${monthShort}-${yearShort}`;
+    const generatedAt = formatDateForDisplayIST(new Date(), 'en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).replace(',', '');
     const joiningDate = formatDateForDisplayIST(user.joiningDate, 'en-GB', {
       day: '2-digit',
       month: 'short',
       year: '2-digit'
     }).replace(/ /g, '-');
-    const logoSvg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="190" height="44" viewBox="0 0 190 44">
-        <rect width="190" height="44" fill="none"/>
-        <g transform="translate(3,4)">
-          <path d="M2 19c4-10 16-15 28-13l-8 7c-6-1-12 2-14 8 2 6 8 9 14 8l8 7C18 38 6 33 2 23z" fill="#00a3de"/>
-          <path d="M15 5h16l-8 7H7z" fill="#2f5596"/>
-        </g>
-        <text x="40" y="31" font-family="Arial, sans-serif" font-size="44" font-style="italic" font-weight="700" fill="#113d7a">smalsus</text>
-      </svg>
-    `;
-    const logoSrc = `data:image/svg+xml;utf8,${encodeURIComponent(logoSvg)}`;
-    const logoExactSrc = 'https://hhhhteams.sharepoint.com/sites/HHHH/SP/SiteAssets/smalsus-logo.png';
 
     const popup = window.open('', '_blank', 'width=980,height=800');
     if (!popup) {
@@ -343,155 +330,90 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           <meta charset="utf-8" />
           <title>Salary Slip - ${escapeHtml(slip.month)} ${escapeHtml(slip.year)}</title>
           <style>
-            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; color: #000; background: #fff; }
-            .sheet { width: 860px; margin: 0 auto; border: 1px solid #111; }
-            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-            td, th { border: 1px solid #111; padding: 3px 5px; font-size: 12px; line-height: 1.15; vertical-align: middle; }
-            .no-b { border: 0 !important; }
-            .header { background: #b7c6e1; }
-            .center { text-align: center; }
+            @page { size: A4; margin: 8mm; }
+            body { margin: 0; padding: 0; font-family: "Segoe UI", Arial, sans-serif; color: #1f2937; background: #ffffff; }
+            .top-line { width: 100%; max-width: 780px; margin: 0 auto 6px auto; font-size: 11px; display: flex; justify-content: space-between; color: #374151; }
+            .sheet { width: 100%; max-width: 780px; margin: 0 auto; border: 1px solid #4a86e8; position: relative; min-height: 1088px; }
+            .watermark {
+              position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+              font-size: 72px; color: rgba(42, 84, 153, 0.05); transform: rotate(-32deg); font-weight: 700;
+              pointer-events: none; user-select: none; z-index: 0;
+            }
+            .content { position: relative; z-index: 1; }
+            .header { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #4a86e8; min-height: 68px; }
+            .brand { font-size: 56px; font-weight: 700; color: #405f88; display: flex; align-items: center; padding: 8px 16px; letter-spacing: -0.4px; }
+            .company { text-align: right; padding: 18px 20px 10px 20px; }
+            .company .name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+            .company .addr { font-size: 11px; line-height: 1.3; color: #4b5563; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+            td, th { border: 1px solid #d1d5db; padding: 4px 6px; vertical-align: middle; }
+            .section-title { font-weight: 700; text-align: center; background: #fff; }
+            .h-center { text-align: center; font-weight: 700; }
             .right { text-align: right; }
             .bold { font-weight: 700; }
-            .title { font-size: 30px; font-weight: 700; color: #0f3569; letter-spacing: 1px; }
-            .company { font-size: 30px; font-weight: 700; }
-            .sub { font-size: 20px; }
-            .sec { background: #b7c6e1; font-weight: 700; text-align: center; }
-            .foot { font-size: 11px; text-align: center; font-weight: 700; }
-            .amount { width: 120px; text-align: right; }
-            .particular { width: 260px; }
-            .blank td { height: 20px; }
-            .logo-wrap { display: flex; align-items: center; justify-content: flex-start; }
-            .logo { width: 190px; height: 44px; object-fit: contain; }
+            .blank { height: 20px; }
+            .net-row td { font-size: 24px; font-weight: 700; border-top: 1px solid #4a86e8; border-bottom: 1px solid #4a86e8; }
+            .note-row td { font-size: 16px; font-weight: 700; }
+            .words { font-size: 12px !important; font-style: italic; color: #4b5563; font-weight: 500 !important; }
+            .empty-space { height: 130px; }
           </style>
         </head>
         <body>
+          <div class="top-line">
+            <div>${escapeHtml(generatedAt)}</div>
+            <div>Salary Slip - ${escapeHtml(slip.month)} ${escapeHtml(slip.year)}</div>
+            <div></div>
+          </div>
           <div class="sheet">
-            <table>
-              <colgroup>
-                <col style="width: 26%">
-                <col style="width: 18%">
-                <col style="width: 31%">
-                <col style="width: 10%">
-                <col style="width: 15%">
-              </colgroup>
-              <tr class="header">
-                <td colspan="2" class="no-b">
-                  <div class="logo-wrap">
-                    <img class="logo" src="${logoExactSrc}" alt="Smalsus logo" onerror="this.onerror=null;this.src='${logoSrc}';" />
-                  </div>
-                </td>
-                <td colspan="3" class="center no-b">
-                  <div class="company">Smalsus Infolabs Pvt. Ltd.</div>
-                  <div class="sub">Kirti Tower, Plot no 13&13C, Techzone 4, Greater Noida west,<br/>Uttar Pradesh 201009</div>
-                </td>
-              </tr>
-              <tr>
-                <td colspan="3" class="sec">Salary Slip</td>
-                <td class="sec">Month</td>
-                <td class="sec">${escapeHtml(monthLabel)}</td>
-              </tr>
-              <tr>
-                <td>Employee Name</td>
-                <td class="right">${escapeHtml(user.name)}</td>
-                <td>Date of Joining</td>
-                <td colspan="2">${escapeHtml(joiningDate)}</td>
-              </tr>
-              <tr>
-                <td>Employee Code</td>
-                <td class="right">${escapeHtml(user.id)}</td>
-                <td>Total Working Days</td>
-                <td colspan="2" class="center">${escapeHtml(slip.workingDays || 30)}</td>
-              </tr>
-              <tr>
-                <td>Designation</td>
-                <td class="right">${escapeHtml(user.position || 'Software Engineer')}</td>
-                <td>Paid days</td>
-                <td colspan="2" class="center">${escapeHtml(slip.paidDays || 30)}</td>
-              </tr>
-              <tr>
-                <td>PAN</td>
-                <td class="right">${escapeHtml(user.pan || '-')}</td>
-                <td></td>
-                <td></td>
-                <td></td>
-              </tr>
-              <tr>
-                <td>Bank Account Number</td>
-                <td class="right">${escapeHtml(user.accountNumber || '-')}</td>
-                <td></td>
-                <td></td>
-                <td></td>
-              </tr>
-              <tr>
-                <td>Bank Name</td>
-                <td class="right">${escapeHtml(user.bankName || '-')}</td>
-                <td></td>
-                <td></td>
-                <td></td>
-              </tr>
-              <tr>
-                <td>IFSC Code</td>
-                <td class="right">${escapeHtml(user.ifscCode || '-')}</td>
-                <td></td>
-                <td></td>
-                <td></td>
-              </tr>
-              <tr><td colspan="5" class="no-b" style="height:6px"></td></tr>
-              <tr>
-                <td colspan="2" class="sec">Income</td>
-                <td colspan="3" class="sec">Deductions</td>
-              </tr>
-              <tr>
-                <td class="bold particular">Particulars</td>
-                <td class="bold amount">Amount</td>
-                <td class="bold particular">Particulars</td>
-                <td colspan="2" class="bold amount">Amount</td>
-              </tr>
-              <tr>
-                <td>Basic Salary</td>
-                <td class="right">${escapeHtml(formatAmount(slip.basic || 0))}</td>
-                <td>Employee - PF contribution</td>
-                <td colspan="2" class="right">${escapeHtml(formatAmount(slip.employeePF || 0))}</td>
-              </tr>
-              <tr>
-                <td>HRA</td>
-                <td class="right">${escapeHtml(formatAmount(slip.hra || 0))}</td>
-                <td>ESI</td>
-                <td colspan="2" class="right">${escapeHtml(formatAmount(slip.esi || 0))}</td>
-              </tr>
-              <tr>
-                <td>Others</td>
-                <td class="right">${escapeHtml(formatAmount((slip.allowances || 0) + (slip.bonus || 0)))}</td>
-                <td>Insurance</td>
-                <td colspan="2" class="right">${escapeHtml(formatAmount(slip.insurance || 0))}</td>
-              </tr>
-              <tr>
-                <td></td>
-                <td></td>
-                <td>Other Deductions</td>
-                <td colspan="2" class="right">${escapeHtml(formatAmount(otherDeductions))}</td>
-              </tr>
-              <tr class="blank"><td></td><td></td><td></td><td colspan="2"></td></tr>
-              <tr class="blank"><td></td><td></td><td></td><td colspan="2"></td></tr>
-              <tr class="blank"><td></td><td></td><td></td><td colspan="2"></td></tr>
-              <tr>
-                <td class="bold">Total</td>
-                <td class="right bold">${escapeHtml(formatAmount(gross))}</td>
-                <td class="bold">Total</td>
-                <td colspan="2" class="right bold">${escapeHtml(formatAmount(deductionsTotal))}</td>
-              </tr>
-              <tr>
-                <td colspan="3" class="sec">Net Salary</td>
-                <td colspan="2" class="right bold">${escapeHtml(formatAmount(slip.netPay || 0))}</td>
-              </tr>
-              <tr>
-                <td colspan="2" class="center bold">Rs- ${escapeHtml(formatAmount(slip.netPay || 0))}</td>
-                <td colspan="3" class="center bold">${escapeHtml(netPayInWords)}</td>
-              </tr>
-              <tr>
-                <td colspan="5" class="foot">Note: This is computer generated slip and does not require any signature.</td>
-              </tr>
-            </table>
+            <div class="content">
+              <div class="watermark">Smalsus Infolabs</div>
+              <div class="header">
+                <div class="brand">Smalsus</div>
+                <div class="company">
+                  <div class="name">Smalsus Infolabs Pvt .Ltd.</div>
+                  <div class="addr">Kirti Tower, Plot no 13&13C, Techzone 4, Greater Noida west,<br/>Uttar Pradesh 201009</div>
+                </div>
+              </div>
+              <table>
+                <colgroup>
+                  <col style="width:19%">
+                  <col style="width:30%">
+                  <col style="width:19%">
+                  <col style="width:16%">
+                  <col style="width:16%">
+                </colgroup>
+                <tr>
+                  <td colspan="3" class="section-title">Salary Slip</td>
+                  <td class="h-center">Month</td>
+                  <td class="h-center">${escapeHtml(monthLabel)}</td>
+                </tr>
+                <tr><td>Employee Name</td><td class="bold">${escapeHtml(user.name)}</td><td>Date of Joining</td><td colspan="2" class="bold">${escapeHtml(joiningDate)}</td></tr>
+                <tr><td>Employee Code</td><td class="bold">${escapeHtml(user.id)}</td><td>Total Working Days</td><td colspan="2" class="bold">${escapeHtml(slip.workingDays || 30)}</td></tr>
+                <tr><td>Designation</td><td class="bold">${escapeHtml(user.position || 'Software developer')}</td><td>Paid days</td><td colspan="2" class="bold">${escapeHtml(slip.paidDays || 30)}</td></tr>
+                <tr><td>PAN</td><td class="bold">${escapeHtml(user.pan || '-')}</td><td></td><td colspan="2"></td></tr>
+                <tr><td>Bank Account Number</td><td class="bold">${escapeHtml(user.accountNumber || '-')}</td><td></td><td colspan="2"></td></tr>
+                <tr><td>Bank Name</td><td class="bold">${escapeHtml(user.bankName || '-')}</td><td></td><td colspan="2"></td></tr>
+                <tr><td>IFSC Code</td><td class="bold">${escapeHtml(user.ifscCode || '-')}</td><td></td><td colspan="2"></td></tr>
+                <tr>
+                  <td colspan="2" class="section-title">Income</td>
+                  <td colspan="3" class="section-title">Deductions</td>
+                </tr>
+                <tr>
+                  <td class="bold">Particulars</td>
+                  <td class="bold right">Amount</td>
+                  <td class="bold">Particulars</td>
+                  <td colspan="2" class="bold right">Amount</td>
+                </tr>
+                <tr><td>Basic Salary</td><td class="right">${escapeHtml(formatAmount(slip.basic || 0))}.00</td><td>Employee - PF Contribution</td><td colspan="2" class="right">${escapeHtml(formatAmount(slip.employeePF || 0))}.00</td></tr>
+                <tr><td>HRA</td><td class="right">${escapeHtml(formatAmount(slip.hra || 0))}.00</td><td>ESI</td><td colspan="2" class="right">${escapeHtml(formatAmount(slip.esi || 0))}.00</td></tr>
+                <tr><td>Others / Allowances</td><td class="right">${escapeHtml(formatAmount(slip.allowances || 0))}.00</td><td>Insurance</td><td colspan="2" class="right">${escapeHtml(formatAmount(slip.insurance || 0))}.00</td></tr>
+                <tr><td>Bonus</td><td class="right">${escapeHtml(formatAmount(slip.bonus || 0))}.00</td><td>Other Deductions</td><td colspan="2" class="right">${escapeHtml(formatAmount(otherDeductions))}.00</td></tr>
+                <tr class="empty-space"><td></td><td></td><td></td><td colspan="2"></td></tr>
+                <tr><td class="bold">Total</td><td class="right bold">${escapeHtml(formatAmount(gross))}.00</td><td class="bold">Total</td><td colspan="2" class="right bold">${escapeHtml(formatAmount(deductionsTotal))}.00</td></tr>
+                <tr class="net-row"><td colspan="3">Net Salary</td><td colspan="2" class="right">${escapeHtml(formatAmount(slip.netPay || 0))}.00</td></tr>
+                <tr class="note-row"><td colspan="2">Rs- ${escapeHtml(formatAmount(slip.netPay || 0))}.00</td><td colspan="3" class="words">${escapeHtml(netPayInWords)}</td></tr>
+              </table>
+            </div>
           </div>
           <script>window.onload = function(){ window.print(); };</script>
         </body>
@@ -501,7 +423,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     popup.document.open();
     popup.document.write(html);
     popup.document.close();
-  }, [escapeHtml, formatCurrencyINR, user]);
+  }, [escapeHtml, user]);
 
   const currentMonthHolidays = React.useMemo(() => {
     const today = new Date();
