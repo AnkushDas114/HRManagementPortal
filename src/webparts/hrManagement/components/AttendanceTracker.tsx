@@ -835,6 +835,14 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       return;
     }
 
+    const scheduledMinutes = 9 * 60;
+    const formatMinutesAsHM = (minutes: number): string => {
+      const safeMinutes = Math.max(0, Math.floor(Number(minutes) || 0));
+      const hrs = Math.floor(safeMinutes / 60);
+      const mins = safeMinutes % 60;
+      return `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+    };
+
     const flaggedRows = tableRows
       .map(({ record, employee }) => {
         const clockInMinutes = parseTimeToMinutes(record.clockIn);
@@ -851,22 +859,26 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         const isMatch = mode === 'short-hours' ? isShortHours : isLateLogin;
         if (!isMatch) return null;
 
-        const summary = getLeaveSummary(employee, record);
-        const leaveUsedTotal = summary.total
-          ? `${formatLeaveNumber(summary.used)}/${formatLeaveNumber(summary.total)} (${formatLeaveNumber(summary.left)} left)`
-          : '--';
+        const parsedDate = parseRecordDate(record.date);
+        const workedMinutes = Math.max(0, derivedDuration ?? 0);
+        const shortageMinutes = Math.max(0, scheduledMinutes - workedMinutes);
 
         return {
-          Employee: employee?.name || record.employeeName || 'Unknown',
-          'Employee ID': record.employeeId,
+          'Employee Name': employee?.name || record.employeeName || 'Unknown',
           Department: employee?.department || record.department || 'N/A',
-          Date: record.date,
-          'Clock In': record.clockIn || '--:--',
-          'Clock Out': record.clockOut || '--:--',
-          'Total Time': record.workDuration || '--:--',
-          Status: record.status,
-          'Total Leave Left': leaveUsedTotal,
-          Flag: mode === 'short-hours' ? 'Short Hours (< 9h)' : 'Late Login (> 10:20)'
+          Designation: employee?.position || 'N/A',
+          Date: parsedDate
+            ? formatDateForDisplayIST(parsedDate, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+            : String(record.date || ''),
+          Day: parsedDate
+            ? formatDateForDisplayIST(parsedDate, 'en-US', { weekday: 'long' })
+            : 'N/A',
+          'Scheduled Hours': formatMinutesAsHM(scheduledMinutes),
+          'Clock In': record.clockIn || 'N/A',
+          'Clock Out': record.clockOut || 'N/A',
+          'Total Worked': formatMinutesAsHM(workedMinutes),
+          Shortage: formatMinutesAsHM(shortageMinutes),
+          'Shortage (minutes)': shortageMinutes
         };
       })
       .filter((row) => row !== null);
@@ -880,16 +892,17 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
     const worksheet = XLSX.utils.json_to_sheet(flaggedRows);
     worksheet['!cols'] = [
-      { wch: 24 }, // Employee
-      { wch: 14 }, // Employee ID
-      { wch: 16 }, // Department
-      { wch: 12 }, // Date
+      { wch: 24 }, // Employee Name
+      { wch: 20 }, // Department
+      { wch: 18 }, // Designation
+      { wch: 14 }, // Date
+      { wch: 12 }, // Day
+      { wch: 16 }, // Scheduled Hours
       { wch: 10 }, // Clock In
       { wch: 10 }, // Clock Out
-      { wch: 12 }, // Total Time
-      { wch: 12 }, // Status
-      { wch: 20 }, // Total Leave Left
-      { wch: 24 }  // Flag
+      { wch: 14 }, // Total Worked
+      { wch: 12 }, // Shortage
+      { wch: 18 }  // Shortage (minutes)
     ];
 
     // Highlight entire row for flagged entries.

@@ -35,6 +35,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
   const [summary, setSummary] = React.useState('');
   const [isLoadingSummary, setIsLoadingSummary] = React.useState(false);
   const [insightTab, setInsightTab] = React.useState<'overview' | 'leave' | 'attendance'>('overview');
+  const [eventBurst, setEventBurst] = React.useState<{ id: number; type: TeamEvent['type'] } | null>(null);
 
   // Add Event Form State
   const [eventFormData, setEventFormData] = React.useState<Omit<TeamEvent, 'id'>>({
@@ -113,7 +114,9 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
       if (event.type === 'Birthday') icon = <Cake size={16} className="text-danger" />;
       if (event.type === 'Work Anniversary') icon = <PartyPopper size={16} className="text-warning" />;
       if (event.type === 'Meeting') icon = <Users size={16} className="text-primary" />;
-      if (event.type === 'Festival') icon = <Sparkle size={16} className="text-info" />;
+      if (['Festival', 'Holi', 'Diwali', 'Durga Puja', 'Christmas Day', 'New Year'].indexOf(event.type) !== -1) {
+        icon = <Sparkle size={16} className="text-info" />;
+      }
 
       return {
         ...event,
@@ -148,6 +151,29 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
 
     return Object.entries(grouped).map(([name, value]) => ({ name, value }));
   }, [requests]);
+
+  const analytics = React.useMemo(() => {
+    const approved = requests.filter((request) => request.status === LeaveStatus.Approved).length;
+    const rejected = requests.filter((request) => request.status === LeaveStatus.Rejected).length;
+    const pending = requests.filter((request) => request.status === LeaveStatus.Pending).length;
+    const totalDaysRequested = requests.reduce((sum, request) => sum + (request.days || 0), 0);
+    const avgDaysPerRequest = requests.length > 0 ? Number((totalDaysRequested / requests.length).toFixed(1)) : 0;
+    const uniqueEmployees = new Set(requests.map((request) => request.employee?.id).filter(Boolean)).size;
+    const approvalRate = requests.length > 0 ? Math.round((approved / requests.length) * 100) : 0;
+    const rejectionRate = requests.length > 0 ? Math.round((rejected / requests.length) * 100) : 0;
+
+    return {
+      approved,
+      rejected,
+      pending,
+      totalDaysRequested,
+      avgDaysPerRequest,
+      uniqueEmployees,
+      approvalRate,
+      rejectionRate
+    };
+  }, [requests]);
+
 
   const chartColors = ['#1f7ae0', '#f5b323', '#14b8a6', '#8b5cf6', '#ef4444', '#06b6d4'];
 
@@ -352,8 +378,69 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
     resetEventForm();
   };
 
+  const triggerEventBurst = React.useCallback((type: TeamEvent['type']) => {
+    const id = Date.now();
+    setEventBurst({ id, type });
+    window.setTimeout(() => {
+      setEventBurst((prev) => (prev?.id === id ? null : prev));
+    }, 2600);
+  }, []);
+
+  const burstConfig = React.useMemo(() => {
+    const type = eventBurst?.type || 'Other';
+    if (type === 'Birthday') return { color: '#ec4899', symbols: ['🎉', '🎂', '🎈'] };
+    if (type === 'Work Anniversary') return { color: '#f59e0b', symbols: ['🏆', '🎊', '✨'] };
+    if (type === 'Meeting') return { color: '#3b82f6', symbols: ['📌', '💼', '🗓️'] };
+    if (type === 'Holi') return { color: '#a855f7', symbols: ['🌈', '🎨', '✨'] };
+    if (type === 'Diwali') return { color: '#f97316', symbols: ['🪔', '🎆', '✨'] };
+    if (type === 'Durga Puja') return { color: '#ef4444', symbols: ['🙏', '🌺', '✨'] };
+    if (type === 'Christmas Day') return { color: '#16a34a', symbols: ['🎄', '🎁', '✨'] };
+    if (type === 'New Year') return { color: '#2563eb', symbols: ['🎆', '🥳', '✨'] };
+    if (type === 'Festival') return { color: '#06b6d4', symbols: ['🎊', '✨', '🎉'] };
+    return { color: '#2f5596', symbols: ['✨', '🎉', '🎊'] };
+  }, [eventBurst]);
+
+  const burstParticles = React.useMemo(() => {
+    if (!eventBurst) return [];
+    return Array.from({ length: 52 }).map((_, index) => {
+      const angle = (Math.PI * 2 * index) / 52;
+      const distance = 220 + Math.random() * 680;
+      return {
+        id: `${eventBurst.id}-${index}`,
+        x: Math.cos(angle) * distance,
+        y: Math.sin(angle) * distance,
+        rotate: Math.random() * 360,
+        delay: Math.random() * 200,
+        size: 16 + Math.random() * 22,
+        duration: 1800 + Math.random() * 900
+      };
+    });
+  }, [eventBurst]);
+
   return (
     <div>
+      {eventBurst && (
+        <div className="event-burst-overlay" aria-hidden="true">
+          <div className="event-burst-flash" style={{ background: burstConfig.color }} />
+          {burstParticles.map((particle, index) => (
+            <span
+              key={particle.id}
+              className="event-burst-particle"
+                style={{
+                  ['--x' as any]: `${particle.x}px`,
+                  ['--y' as any]: `${particle.y}px`,
+                  ['--rot' as any]: `${particle.rotate}deg`,
+                  ['--delay' as any]: `${particle.delay}ms`,
+                  ['--dur' as any]: `${particle.duration}ms`,
+                  ['--event-color' as any]: burstConfig.color,
+                  fontSize: `${particle.size}px`
+                }}
+            >
+              {burstConfig.symbols[index % burstConfig.symbols.length]}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="d-flex justify-content-between align-items-center mb-4 p-3">
         <h2 className="h3 fw-semibold color-primary">Dashboard Overview</h2>
         <button
@@ -361,7 +448,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
           disabled={isLoadingSummary}
           className="btn btn-primary d-flex align-items-center shadow-sm"
         >
-          <Sparkle className="me-2" style={{ width: '20px', height: '20px' }} />
+          {/* <Sparkle className="me-2" style={{ width: '20px', height: '20px' }} /> */}
           {isLoadingSummary ? 'Generating...' : 'Generate AI Weekly Report'}
         </button>
       </div>
@@ -402,6 +489,41 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         </div>
         <div className="col-12 col-sm-6 col-lg-4 col-xl-2">
           <StatCard title="Total Requests" value={stats.total} icon={<XCircle className="text-white" />} isTotal />
+        </div>
+      </div>
+
+      <div className="row g-3 px-3 mt-1">
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-body py-3">
+              <div className="small text-muted">Approval Rate</div>
+              <div className="h4 mb-0 fw-bold text-success">{analytics.approvalRate}%</div>
+            </div>
+          </div>
+        </div>
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-body py-3">
+              <div className="small text-muted">Rejection Rate</div>
+              <div className="h4 mb-0 fw-bold text-danger">{analytics.rejectionRate}%</div>
+            </div>
+          </div>
+        </div>
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-body py-3">
+              <div className="small text-muted">Avg Days / Request</div>
+              <div className="h4 mb-0 fw-bold color-primary">{analytics.avgDaysPerRequest}</div>
+            </div>
+          </div>
+        </div>
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-body py-3">
+              <div className="small text-muted">Total Leave Days Requested</div>
+              <div className="h4 mb-0 fw-bold">{analytics.totalDaysRequested}</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -453,12 +575,17 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
             </div>
             <div className="d-flex flex-column gap-2 mt-1">
               {formattedEvents.map((item) => (
-                <div key={item.id} className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light border border-transparent">
+                <div
+                  key={item.id}
+                  className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light border border-transparent"
+                  onClick={() => triggerEventBurst(item.type)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className="d-flex align-items-center gap-3">
                     <div>
                       <div className="small fw-bold text-dark">{item.employee?.name || 'Team Event'}</div>
                       <div className="text-muted d-flex flex-column gap-0" style={{ fontSize: '10px' }}>
-                        <div className="fw-medium mb-1">{item.name}</div>
+                        <div className="fw-medium mb-1" style={{ color: '#2f5596' }}>{item.name}</div>
                         <div className="d-flex align-items-center gap-1">
                           {item.icon} {item.type}
                         </div>
@@ -470,7 +597,10 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                     <button
                       type="button"
                       className="event-edit-btn"
-                      onClick={() => handleOpenEditEventModal(item)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEditEventModal(item);
+                      }}
                       aria-label={`Edit ${item.name}`}
                       title="Edit event"
                     >
@@ -479,7 +609,10 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                     <button
                       type="button"
                       className="event-delete-btn"
-                      onClick={() => onDeleteTeamEvent(item.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteTeamEvent(item.id);
+                      }}
                       aria-label={`Delete ${item.name}`}
                       title="Delete event"
                     >
@@ -696,6 +829,11 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
               <option value="Work Anniversary">Work Anniversary</option>
               <option value="Meeting">Meeting</option>
               <option value="Festival">Festival</option>
+              <option value="Holi">Holi</option>
+              <option value="Diwali">Diwali</option>
+              <option value="Durga Puja">Durga Puja</option>
+              <option value="Christmas Day">Christmas Day</option>
+              <option value="New Year">New Year</option>
               <option value="Other">Other</option>
             </select>
           </div>

@@ -6,7 +6,7 @@ import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import {
-  Plus, Download, FileText, Sun, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, AlertCircle, MessageSquare, ChevronLeft, ChevronRight, Calendar, Users
+  Plus, Download, FileText, Sun, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, AlertCircle, MessageSquare, ChevronLeft, ChevronRight, Calendar, Users, Sparkle
 } from 'lucide-react';
 import { formatDateForDisplayIST, getNowIST, monthNameIST, formatDateIST, todayIST } from '../utils/dateTime';
 import { numberToWords } from '../utils/numberToWords';
@@ -37,6 +37,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   const [selectedApprovalNote, setSelectedApprovalNote] = React.useState<LeaveRequest | null>(null);
   const [selectedConcern, setSelectedConcern] = React.useState<Concern | null>(null);
   const [selectedCelebration, setSelectedCelebration] = React.useState<TeamEvent | null>(null);
+  const [eventBurst, setEventBurst] = React.useState<{ id: number; type: TeamEvent['type'] } | null>(null);
   // Attendance Navigation State
   const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
   const [referenceDate, setReferenceDate] = React.useState<Date>(getNowIST());
@@ -425,6 +426,25 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     popup.document.close();
   }, [escapeHtml, user]);
 
+  const handleSalarySlipDownload = React.useCallback((slip?: SalarySlip): void => {
+    if (!slip) return;
+
+    const fileUrl = String(slip.slipPdfUrl || '').trim();
+    if (fileUrl) {
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = `Salary-Slip-${slip.month}-${slip.year}.pdf`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
+    downloadSalarySlipPdf(slip);
+  }, [downloadSalarySlipPdf]);
+
   const currentMonthHolidays = React.useMemo(() => {
     const today = new Date();
     const currentMonth = today.getMonth();
@@ -457,6 +477,9 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       if (event.type === 'Birthday') icon = <Cake size={16} className="text-danger" />;
       if (event.type === 'Work Anniversary') icon = <PartyPopper size={16} className="text-warning" />;
       if (event.type === 'Meeting') icon = <UserCheck size={16} className="text-primary" />;
+      if (['Festival', 'Holi', 'Diwali', 'Durga Puja', 'Christmas Day', 'New Year'].indexOf(event.type) !== -1) {
+        icon = <Sparkle size={16} className="text-info" />;
+      }
 
       return {
         ...event,
@@ -470,6 +493,45 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       return new Date(a.date).getTime() - new Date(b.date).getTime();
     }).slice(0, 5); // Just show top 5 for portal view
   }, [teamEvents, toPlainText]);
+
+  const triggerEventBurst = React.useCallback((type: TeamEvent['type']) => {
+    const id = Date.now();
+    setEventBurst({ id, type });
+    window.setTimeout(() => {
+      setEventBurst((prev) => (prev?.id === id ? null : prev));
+    }, 2600);
+  }, []);
+
+  const burstConfig = React.useMemo(() => {
+    const type = eventBurst?.type || 'Other';
+    if (type === 'Birthday') return { color: '#ec4899', symbols: ['🎉', '🎂', '🎈'] };
+    if (type === 'Work Anniversary') return { color: '#f59e0b', symbols: ['🏆', '🎊', '✨'] };
+    if (type === 'Meeting') return { color: '#3b82f6', symbols: ['📌', '💼', '🗓️'] };
+    if (type === 'Holi') return { color: '#a855f7', symbols: ['🌈', '🎨', '✨'] };
+    if (type === 'Diwali') return { color: '#f97316', symbols: ['🪔', '🎆', '✨'] };
+    if (type === 'Durga Puja') return { color: '#ef4444', symbols: ['🙏', '🌺', '✨'] };
+    if (type === 'Christmas Day') return { color: '#16a34a', symbols: ['🎄', '🎁', '✨'] };
+    if (type === 'New Year') return { color: '#2563eb', symbols: ['🎆', '🥳', '✨'] };
+    if (type === 'Festival') return { color: '#06b6d4', symbols: ['🎊', '✨', '🎉'] };
+    return { color: '#2f5596', symbols: ['✨', '🎉', '🎊'] };
+  }, [eventBurst]);
+
+  const burstParticles = React.useMemo(() => {
+    if (!eventBurst) return [];
+    return Array.from({ length: 52 }).map((_, index) => {
+      const angle = (Math.PI * 2 * index) / 52;
+      const distance = 220 + Math.random() * 680;
+      return {
+        id: `${eventBurst.id}-${index}`,
+        x: Math.cos(angle) * distance,
+        y: Math.sin(angle) * distance,
+        rotate: Math.random() * 360,
+        delay: Math.random() * 200,
+        size: 16 + Math.random() * 22,
+        duration: 1800 + Math.random() * 900
+      };
+    });
+  }, [eventBurst]);
 
   // Dynamic leave balance calculations
   const leaveStats = React.useMemo(() => {
@@ -623,8 +685,8 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       align: 'end',
       render: (slip) => (
         <div className="d-flex justify-content-end gap-2">
-          <button className="btn btn-sm btn-outline-primary" style={{ borderColor: '#2F5596', color: '#2F5596' }} onClick={() => downloadSalarySlipPdf(slip)}>
-            <Download size={14} /> PDF
+          <button className="btn btn-sm salary-download-btn" onClick={() => handleSalarySlipDownload(slip)}>
+            <Download size={14} /> Download Slip
           </button>
           <button
             className="btn btn-sm btn-light border color-primary fw-bold"
@@ -636,7 +698,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         </div>
       )
     }
-  ]), [downloadSalarySlipPdf, handleOpenConcern]);
+  ]), [handleOpenConcern, handleSalarySlipDownload]);
 
   const leaveColumns = React.useMemo<ColumnDef<LeaveRequest>[]>(() => ([
     { key: 'duration', header: 'Duration', accessor: (r) => `${r.startDate} ${r.endDate}`, render: (r) => <span className="fw-medium">{r.startDate} - {r.endDate}</span> },
@@ -731,6 +793,28 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   const renderDashboardTab = () => {
     return (
       <div className="animate-in fade-in pb-5">
+        {eventBurst && (
+          <div className="event-burst-overlay" aria-hidden="true">
+            <div className="event-burst-flash" style={{ background: burstConfig.color }} />
+            {burstParticles.map((particle, index) => (
+              <span
+                key={particle.id}
+                className="event-burst-particle"
+                style={{
+                  ['--x' as any]: `${particle.x}px`,
+                  ['--y' as any]: `${particle.y}px`,
+                  ['--rot' as any]: `${particle.rotate}deg`,
+                  ['--delay' as any]: `${particle.delay}ms`,
+                  ['--dur' as any]: `${particle.duration}ms`,
+                  ['--event-color' as any]: burstConfig.color,
+                  fontSize: `${particle.size}px`
+                }}
+              >
+                {burstConfig.symbols[index % burstConfig.symbols.length]}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="mb-4 d-flex justify-content-between align-items-end p-4">
           <div>
             <h2 className="h2 fw-bold mb-1 color-primary">Welcome, {user.name.split(' ')[0]}!</h2>
@@ -849,12 +933,15 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                     key={idx}
                     type="button"
                     className="btn text-start p-0 border-0 bg-transparent"
-                    onClick={() => setSelectedCelebration(item)}
+                    onClick={() => {
+                      triggerEventBurst(item.type);
+                      setSelectedCelebration(item);
+                    }}
                   >
                     <div className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light transition-all border border-transparent hover-border-light">
                     <div className="d-flex align-items-center gap-3">
                       <div>
-                        <div className="small fw-bold text-dark">{item.name}</div>
+                        <div className="small fw-bold" style={{ color: '#2f5596' }}>{item.name}</div>
                         <div className="text-muted d-flex align-items-center gap-1" style={{ fontSize: '10px' }}>
                           {item.icon} {item.type}
                         </div>

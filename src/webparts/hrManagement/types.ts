@@ -167,7 +167,17 @@ export interface Concern {
 export interface TeamEvent {
   id: number;
   name: string;
-  type: 'Birthday' | 'Work Anniversary' | 'Meeting' | 'Festival' | 'Other';
+  type:
+    | 'Birthday'
+    | 'Work Anniversary'
+    | 'Meeting'
+    | 'Festival'
+    | 'Holi'
+    | 'Diwali'
+    | 'Durga Puja'
+    | 'Christmas Day'
+    | 'New Year'
+    | 'Other';
   date: string;
   description?: string;
   employee?: Employee;

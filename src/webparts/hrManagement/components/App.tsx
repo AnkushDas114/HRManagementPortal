@@ -1120,25 +1120,36 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const saveSalarySlip = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetEmployee) return;
+    const employeeForSlip: Employee = {
+      ...targetEmployee,
+      name: String(targetEmployee.name || '').trim(),
+      id: String(targetEmployee.id || '').trim(),
+      department: String(targetEmployee.department || '').trim(),
+      position: String(targetEmployee.position || '').trim()
+    };
     const insuranceDeduction = normalizeInsuranceTakenValue(salaryFormData.insuranceTaken) === 'Yes'
       ? (Number(salaryFormData.insurance) || 0)
       : 0;
     const netPay = Math.max(0, (Number(salaryFormData.gross) || 0) - (Number(salaryFormData.deductions) || 0) - insuranceDeduction);
     const newSlip: SalarySlip = {
       id: `S${Date.now()}`,
-      employeeId: targetEmployee.id,
+      employeeId: employeeForSlip.id,
       yearlyCtc: Number(salaryYearlyCtc) || 0,
       ...salaryFormData,
-      payrollKey: `${targetEmployee.name}-${targetEmployee.id}-${salaryFormData.month}-${salaryFormData.year}`,
+      payrollKey: `${employeeForSlip.name}-${employeeForSlip.id}-${salaryFormData.month}-${salaryFormData.year}`,
       netPay,
       generatedDate: todayIST()
     };
     try {
-      await createSalarySlip(sp, newSlip, targetEmployee);
+      await createSalarySlip(sp, newSlip, employeeForSlip);
 
       // Update employee bank details if changed
-      if (targetEmployee.itemId) {
-        await updateEmployee(sp, targetEmployee.itemId, {
+      if (employeeForSlip.itemId) {
+        await updateEmployee(sp, employeeForSlip.itemId, {
+          name: employeeForSlip.name,
+          id: employeeForSlip.id,
+          department: employeeForSlip.department,
+          position: employeeForSlip.position,
           bankName: salaryFormData.bankName,
           accountNumber: salaryFormData.accountNumber,
           ifscCode: salaryFormData.ifscCode,
@@ -1147,9 +1158,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
         // Update local state
         setDirectoryEmployees(prev => prev.map(emp =>
-          emp.id === targetEmployee.id
+          emp.itemId === employeeForSlip.itemId
             ? {
               ...emp,
+              name: employeeForSlip.name,
+              id: employeeForSlip.id,
+              department: employeeForSlip.department,
+              position: employeeForSlip.position,
               bankName: salaryFormData.bankName,
               accountNumber: salaryFormData.accountNumber,
               ifscCode: salaryFormData.ifscCode,
@@ -1158,6 +1173,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             : emp
         ));
       }
+      setTargetEmployee(employeeForSlip);
 
       const all = await getAllSalarySlips(sp);
       setSalarySlips(all);
@@ -1924,7 +1940,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         onTabChange={setActiveTab}
       />
 
-      <main className="container-fluid hr-main-content py-4">
+      <main className="container-fluid hr-shell-container hr-main-content py-4">
         {activeTab === 'profile' ? (
             <Profile
             user={currentUser || inferredCurrentUser || directoryEmployees[0]}
@@ -2585,17 +2601,61 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   Employee Information
                 </div>
                 <div className="row g-2">
-                  <div className="col-md-4">
+                  <div className="col-md-3">
                     <div className="small text-muted">Employee Name</div>
-                    <div className="fw-semibold text-dark">{targetEmployee?.name || 'N/A'}</div>
+                    {isSalaryManualMode ? (
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={targetEmployee?.name || ''}
+                        onChange={(e) => setTargetEmployee((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
+                        placeholder="Employee name"
+                      />
+                    ) : (
+                      <div className="fw-semibold text-dark">{targetEmployee?.name || 'N/A'}</div>
+                    )}
                   </div>
-                  <div className="col-md-4">
+                  <div className="col-md-3">
                     <div className="small text-muted">Employee ID</div>
-                    <div className="fw-semibold text-dark">{targetEmployee?.id || 'N/A'}</div>
+                    {isSalaryManualMode ? (
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={targetEmployee?.id || ''}
+                        onChange={(e) => setTargetEmployee((prev) => (prev ? { ...prev, id: e.target.value } : prev))}
+                        placeholder="Employee ID"
+                      />
+                    ) : (
+                      <div className="fw-semibold text-dark">{targetEmployee?.id || 'N/A'}</div>
+                    )}
                   </div>
-                  <div className="col-md-4">
+                  <div className="col-md-3">
                     <div className="small text-muted">Department</div>
-                    <div className="fw-semibold text-dark">{targetEmployee?.department || 'N/A'}</div>
+                    {isSalaryManualMode ? (
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={targetEmployee?.department || ''}
+                        onChange={(e) => setTargetEmployee((prev) => (prev ? { ...prev, department: e.target.value } : prev))}
+                        placeholder="Department"
+                      />
+                    ) : (
+                      <div className="fw-semibold text-dark">{targetEmployee?.department || 'N/A'}</div>
+                    )}
+                  </div>
+                  <div className="col-md-3">
+                    <div className="small text-muted">Designation</div>
+                    {isSalaryManualMode ? (
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={targetEmployee?.position || ''}
+                        onChange={(e) => setTargetEmployee((prev) => (prev ? { ...prev, position: e.target.value } : prev))}
+                        placeholder="Designation"
+                      />
+                    ) : (
+                      <div className="fw-semibold text-dark">{targetEmployee?.position || 'N/A'}</div>
+                    )}
                   </div>
                 </div>
               </div>
