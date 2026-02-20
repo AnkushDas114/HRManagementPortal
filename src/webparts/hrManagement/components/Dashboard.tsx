@@ -118,8 +118,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
       return {
         ...event,
         dateLabel,
-        icon,
-        avatar: event.employee?.avatar || `https://i.pravatar.cc/150?u=${event.name}`
+        icon
       };
     }).sort((a, b) => {
       if (!a.date) return 1;
@@ -456,9 +455,6 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
               {formattedEvents.map((item) => (
                 <div key={item.id} className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light border border-transparent">
                   <div className="d-flex align-items-center gap-3">
-                    <div className="p-0 rounded-circle bg-light d-flex align-items-center justify-content-center overflow-hidden" style={{ width: '32px', height: '32px' }}>
-                      <img src={(item as any).avatar} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
                     <div>
                       <div className="small fw-bold text-dark">{item.employee?.name || 'Team Event'}</div>
                       <div className="text-muted d-flex flex-column gap-0" style={{ fontSize: '10px' }}>

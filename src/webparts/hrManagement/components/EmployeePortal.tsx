@@ -305,6 +305,30 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     const knownDeductions = (slip.employeePF || 0) + (slip.esi || 0) + (slip.insurance || 0);
     const otherDeductions = Math.max(0, deductionsTotal - knownDeductions);
     const netPayInWords = numberToWords(slip.netPay || 0);
+    const formatAmount = (value: number): string => new Intl.NumberFormat('en-IN', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    }).format(Number.isFinite(value) ? value : 0);
+    const monthShort = String(slip.month || '').slice(0, 3);
+    const yearShort = String(slip.year || '').slice(-2);
+    const monthLabel = `${monthShort}-${yearShort}`;
+    const joiningDate = formatDateForDisplayIST(user.joiningDate, 'en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: '2-digit'
+    }).replace(/ /g, '-');
+    const logoSvg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="190" height="44" viewBox="0 0 190 44">
+        <rect width="190" height="44" fill="none"/>
+        <g transform="translate(3,4)">
+          <path d="M2 19c4-10 16-15 28-13l-8 7c-6-1-12 2-14 8 2 6 8 9 14 8l8 7C18 38 6 33 2 23z" fill="#00a3de"/>
+          <path d="M15 5h16l-8 7H7z" fill="#2f5596"/>
+        </g>
+        <text x="40" y="31" font-family="Arial, sans-serif" font-size="44" font-style="italic" font-weight="700" fill="#113d7a">smalsus</text>
+      </svg>
+    `;
+    const logoSrc = `data:image/svg+xml;utf8,${encodeURIComponent(logoSvg)}`;
+    const logoExactSrc = 'https://hhhhteams.sharepoint.com/sites/HHHH/SP/SiteAssets/smalsus-logo.png';
 
     const popup = window.open('', '_blank', 'width=980,height=800');
     if (!popup) {
@@ -319,227 +343,155 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           <meta charset="utf-8" />
           <title>Salary Slip - ${escapeHtml(slip.month)} ${escapeHtml(slip.year)}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-            body { font-family: 'Roboto', sans-serif; position: relative; margin: 0; padding: 20px; color: #333; }
-            .container { border: 2px solid #5a8bd8; padding: 0; min-height: 900px; position: relative; max-width: 900px; margin: 0 auto; }
-            
-            /* Header */
-            .header { padding: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
-            .logo-area { display: flex; align-items: center; gap: 10px; }
-            .logo-text { font-size: 52px; font-weight: 800; color: #406085; font-family: sans-serif; letter-spacing: -1px; line-height: 1; margin: 0; }
-            
-            .company-details { text-align: right; max-width: 400px; padding-top: 5px; }
-            .company-name { font-size: 16px; font-weight: 700; color: #333; margin-bottom: 5px; }
-            .address { font-size: 11px; color: #555; line-height: 1.4; font-weight: 500; }
-
-            /* Grid Layouts */
-            table { width: 100%; border-collapse: collapse; }
-            
-            .main-table { width: 100%; border-top: 2px solid #5a8bd8; }
-            .main-table th, .main-table td { border: 1px solid #999; vertical-align: middle; }
-            
-            /* Section Headers */
-            .section-header { text-align: center; font-weight: bold; background: #fff; font-size: 14px; padding: 5px; }
-            
-            /* Employee Details Table */
-            .emp-table td { padding: 4px 5px; font-size: 11px; }
-            .emp-label { font-weight: normal; color: #333; width: 120px; }
-            .emp-val { font-weight: bold; color: #000; }
-
-            /* New Header Row Style */
-            .salary-slip-header { font-weight: bold; text-align: center; font-size: 14px; padding: 5px; border-bottom: 1px solid #999; }
-            .month-header { font-weight: bold; text-align: center; font-size: 14px; padding: 5px; width: 100px; border-left: 1px solid #999; }
-            
-            /* Salary Table */
-            .salary-table { width: 100%; border: none; }
-            .salary-table td { padding: 0; vertical-align: top; border: none; }
-            .income-col { border-right: 1px solid #999; width: 50%; }
-            .deduction-col { width: 50%; }
-
-            .item-row { display: flex; border-bottom: 1px solid #eee; padding: 6px 8px; font-size: 12px; }
-            .item-row.header { background: #fff; font-weight: bold; border-bottom: 1px solid #999; }
-            .item-name { flex: 1; }
-            .item-amount { width: 100px; text-align: right; font-weight: 500; }
-            
-            .total-row { display: flex; justify-content: space-between; padding: 6px 8px; font-weight: bold; font-size: 12px; border-top: 1px solid #999; border-bottom: 1px solid #5a8bd8; }
-            
-            /* Net Salary Section */
-            .net-salary-section { border-top: 2px solid #5a8bd8; border-bottom: 2px solid #5a8bd8; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 14px; }
-            
-            .words-row { padding: 8px; font-style: italic; font-size: 12px; text-align: center; color: #333; border-bottom: 1px solid #999; background: #fdfdfd; }
-
-            /* Watermark */
-            .bg-watermark {
-                position: absolute;
-                top: 55%;
-                left: 50%;
-                transform: translate(-50%, -50%) rotate(-30deg);
-                font-size: 100px;
-                color: rgba(0, 0, 0, 0.04);
-                z-index: -1;
-                font-weight: bold;
-                white-space: nowrap;
-                pointer-events: none;
-            }
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; color: #000; background: #fff; }
+            .sheet { width: 860px; margin: 0 auto; border: 1px solid #111; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+            td, th { border: 1px solid #111; padding: 3px 5px; font-size: 12px; line-height: 1.15; vertical-align: middle; }
+            .no-b { border: 0 !important; }
+            .header { background: #b7c6e1; }
+            .center { text-align: center; }
+            .right { text-align: right; }
+            .bold { font-weight: 700; }
+            .title { font-size: 30px; font-weight: 700; color: #0f3569; letter-spacing: 1px; }
+            .company { font-size: 30px; font-weight: 700; }
+            .sub { font-size: 20px; }
+            .sec { background: #b7c6e1; font-weight: 700; text-align: center; }
+            .foot { font-size: 11px; text-align: center; font-weight: 700; }
+            .amount { width: 120px; text-align: right; }
+            .particular { width: 260px; }
+            .blank td { height: 20px; }
+            .logo-wrap { display: flex; align-items: center; justify-content: flex-start; }
+            .logo { width: 190px; height: 44px; object-fit: contain; }
           </style>
         </head>
         <body>
-          <div class="container">
-            <div class="bg-watermark">Smalsus Infolabs</div>
-
-            <!-- Header -->
-            <div class="header">
-               <div class="logo-area">
-                  <h1 class="logo-text">Smalsus</h1>
-               </div>
-               <div class="company-details">
-                  <div class="company-name">Smalsus Infolabs Pvt .Ltd.</div>
-                  <div class="address">
-                    Kirti Tower, Plot no 13&13C, Techzone 4, Greater Noida west,<br/>
-                    Uttar Pradesh 201009
+          <div class="sheet">
+            <table>
+              <colgroup>
+                <col style="width: 26%">
+                <col style="width: 18%">
+                <col style="width: 31%">
+                <col style="width: 10%">
+                <col style="width: 15%">
+              </colgroup>
+              <tr class="header">
+                <td colspan="2" class="no-b">
+                  <div class="logo-wrap">
+                    <img class="logo" src="${logoExactSrc}" alt="Smalsus logo" onerror="this.onerror=null;this.src='${logoSrc}';" />
                   </div>
-               </div>
-            </div>
-
-            <table class="main-table">
-               <!-- Title Row -->
-               <tr>
-                  <td class="salary-slip-header" style="border-right: 1px solid #999;">Salary Slip</td>
-                  <td class="month-header">Month</td>
-                  <td class="month-header">${escapeHtml(slip.month)}-${escapeHtml(slip.year.slice(-2))}</td>
-               </tr>
-
-               <!-- Employee Details -->
-               <tr>
-                  <td colspan="3" style="padding: 0;">
-                     <div style="display: flex;">
-                        <div style="width: 50%; border-right: 1px solid #999;">
-                           <table class="emp-table">
-                              <tr><td class="emp-label">Employee Name</td><td class="emp-val">${escapeHtml(user.name)}</td></tr>
-                              <tr><td class="emp-label">Employee Code</td><td class="emp-val">${escapeHtml(user.id)}</td></tr>
-                              <tr><td class="emp-label">Designation</td><td class="emp-val">${escapeHtml(user.position || 'Software Engineer')}</td></tr>
-                              <tr><td class="emp-label">PAN</td><td class="emp-val">${escapeHtml(user.pan || '-')}</td></tr>
-                              <tr><td class="emp-label">Bank Account Number</td><td class="emp-val">${escapeHtml(user.accountNumber || '-')}</td></tr>
-                              <tr><td class="emp-label">Bank Name</td><td class="emp-val">${escapeHtml(user.bankName || '-')}</td></tr>
-                              <tr><td class="emp-label">IFSC Code</td><td class="emp-val">${escapeHtml(user.ifscCode || '-')}</td></tr>
-                           </table>
-                        </div>
-                        <div style="width: 50%;">
-                           <table class="emp-table">
-                              <tr><td class="emp-label">Date of Joining</td><td class="emp-val">${escapeHtml(formatDateForDisplayIST(user.joiningDate, 'en-US', { day: '2-digit', month: 'short', year: '2-digit' }))}</td></tr>
-                              <tr><td class="emp-label">Total Working Days</td><td class="emp-val">${slip.workingDays || 30}</td></tr>
-                              <tr><td class="emp-label">Paid days</td><td class="emp-val">${slip.paidDays || 30}</td></tr>
-                              <tr><td class="emp-label">&nbsp;</td><td class="emp-val">&nbsp;</td></tr>
-                              <tr><td class="emp-label">&nbsp;</td><td class="emp-val">&nbsp;</td></tr>
-                              <tr><td class="emp-label">&nbsp;</td><td class="emp-val">&nbsp;</td></tr>
-                              <tr><td class="emp-label">&nbsp;</td><td class="emp-val">&nbsp;</td></tr>
-                           </table>
-                        </div>
-                     </div>
-                  </td>
-               </tr>
-
-               <!-- Income / Deduction Headers -->
-               <tr>
-                  <td colspan="3" style="padding: 0;">
-                     <div style="display: flex; border-bottom: 1px solid #999;">
-                        <div class="section-header" style="width: 50%; border-right: 1px solid #999;">Income</div>
-                        <div class="section-header" style="width: 50%;">Deductions</div>
-                     </div>
-                  </td>
-               </tr>
-
-               <!-- Salary Body -->
-               <tr>
-                  <td colspan="3" style="padding: 0;">
-                     <div style="display: flex;">
-                        <!-- Incomes -->
-                        <div class="income-col">
-                           <div class="item-row header">
-                              <div class="item-name">Particulars</div>
-                              <div class="item-amount">Amount</div>
-                           </div>
-                           <div class="item-row">
-                              <div class="item-name">Basic Salary</div>
-                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.basic || 0)).replace('₹', '')}</div>
-                           </div>
-                           <div class="item-row">
-                              <div class="item-name">HRA</div>
-                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.hra || 0)).replace('₹', '')}</div>
-                           </div>
-                           <div class="item-row">
-                              <div class="item-name">Others / Allowances</div>
-                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.allowances || 0)).replace('₹', '')}</div>
-                           </div>
-                           <div class="item-row">
-                              <div class="item-name">Bonus</div>
-                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.bonus || 0)).replace('₹', '')}</div>
-                           </div>
-                           
-                           <!-- Spacer to push Total to bottom -->
-                           <div style="height: 100px;"></div>
-                           
-                           <div class="total-row">
-                              <div>Total</div>
-                              <div>${escapeHtml(formatCurrencyINR(gross)).replace('₹', '')}</div>
-                           </div>
-                        </div>
-
-                        <!-- Deductions -->
-                        <div class="deduction-col">
-                           <div class="item-row header">
-                              <div class="item-name">Particulars</div>
-                              <div class="item-amount">Amount</div>
-                           </div>
-                           <div class="item-row">
-                              <div class="item-name">Employee - PF Contribution</div>
-                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.employeePF || 0)).replace('₹', '')}</div>
-                           </div>
-                           <div class="item-row">
-                              <div class="item-name">ESI</div>
-                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.esi || 0)).replace('₹', '')}</div>
-                           </div>
-                           <div class="item-row">
-                              <div class="item-name">Insurance</div>
-                              <div class="item-amount">${escapeHtml(formatCurrencyINR(slip.insurance || 0)).replace('₹', '')}</div>
-                           </div>
-                           <div class="item-row">
-                              <div class="item-name">Other Deductions</div>
-                              <div class="item-amount">${escapeHtml(formatCurrencyINR(otherDeductions)).replace('₹', '')}</div>
-                           </div>
-
-                           <!-- Spacer to push Total to bottom -->
-                           <div style="height: 100px;"></div>
-
-                           <div class="total-row">
-                              <div>Total</div>
-                              <div>${escapeHtml(formatCurrencyINR(deductionsTotal)).replace('₹', '')}</div>
-                           </div>
-                        </div>
-                     </div>
-                  </td>
-               </tr>
-
-               <!-- Net Salary -->
-               <tr>
-                  <td colspan="3" style="padding: 0; border: none;">
-                     <div class="net-salary-section">
-                        <div>Net Salary</div>
-                        <div>${escapeHtml(formatCurrencyINR(slip.netPay || 0)).replace('₹', '')}</div>
-                     </div>
-                  </td>
-               </tr>
-                <tr>
-                  <td colspan="3" style="padding: 0;">
-                      <div style="display: flex; align-items: center; padding: 8px;">
-                        <div style="font-weight: bold; width: 150px;">Rs- ${escapeHtml(formatCurrencyINR(slip.netPay || 0)).replace('₹', '')}</div>
-                        <div style="font-style: italic; font-size: 12px; margin-left: 20px;">${netPayInWords}</div>
-                      </div>
-                  </td>
-               </tr>
+                </td>
+                <td colspan="3" class="center no-b">
+                  <div class="company">Smalsus Infolabs Pvt. Ltd.</div>
+                  <div class="sub">Kirti Tower, Plot no 13&13C, Techzone 4, Greater Noida west,<br/>Uttar Pradesh 201009</div>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="3" class="sec">Salary Slip</td>
+                <td class="sec">Month</td>
+                <td class="sec">${escapeHtml(monthLabel)}</td>
+              </tr>
+              <tr>
+                <td>Employee Name</td>
+                <td class="right">${escapeHtml(user.name)}</td>
+                <td>Date of Joining</td>
+                <td colspan="2">${escapeHtml(joiningDate)}</td>
+              </tr>
+              <tr>
+                <td>Employee Code</td>
+                <td class="right">${escapeHtml(user.id)}</td>
+                <td>Total Working Days</td>
+                <td colspan="2" class="center">${escapeHtml(slip.workingDays || 30)}</td>
+              </tr>
+              <tr>
+                <td>Designation</td>
+                <td class="right">${escapeHtml(user.position || 'Software Engineer')}</td>
+                <td>Paid days</td>
+                <td colspan="2" class="center">${escapeHtml(slip.paidDays || 30)}</td>
+              </tr>
+              <tr>
+                <td>PAN</td>
+                <td class="right">${escapeHtml(user.pan || '-')}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>Bank Account Number</td>
+                <td class="right">${escapeHtml(user.accountNumber || '-')}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>Bank Name</td>
+                <td class="right">${escapeHtml(user.bankName || '-')}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>IFSC Code</td>
+                <td class="right">${escapeHtml(user.ifscCode || '-')}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+              <tr><td colspan="5" class="no-b" style="height:6px"></td></tr>
+              <tr>
+                <td colspan="2" class="sec">Income</td>
+                <td colspan="3" class="sec">Deductions</td>
+              </tr>
+              <tr>
+                <td class="bold particular">Particulars</td>
+                <td class="bold amount">Amount</td>
+                <td class="bold particular">Particulars</td>
+                <td colspan="2" class="bold amount">Amount</td>
+              </tr>
+              <tr>
+                <td>Basic Salary</td>
+                <td class="right">${escapeHtml(formatAmount(slip.basic || 0))}</td>
+                <td>Employee - PF contribution</td>
+                <td colspan="2" class="right">${escapeHtml(formatAmount(slip.employeePF || 0))}</td>
+              </tr>
+              <tr>
+                <td>HRA</td>
+                <td class="right">${escapeHtml(formatAmount(slip.hra || 0))}</td>
+                <td>ESI</td>
+                <td colspan="2" class="right">${escapeHtml(formatAmount(slip.esi || 0))}</td>
+              </tr>
+              <tr>
+                <td>Others</td>
+                <td class="right">${escapeHtml(formatAmount((slip.allowances || 0) + (slip.bonus || 0)))}</td>
+                <td>Insurance</td>
+                <td colspan="2" class="right">${escapeHtml(formatAmount(slip.insurance || 0))}</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td></td>
+                <td>Other Deductions</td>
+                <td colspan="2" class="right">${escapeHtml(formatAmount(otherDeductions))}</td>
+              </tr>
+              <tr class="blank"><td></td><td></td><td></td><td colspan="2"></td></tr>
+              <tr class="blank"><td></td><td></td><td></td><td colspan="2"></td></tr>
+              <tr class="blank"><td></td><td></td><td></td><td colspan="2"></td></tr>
+              <tr>
+                <td class="bold">Total</td>
+                <td class="right bold">${escapeHtml(formatAmount(gross))}</td>
+                <td class="bold">Total</td>
+                <td colspan="2" class="right bold">${escapeHtml(formatAmount(deductionsTotal))}</td>
+              </tr>
+              <tr>
+                <td colspan="3" class="sec">Net Salary</td>
+                <td colspan="2" class="right bold">${escapeHtml(formatAmount(slip.netPay || 0))}</td>
+              </tr>
+              <tr>
+                <td colspan="2" class="center bold">Rs- ${escapeHtml(formatAmount(slip.netPay || 0))}</td>
+                <td colspan="3" class="center bold">${escapeHtml(netPayInWords)}</td>
+              </tr>
+              <tr>
+                <td colspan="5" class="foot">Note: This is computer generated slip and does not require any signature.</td>
+              </tr>
             </table>
-
-            <!-- Footer (optional empty space or note) -->
           </div>
           <script>window.onload = function(){ window.print(); };</script>
         </body>
@@ -588,7 +540,6 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         ...event,
         dateLabel,
         icon,
-        avatar: event.employee?.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(event.name)}`,
         plainDescription: toPlainText(event.description)
       };
     }).sort((a, b) => {
@@ -980,9 +931,6 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                   >
                     <div className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light transition-all border border-transparent hover-border-light">
                     <div className="d-flex align-items-center gap-3">
-                      <div className="p-0 rounded-circle bg-light d-flex align-items-center justify-content-center overflow-hidden" style={{ width: '32px', height: '32px' }}>
-                        <img src={item.avatar} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
                       <div>
                         <div className="small fw-bold text-dark">{item.name}</div>
                         <div className="text-muted d-flex align-items-center gap-1" style={{ fontSize: '10px' }}>

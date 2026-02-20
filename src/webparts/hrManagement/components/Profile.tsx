@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Employee, UserRole } from '../types';
-import { Mail, Phone, MapPin, Briefcase, Calendar, ShieldCheck, Edit2, Eye, EyeOff, Landmark, Wallet } from 'lucide-react';
+import { Mail, Briefcase, Calendar, ShieldCheck, Edit2, Eye, EyeOff, Landmark, Wallet } from 'lucide-react';
 import { formatDateForDisplayIST } from '../utils/dateTime';
 import { SPFI } from '@pnp/sp';
 import { updateEmployee } from '../services/EmployeeService';
@@ -158,7 +158,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
                 onClick={() => setIsEditModalOpen(true)}
                 type="button"
               >
-                <Edit2 size={16} /> Edit Profile Details
+                <Edit2 size={16} /> Edit Employee Bank Details
               </button>
             </div>
           </div>
@@ -198,11 +198,11 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
               <div className="col-md-6">
                 <div className="d-flex align-items-start gap-3">
                   <div className="p-2 rounded bg-light">
-                    <Phone size={18} className="text-muted" />
+                    <Briefcase size={18} className="text-muted" />
                   </div>
                   <div>
-                    <label className="text-muted small fw-bold text-uppercase d-block mb-1">Phone Number</label>
-                    <span className="fw-medium">{displayText(user.phone)}</span>
+                    <label className="text-muted small fw-bold text-uppercase d-block mb-1">Designation</label>
+                    <span className="fw-medium">{displayText(user.position)}</span>
                   </div>
                 </div>
               </div>
@@ -210,11 +210,11 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
               <div className="col-md-6">
                 <div className="d-flex align-items-start gap-3">
                   <div className="p-2 rounded bg-light">
-                    <MapPin size={18} className="text-muted" />
+                    <Briefcase size={18} className="text-muted" />
                   </div>
                   <div>
-                    <label className="text-muted small fw-bold text-uppercase d-block mb-1">Location</label>
-                    <span className="fw-medium">{displayText(user.location)}</span>
+                    <label className="text-muted small fw-bold text-uppercase d-block mb-1">Department</label>
+                    <span className="fw-medium">{displayText(user.department)}</span>
                   </div>
                 </div>
               </div>
@@ -231,17 +231,6 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
                 </div>
               </div>
 
-              <div className="col-md-6">
-                <div className="d-flex align-items-start gap-3">
-                  <div className="p-2 rounded bg-light">
-                    <Briefcase size={18} className="text-muted" />
-                  </div>
-                  <div>
-                    <label className="text-muted small fw-bold text-uppercase d-block mb-1">Reporting Manager</label>
-                    <span className="fw-medium">{displayText(user.reportingManager)}</span>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="d-flex align-items-center justify-content-between mt-4 mb-3 flex-wrap gap-2">
@@ -305,7 +294,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        title="Edit Profile Details"
+        title={`Edit Employee Bank Details - ${displayText(user.name)}`}
         size="lg"
         footer={
           <div className="d-flex justify-content-between align-items-center w-100">
