@@ -6,7 +6,7 @@ import type { LeaveRequest, Employee } from '../types';
 import { LeaveStatus } from '../types';
 import { formatDateIST, nowISTISOString, todayIST } from '../utils/dateTime';
 
-const LEAVE_REQUESTS_LIST_TITLE = 'Leave Request';
+// const LEAVE_REQUESTS_LIST_TITLE = 'Leave Request';
 const EMPLOYEE_MASTER_LIST_TITLE = 'EmployeeMaster';
 
 /**
@@ -15,11 +15,33 @@ const EMPLOYEE_MASTER_LIST_TITLE = 'EmployeeMaster';
 export async function getAllLeaveRequests(sp: SPFI, employees: Employee[]): Promise<LeaveRequest[]> {
     try {
         const items = await sp.web.lists
-            .getByTitle(LEAVE_REQUESTS_LIST_TITLE)
+            .getByTitle('Leave Request')
             .items
             .select(
-                '*'
-            ).top(1000)();
+                'Id',
+                'Title',
+                'LeaveType',
+                'Startdate',
+                'Enddate',
+                'Days',
+                'Reason',
+                'Status',
+                'SubmittedAt',
+                'ApprovedAt',
+                'Created',
+                'ApproverName',
+                'ApproverComment',
+                'LeaveData',
+                'DeductedDays',
+                'IsCountedInCarryForward',
+                // 'EmployeeLookup/Id',
+                'EmployeeLookup/Title',
+                'EmployeeLookup/Email',
+                'EmployeeLookup/EmployeeID',
+
+            )
+            .expand('EmployeeLookup')
+            .top(500)();
 
         console.log('Leave Requests loaded from SharePoint:', items);
 
@@ -64,7 +86,7 @@ export async function createLeaveRequest(
 
         // Create item in SharePoint
         await sp.web.lists
-            .getByTitle(LEAVE_REQUESTS_LIST_TITLE)
+            .getByTitle('Leave Request')
             .items.add({
                 Title: `${formData.leaveType} - ${formData.startDate}`,
                 LeaveType: formData.leaveType,
@@ -110,7 +132,7 @@ export async function updateLeaveRequestStatus(
         }
 
         await sp.web.lists
-            .getByTitle(LEAVE_REQUESTS_LIST_TITLE).items.getById(requestId)
+            .getByTitle('Leave Request').items.getById(requestId)
             .update(updateData);
 
         console.log('Leave request status updated successfully');
@@ -126,7 +148,7 @@ export async function updateLeaveRequestStatus(
 export async function deleteLeaveRequest(sp: SPFI, requestId: number): Promise<void> {
     try {
         await sp.web.lists
-            .getByTitle(LEAVE_REQUESTS_LIST_TITLE)
+            .getByTitle('Leave Request')
             .items.getById(requestId)
             .delete();
 

@@ -2,18 +2,64 @@ import { SPFI } from '@pnp/sp';
 import '@pnp/sp/webs';
 import '@pnp/sp/lists';
 import '@pnp/sp/items';
-import '@pnp/sp/files';
-import '@pnp/sp/folders';
 import { SalarySlip, Employee } from '../types';
 import { formatDateIST, todayIST } from '../utils/dateTime';
 
-const LIST_NAME = 'SalarySlip';
+const LIST_REF = 'SalarySlip';
 const EMPLOYEE_LIST_NAME = 'EmployeeMaster';
+const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const toNumber = (value: unknown): number => {
   if (value === null || value === undefined || value === '') return 0;
   const n = Number(value);
   return Number.isNaN(n) ? 0 : n;
+};
+
+const getErrorMessage = (error: unknown): string => {
+  const e = error as any;
+  return String(
+    e?.data?.responseBody?.['odata.error']?.message?.value ||
+    e?.data?.responseBody?.error?.message?.value ||
+    e?.message ||
+    error ||
+    'Unknown error'
+  );
+};
+
+const isFormatError = (error: unknown): boolean => /format/i.test(getErrorMessage(error));
+
+const getSalarySlipList = (sp: SPFI) => {
+  const ref = String(LIST_REF || '').trim();
+  return GUID_REGEX.test(ref) ? sp.web.lists.getById(ref) : sp.web.lists.getByTitle(ref);
+};
+
+const buildPayrollKey = (slip: SalarySlip, employee?: Employee): string =>
+  String(slip.payrollKey || `${employee?.name || 'Unknown'}-${slip.employeeId}-${slip.month}-${slip.year}`);
+
+const buildPayload = (slip: SalarySlip, employee?: Employee): Record<string, unknown> => {
+  return {
+    Title: `SalarySlip_${slip.employeeId}_${slip.year}_${slip.month}`,
+    Month: String(slip.month || ''),
+    Year: String(slip.year || ''),
+    YearlyCTC: toNumber(slip.yearlyCtc),
+    MonthlyCTC: toNumber(slip.monthlyCtc),
+    Basic: toNumber(slip.basic),
+    HRA: toNumber(slip.hra),
+    Allowances: toNumber(slip.allowances),
+    Deductions: toNumber(slip.deductions),
+    NetPay: toNumber(slip.netPay),
+    Gross: toNumber(slip.gross),
+    EmployerPF: toNumber(slip.employerPF),
+    EmployeePF: toNumber(slip.employeePF),
+    Bonus: toNumber(slip.bonus),
+    Insurance: toNumber(slip.insurance),
+    ESI: toNumber(slip.esi),
+    EmployerESI: String(slip.employerEsi ?? ''),
+    GeneratedDate: new Date().toISOString(),
+    PayrollKey: buildPayrollKey(slip, employee),
+    WorkingDays: toNumber(slip.workingDays),
+    PaidDays: toNumber(slip.paidDays)
+  };
 };
 
 const lookupTitle = (value: any): string => {
@@ -28,8 +74,6 @@ const extractEmployeeIdFromRecord = (item: any): string => {
   if (fromLookup && fromLookup !== '0') return fromLookup;
 
   const payrollKey = String(item.PayrollKey || '');
-  // PayrollKey format: EmployeeName-EmployeeID-Month-Year
-  // Name may contain hyphens, so parse ID from the 3rd token from right.
   if (payrollKey) {
     const parts = payrollKey.split('-').map((p: string) => p.trim()).filter(Boolean);
     if (parts.length >= 4) {
@@ -45,9 +89,7 @@ const extractEmployeeIdFromRecord = (item: any): string => {
   const fromText = String(item.EmployeeIdText || item.EmployeeId || '').trim();
   if (fromText && fromText !== '0') return fromText;
 
-  // Last fallback is lookup item id (not ideal for matching, but better than empty).
-  const fromLookupId = String(item.EmployeeIDId || '').trim();
-  return fromLookupId;
+  return String(item.EmployeeIDId || '').trim();
 };
 
 const mapItemToSalarySlip = (item: any): SalarySlip => {
@@ -80,17 +122,90 @@ const mapItemToSalarySlip = (item: any): SalarySlip => {
   };
 };
 
+const updateItemOneByOne = async (
+  updateFn: (payload: Record<string, unknown>) => Promise<unknown>,
+  payload: Record<string, unknown>
+): Promise<void> => {
+  const failed: string[] = [];
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined) continue;
+    try {
+      await updateFn({ [key]: value });
+    } catch (error) {
+      if (value !== null && typeof value !== 'string' && /Edm\.String/i.test(getErrorMessage(error))) {
+        try {
+          await updateFn({ [key]: String(value) });
+          continue;
+        } catch (stringRetryError) {
+          failed.push(`${key}: ${getErrorMessage(stringRetryError)}`);
+          continue;
+        }
+      }
+      failed.push(`${key}: ${getErrorMessage(error)}`);
+    }
+  }
+  if (failed.length) {
+    throw new Error(`Failed to save some SalarySlip fields. ${failed.join(' | ')}`);
+  }
+};
+
+const safeUpdate = async (
+  updateFn: (payload: Record<string, unknown>) => Promise<unknown>,
+  payload: Record<string, unknown>
+): Promise<void> => {
+  try {
+    await updateFn(payload);
+  } catch (error) {
+    if (!isFormatError(error)) throw error;
+    await updateItemOneByOne(updateFn, payload);
+  }
+};
+
+const resolveEmployeeItemId = async (sp: SPFI, slip: SalarySlip, employee?: Employee): Promise<number | undefined> => {
+  if (employee?.itemId) return employee.itemId;
+  if (!slip.employeeId) return undefined;
+  const matched = await sp.web.lists
+    .getByTitle(EMPLOYEE_LIST_NAME)
+    .items.select('Id', 'EmployeeID')
+    .filter(`EmployeeID eq '${String(slip.employeeId).replace(/'/g, "''")}'`)
+    .top(1)();
+  return matched?.[0]?.Id as number | undefined;
+};
+
 export async function getAllSalarySlips(sp: SPFI): Promise<SalarySlip[]> {
   try {
-    const items = await sp.web.lists
-      .getByTitle(LIST_NAME)
-      .items
+    const items = await getSalarySlipList(sp).items
       .select(
-        '*'
+        'Id',
+        'Title',
+        'Month',
+        'Year',
+        'YearlyCTC',
+        'MonthlyCTC',
+        'Basic',
+        'HRA',
+        'Allowances',
+        'Deductions',
+        'NetPay',
+        'Gross',
+        'EmployerPF',
+        'EmployeePF',
+        'Bonus',
+        'Insurance',
+        'ESI',
+        'EmployerESI',
+        'GeneratedDate',
+        'PayrollKey',
+        'SlipPdfUrl',
+        'WorkingDays',
+        'PaidDays',
+        'EmployeeID/Title',
+        'Employee/Title',
+        'Employee/EmployeeID',
+        'Employee/Email'
       )
-      // .expand('EmployeeID', 'Employee')
+      .expand('EmployeeID', 'Employee')
       .top(5000)();
-    console.log("salry slips", items);
     return items.map(mapItemToSalarySlip);
   } catch (error) {
     console.error('Failed to load salary slips:', error);
@@ -99,97 +214,64 @@ export async function getAllSalarySlips(sp: SPFI): Promise<SalarySlip[]> {
 }
 
 export async function createSalarySlip(sp: SPFI, slip: SalarySlip, employee?: Employee): Promise<void> {
-  let employeeItemId = employee?.itemId;
-  if (!employeeItemId && slip.employeeId) {
-    try {
-      const matched = await sp.web.lists
-        .getByTitle(EMPLOYEE_LIST_NAME)
-        .items.select('Id', 'EmployeeID')
-        .filter(`EmployeeID eq '${String(slip.employeeId).replace(/'/g, "''")}'`)
-        .top(1)();
-      employeeItemId = matched?.[0]?.Id;
-    } catch (error) {
-      console.warn('Could not resolve EmployeeMaster item id for salary slip lookup.', error);
-    }
-  }
-
+  const employeeItemId = await resolveEmployeeItemId(sp, slip, employee);
   if (!employeeItemId) {
     throw new Error('Unable to save salary slip: Employee lookup id not found.');
   }
 
-  const fileName = `SalarySlip_${slip.employeeId}_${slip.year}_${slip.month}_${Date.now()}.json`;
-  const fileContent = JSON.stringify({
-    employeeId: slip.employeeId,
-    month: slip.month,
-    year: slip.year,
-    yearlyCtc: slip.yearlyCtc,
-    monthlyCtc: slip.monthlyCtc,
-    basic: slip.basic,
-    hra: slip.hra,
-    allowances: slip.allowances,
-    deductions: slip.deductions,
-    netPay: slip.netPay,
-    generatedDate: slip.generatedDate || todayIST(),
-    workingDays: slip.workingDays,
-    paidDays: slip.paidDays
-  }, null, 2);
+  const salaryList = getSalarySlipList(sp);
+  const payload = buildPayload(slip, employee);
+  const safePayrollKey = String(payload.PayrollKey || '').replace(/'/g, "''");
+  const existing = safePayrollKey
+    ? await salaryList.items.select('Id').filter(`PayrollKey eq '${safePayrollKey}'`).top(1)()
+    : [];
 
-  const addResult = await sp.web.lists
-    .getByTitle(LIST_NAME)
-    .rootFolder.files.addUsingPath(fileName, fileContent, { Overwrite: true });
-
-  const fileItem = await addResult.file.getItem();
-  const defaultPayrollKey = `${employee?.name || 'Unknown'}-${slip.employeeId}-${slip.month}-${slip.year}`;
-
-  const baseMetadataPayload: Record<string, unknown> = {
-    Title: `SalarySlip_${slip.employeeId}_${slip.year}_${slip.month}`,
-    Month: String(slip.month || ''),
-    Year: String(slip.year || ''),
-    YearlyCTC: slip.yearlyCtc || 0,
-    MonthlyCTC: slip.monthlyCtc || 0,
-    Basic: slip.basic || 0,
-    HRA: slip.hra || 0,
-    Allowances: slip.allowances || 0,
-    Deductions: slip.deductions || 0,
-    NetPay: slip.netPay || 0,
-    Gross: slip.gross || 0,
-    EmployerPF: slip.employerPF || 0,
-    EmployeePF: slip.employeePF || 0,
-    Bonus: slip.bonus || 0,
-    Insurance: slip.insurance || 0,
-    ESI: slip.esi || 0,
-    GeneratedDate: new Date().toISOString(),
-    PayrollKey: String(slip.payrollKey || defaultPayrollKey),
-    WorkingDays: slip.workingDays || 0,
-    PaidDays: slip.paidDays || 0
-  };
-
-  // NOTE:
-  // We intentionally avoid setting SlipPdfUrl here due to tenant-specific URL field payload differences
-  // that can throw InvalidClientQueryException in document libraries.
-  // The uploaded file itself is the slip artifact.
-
-  // Step 1: always save base fields first (never block upload for lookup shape mismatches)
-  await fileItem.update(baseMetadataPayload);
-
-  // Step 2: update lookup fields defensively with multiple payload shapes
-  const lookupAttempts: Array<Record<string, unknown>> = [
+  const lookupPayloads: Array<Record<string, unknown>> = [
     { EmployeeIDId: employeeItemId, EmployeeId: employeeItemId },
     { EmployeeIDId: { results: [employeeItemId] }, EmployeeId: { results: [employeeItemId] } },
     { EmployeeIDId: employeeItemId },
-    { EmployeeId: employeeItemId },
-    { EmployeeID: String(slip.employeeId || '') },
-    { Employee: String(employee?.name || '') }
+    { EmployeeId: employeeItemId }
   ];
 
-  for (const payload of lookupAttempts) {
+  let targetId: number;
+  if (existing.length) {
+    targetId = Number(existing[0].Id);
+    await safeUpdate((p) => salaryList.items.getById(targetId).update(p), payload);
+  } else {
     try {
-      await fileItem.update(payload);
-      break;
+      const created = await salaryList.items.add(payload);
+      targetId = Number(created?.data?.Id);
     } catch (error) {
-      // keep trying alternate lookup payload shapes
-      console.warn('SalarySlip lookup metadata update attempt failed.', error);
+      if (!isFormatError(error) && !/Edm\.String/i.test(getErrorMessage(error))) throw error;
+      const createdMinimal = await salaryList.items.add({
+        Title: String(payload.Title || `SalarySlip_${Date.now()}`),
+        Month: String(payload.Month || ''),
+        Year: String(payload.Year || ''),
+        PayrollKey: String(payload.PayrollKey || '')
+      });
+      targetId = Number(createdMinimal?.data?.Id);
+      const payloadWithoutBase = { ...payload };
+      delete payloadWithoutBase.Title;
+      delete payloadWithoutBase.Month;
+      delete payloadWithoutBase.Year;
+      delete payloadWithoutBase.PayrollKey;
+      await safeUpdate((p) => salaryList.items.getById(targetId).update(p), payloadWithoutBase);
     }
+  }
+
+  let lookupUpdated = false;
+  for (const lp of lookupPayloads) {
+    try {
+      await salaryList.items.getById(targetId).update(lp);
+      lookupUpdated = true;
+      break;
+    } catch {
+      // try next payload shape
+    }
+  }
+
+  if (!lookupUpdated) {
+    console.warn('Salary slip saved, but lookup field update did not succeed for any payload shape.');
   }
 }
 
@@ -210,24 +292,28 @@ export async function updateSalarySlip(sp: SPFI, id: number, slip: Partial<Salar
     Bonus: slip.bonus,
     Insurance: slip.insurance,
     ESI: slip.esi,
-    GeneratedDate: slip.generatedDate,
+    EmployerESI: slip.employerEsi !== undefined ? String(slip.employerEsi) : undefined,
+    GeneratedDate: slip.generatedDate || new Date().toISOString(),
     PayrollKey: slip.payrollKey,
     WorkingDays: slip.workingDays,
     PaidDays: slip.paidDays
   };
-
-  if (slip.slipPdfUrl) {
-    payload.SlipPdfUrl = `${slip.slipPdfUrl}, Salary Slip PDF`;
-  }
 
   if (employee?.itemId) {
     payload.EmployeeId = employee.itemId;
     payload.EmployeeIDId = employee.itemId;
   }
 
-  await sp.web.lists.getByTitle(LIST_NAME).items.getById(id).update(payload);
+  if (slip.slipPdfUrl) {
+    payload.SlipPdfUrl = {
+      Url: String(slip.slipPdfUrl),
+      Description: 'Salary Slip'
+    };
+  }
+
+  await safeUpdate((p) => getSalarySlipList(sp).items.getById(id).update(p), payload);
 }
 
 export async function deleteSalarySlip(sp: SPFI, id: number): Promise<void> {
-  await sp.web.lists.getByTitle(LIST_NAME).items.getById(id).delete();
+  await getSalarySlipList(sp).items.getById(id).delete();
 }

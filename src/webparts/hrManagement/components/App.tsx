@@ -14,6 +14,7 @@ import AttendanceTracker from './AttendanceTracker';
 import OnLeaveTodayTable from './OnLeaveTodayTable';
 import EmployeePortal from './EmployeePortal';
 import Profile from './Profile';
+import CarryForwardLeavesAdmin from './CarryForwardLeavesAdmin';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import Badge from '../ui/Badge';
@@ -43,12 +44,13 @@ interface AppProps {
   sp: SPFI;
 }
 
-const OFFICIAL_LEAVES_LIST_ID = '0af5c538-1190-4fe5-8644-d01252e79d4b';
+const OFFICIAL_LEAVES_LIST_ID = 'SmartMetadata';
+const LEAVE_MONTHLY_BALANCE_LIST_REF = 'LeaveMonthlyBalance';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const HR_ALLOWED_NAMES = ['Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi'];
 
 export const getUserId = async (email: string, sp: SPFI) => {
-  const web = Web([sp.web, 'https://smalsusinfolabs.sharepoint.com/sites/HHHHQA/SP']);
+  const web = Web([sp.web, 'https://hhhhteams.sharepoint.com/sites/HHHH/SP']);
   const ensureUser = await web.ensureUser(email);
   return ensureUser.data.Id;
 };
@@ -1146,7 +1148,14 @@ const App: React.FC<AppProps> = ({ sp }) => {
       alert('Salary slip saved and employee bank details updated.');
     } catch (error) {
       console.error('Failed to save salary slip', error);
-      alert('Failed to save salary slip.');
+      const e = error as any;
+      const errorMessage = String(
+        e?.data?.responseBody?.['odata.error']?.message?.value ||
+        e?.data?.responseBody?.error?.message?.value ||
+        e?.message ||
+        'Failed to save salary slip.'
+      );
+      alert(`Failed to save salary slip. ${errorMessage}`);
     }
   };
 
@@ -1298,7 +1307,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     setQuotasError(null);
     try {
       const items = await sp.web.lists
-        .getById(OFFICIAL_LEAVES_LIST_ID)
+        .getByTitle(OFFICIAL_LEAVES_LIST_ID)
         .items.select('Id', 'Title', 'Leaves')
         .filter("TaxType eq 'Unofficial Leaves'")
         .top(5000)();
@@ -1346,7 +1355,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
       // First, get all existing quota items
       const existingItems = await sp.web.lists
-        .getById(OFFICIAL_LEAVES_LIST_ID)
+        .getByTitle(OFFICIAL_LEAVES_LIST_ID)
         .items.select('Id')
         .filter("TaxType eq 'Unofficial Leaves'")
         .top(5000)();
@@ -1354,7 +1363,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       // Delete all existing quota items
       for (const item of existingItems) {
         await sp.web.lists
-          .getById(OFFICIAL_LEAVES_LIST_ID)
+          .getByTitle(OFFICIAL_LEAVES_LIST_ID)
           .items.getById(item.Id)
           .delete();
       }
@@ -1362,7 +1371,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       // Add new quota items
       for (const [leaveType, quota] of Object.entries(leaveQuotas)) {
         await sp.web.lists
-          .getById(OFFICIAL_LEAVES_LIST_ID)
+          .getByTitle(OFFICIAL_LEAVES_LIST_ID)
           .items.add({
             Title: leaveType,
             Leaves: quota,
@@ -1390,7 +1399,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     setPoliciesError(null);
     try {
       const items = await sp.web.lists
-        .getById(OFFICIAL_LEAVES_LIST_ID)
+        .getByTitle(OFFICIAL_LEAVES_LIST_ID)
         .items.select('Id', 'Title', 'Configurations', 'Created', 'Modified')
         .filter("TaxType eq 'LeavePolicy'")
         .top(5000)();
@@ -1432,7 +1441,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       if (editingPolicyId !== null && editingPolicyId !== undefined) {
         // Update existing policy
         await sp.web.lists
-          .getById(OFFICIAL_LEAVES_LIST_ID)
+          .getByTitle(OFFICIAL_LEAVES_LIST_ID)
           .items.getById(editingPolicyId)
           .update({
             Title: policyFormData.title || 'Untitled Policy',
@@ -1442,7 +1451,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       } else {
         // Create new policy
         await sp.web.lists
-          .getById(OFFICIAL_LEAVES_LIST_ID)
+          .getByTitle(OFFICIAL_LEAVES_LIST_ID)
           .items.add({
             Title: policyFormData.title || 'Untitled Policy',
             Configurations: policyFormData.content || '',
@@ -1469,7 +1478,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     try {
       setIsLoadingPolicies(true);
       await sp.web.lists
-        .getById(OFFICIAL_LEAVES_LIST_ID)
+        .getByTitle(OFFICIAL_LEAVES_LIST_ID)
         .items.getById(id)
         .delete();
 
@@ -1647,7 +1656,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     if (!sp) return;
     try {
       const field = await sp.web.lists
-        .getById(OFFICIAL_LEAVES_LIST_ID)
+        .getByTitle(OFFICIAL_LEAVES_LIST_ID)
         .fields.getByInternalNameOrTitle('LeaveCategory')();
 
       if (field && field.Choices) {
@@ -1665,7 +1674,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     if (!sp) return;
     try {
       const items = await sp.web.lists
-        .getById(OFFICIAL_LEAVES_LIST_ID)
+        .getByTitle(OFFICIAL_LEAVES_LIST_ID)
         .items.select('Title')
         .filter("TaxType eq 'Work From Home'")
         .top(5000)();
@@ -1688,7 +1697,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     setHolidaysError(null);
     try {
       const items = await sp.web.lists
-        .getById(OFFICIAL_LEAVES_LIST_ID)
+        .getByTitle(OFFICIAL_LEAVES_LIST_ID)
         .items.select('Id', 'Title', 'Date', 'TaxType', 'LeaveCategory')
         .filter("TaxType eq 'Official Leave'")
         .top(5000)();
@@ -1717,7 +1726,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     try {
       setIsLoadingHolidays(true);
       await sp.web.lists
-        .getById(OFFICIAL_LEAVES_LIST_ID)
+        .getByTitle(OFFICIAL_LEAVES_LIST_ID)
         .items.add({
           Title: holidayFormData.name || 'Untitled Holiday',
           Date: holidayFormData.date || todayIST(),
@@ -1744,7 +1753,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     try {
       setIsLoadingHolidays(true);
       await sp.web.lists
-        .getById(OFFICIAL_LEAVES_LIST_ID)
+        .getByTitle(OFFICIAL_LEAVES_LIST_ID)
         .items.getById(editingHolidayId)
         .update({
           Title: holidayFormData.name || 'Untitled Holiday',
@@ -1773,7 +1782,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     try {
       setIsLoadingHolidays(true);
       await sp.web.lists
-        .getById(OFFICIAL_LEAVES_LIST_ID)
+        .getByTitle(OFFICIAL_LEAVES_LIST_ID)
         .items.getById(id)
         .delete();
 
@@ -1913,6 +1922,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   </li>
                   <li className="nav-item">
                     <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'holiday-admin' ? 'active' : ''}`} onClick={() => setActiveTab('holiday-admin')}>Official Leaves</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'carry-forward-leaves' ? 'active' : ''}`} onClick={() => setActiveTab('carry-forward-leaves')}>Carry Forward Leaves</button>
                   </li>
                   <li className="nav-item">
                     <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'concerns-admin' ? 'active' : ''}`} onClick={() => setActiveTab('concerns-admin')}>
@@ -2129,6 +2141,14 @@ const App: React.FC<AppProps> = ({ sp }) => {
                         </div>
                       </div>
                     </div>
+                  )}
+                  {activeTab === 'carry-forward-leaves' && (
+                    <CarryForwardLeavesAdmin
+                      sp={sp}
+                      employees={directoryEmployees}
+                      leaveRequests={leaveRequests}
+                      listId={LEAVE_MONTHLY_BALANCE_LIST_REF}
+                    />
                   )}
                   {activeTab === 'concerns-admin' && (
                     <div className="card border-0 shadow-sm">

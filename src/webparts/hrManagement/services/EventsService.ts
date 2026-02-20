@@ -19,7 +19,7 @@ export async function getAllEvents(sp: SPFI, employees: Employee[]): Promise<Tea
             .select(
                 'Id',
                 'Title',
-                'Event_x0020_Type_x0009_',
+                'Event_x0020_Type',
                 'Description',
                 'Date',
                 'Employee/Title',
@@ -49,7 +49,7 @@ export async function createEvent(
     try {
         const payload: any = {
             Title: event.name,
-            Event_x0020_Type_x0009_: event.type,
+            Event_x0020_Type: event.type,
             Description: event.description || '',
             Date: event.date,
         };
@@ -82,7 +82,7 @@ export async function updateEvent(
     try {
         const payload: any = {
             Title: event.name,
-            Event_x0020_Type_x0009_: event.type,
+            Event_x0020_Type: event.type,
             Description: event.description || '',
             Date: event.date,
             EmployeeId: employeeId ? parseInt(employeeId, 10) : null
@@ -131,7 +131,7 @@ function mapItemToTeamEvent(item: any, employees: Employee[]): TeamEvent {
     return {
         id: item.Id,
         name: item.Title || employee?.name || item.Employee?.Title || 'Unknown',
-        type: (item.Event_x0020_Type_x0009_ as any) || 'Other',
+        type: (item.Event_x0020_Type as any) || 'Other',
         date: formatDateIST(item.Date),
         description: String(item.Description || '').trim(),
         employee: employee

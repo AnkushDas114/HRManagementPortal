@@ -23,7 +23,7 @@ export async function getAllConcerns(sp: SPFI): Promise<Concern[]> {
                 'Description',
                 'Status',
                 'Reply',
-                'RepliedAt_x0009_',
+                'RepliedAt',
                 'Created',
                 'Employee/Id',
                 'Employee/Title',
@@ -83,7 +83,7 @@ export async function updateConcernReply(
             .update({
                 Reply: reply,
                 Status: ConcernStatus.Resolved,
-                RepliedAt_x0009_: nowISTISOString()
+                RepliedAt: nowISTISOString()
             });
     } catch (error) {
         console.error('Error updating concern reply:', error);
@@ -108,6 +108,6 @@ function mapItemToConcern(item: any): Concern {
         reply: item.Reply || undefined,
         status: (item.Status as ConcernStatus) || ConcernStatus.Open,
         submittedAt: formatDateIST(item.Created),
-        repliedAt: formatDateIST(item.RepliedAt_x0009_) || undefined
+        repliedAt: formatDateIST(item.RepliedAt) || undefined
     };
 }
