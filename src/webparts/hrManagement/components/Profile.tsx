@@ -3,7 +3,7 @@ import { Employee, UserRole } from '../types';
 import { Mail, Briefcase, Calendar, ShieldCheck, Edit2, Eye, EyeOff, Landmark, Wallet } from 'lucide-react';
 import { formatAuditInfo, formatDateForDisplayIST } from '../utils/dateTime';
 import { SPFI } from '@pnp/sp';
-import { updateEmployee } from '../services/EmployeeService';
+import { clearEmployeeProfileImage, getImageLibraryFolders, getImagesByFolder, ProfileGalleryImage, replaceEmployeeProfileImage, SPFolder, updateEmployee } from '../services/EmployeeService';
 import Modal from '../ui/Modal';
 import { openOutOfBoxListItemForm } from '../utils/sharePointForm';
 
@@ -17,6 +17,12 @@ interface ProfileProps {
 }
 
 interface ProfileFormData {
+  name?: string;
+  id?: string;
+  email?: string;
+  department?: string;
+  position?: string;
+  joiningDate?: string;
   phone?: string;
   location?: string;
   reportingManager?: string;
@@ -30,11 +36,25 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isSensitiveDataVisible, setIsSensitiveDataVisible] = React.useState(false);
+  const [employeeModalTab, setEmployeeModalTab] = React.useState<'professional' | 'banking' | 'image'>('professional');
+  const [profileUploadFile, setProfileUploadFile] = React.useState<File | null>(null);
+  const [profilePreviewUrl, setProfilePreviewUrl] = React.useState<string>('');
+  const [selectedGalleryImageUrl, setSelectedGalleryImageUrl] = React.useState<string>('');
+  const [removeProfileImage, setRemoveProfileImage] = React.useState(false);
+  const [profileImageFolders, setProfileImageFolders] = React.useState<SPFolder[]>([]);
+  const [selectedProfileFolder, setSelectedProfileFolder] = React.useState<SPFolder | null>(null);
+  const [profileFolderImages, setProfileFolderImages] = React.useState<ProfileGalleryImage[]>([]);
+  const [isLoadingProfileFolders, setIsLoadingProfileFolders] = React.useState(false);
+  const [isLoadingFolderImages, setIsLoadingFolderImages] = React.useState(false);
+  const selectedProfileFolderRef = React.useRef<SPFolder | null>(null);
 
   const [formData, setFormData] = React.useState<ProfileFormData>({
-    // phone: '',
-    // location: '',
-    // reportingManager: '',
+    name: '',
+    id: '',
+    email: '',
+    department: '',
+    position: '',
+    joiningDate: '',
     pan: '',
     bankName: '',
     accountNumber: '',
@@ -43,16 +63,98 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
 
   React.useEffect(() => {
     setFormData({
-      // phone: user.phone || '',
-      // location: user.location || '',
-      // reportingManager: user.reportingManager || '',
+      name: user.name || '',
+      id: user.id || '',
+      email: user.email || '',
+      department: user.department || '',
+      position: user.position || '',
+      joiningDate: user.joiningDate || '',
+      phone: user.phone || '',
+      location: user.location || '',
+      reportingManager: user.reportingManager || '',
       pan: user.pan || '',
       bankName: user.bankName || '',
       accountNumber: user.accountNumber || '',
       ifscCode: user.ifscCode || ''
     });
+    setProfileUploadFile(null);
+    setProfilePreviewUrl('');
+    setSelectedGalleryImageUrl('');
+    setRemoveProfileImage(false);
+    setEmployeeModalTab('professional');
     setIsSensitiveDataVisible(false);
   }, [user]);
+
+  React.useEffect(() => {
+    if (!profileUploadFile) {
+      setProfilePreviewUrl('');
+      return;
+    }
+    const objectUrl = URL.createObjectURL(profileUploadFile);
+    setProfilePreviewUrl(objectUrl);
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [profileUploadFile]);
+
+  const loadImagesForFolder = React.useCallback(async (folder: SPFolder): Promise<void> => {
+    setIsLoadingFolderImages(true);
+    setSelectedProfileFolder(folder);
+    try {
+      const webInfo = await sp.web.select('Url')();
+      const siteUrl = String((webInfo as { Url?: string })?.Url || window.location.href);
+      const images = await getImagesByFolder(sp, siteUrl, folder.ServerRelativeUrl);
+      const mapped: ProfileGalleryImage[] = images.map((image) => ({
+        folder: folder.Name,
+        name: image.fileName,
+        url: image.serverRelativeUrl
+      }));
+      setProfileFolderImages(mapped);
+    } catch (error) {
+      console.error(`Failed to load images for folder ${folder.Name}`, error);
+      setProfileFolderImages([]);
+    } finally {
+      setIsLoadingFolderImages(false);
+    }
+  }, [sp]);
+
+  const loadProfileImageFolders = React.useCallback(async (): Promise<void> => {
+    setIsLoadingProfileFolders(true);
+    try {
+      const webInfo = await sp.web.select('Url')();
+      const siteUrl = String((webInfo as { Url?: string })?.Url || window.location.href);
+      const folders = await getImageLibraryFolders(sp, siteUrl);
+      setProfileImageFolders(folders);
+
+      if (!folders.length) {
+        setSelectedProfileFolder(null);
+        setProfileFolderImages([]);
+        return;
+      }
+
+      const selected = selectedProfileFolderRef.current
+        ? folders.find((folder) => folder.ServerRelativeUrl === selectedProfileFolderRef.current?.ServerRelativeUrl) || folders[0]
+        : folders[0];
+
+      await loadImagesForFolder(selected);
+    } catch (error) {
+      console.error('Failed to load image library folders', error);
+      setProfileImageFolders([]);
+      setSelectedProfileFolder(null);
+      setProfileFolderImages([]);
+    } finally {
+      setIsLoadingProfileFolders(false);
+    }
+  }, [loadImagesForFolder, sp]);
+
+  React.useEffect(() => {
+    selectedProfileFolderRef.current = selectedProfileFolder;
+  }, [selectedProfileFolder]);
+
+  React.useEffect(() => {
+    if (!isEditModalOpen) return;
+    void loadProfileImageFolders();
+  }, [isEditModalOpen, loadProfileImageFolders]);
 
   const handleSave = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -61,6 +163,12 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
     setIsSaving(true);
     try {
       await updateEmployee(sp, user.itemId, {
+        name: formData.name,
+        id: formData.id,
+        email: formData.email,
+        department: formData.department,
+        position: formData.position,
+        joiningDate: formData.joiningDate,
         phone: formData.phone,
         location: formData.location,
         reportingManager: formData.reportingManager,
@@ -69,6 +177,17 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
         accountNumber: formData.accountNumber,
         ifscCode: formData.ifscCode
       });
+      if (removeProfileImage) {
+        await clearEmployeeProfileImage(sp, user.itemId);
+      } else if (selectedGalleryImageUrl) {
+        const response = await fetch(selectedGalleryImageUrl);
+        const blob = await response.blob();
+        const extension = selectedGalleryImageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+        const imageName = `profile-${user.itemId}.${extension}`;
+        await replaceEmployeeProfileImage(sp, user.itemId, blob, imageName);
+      } else if (profileUploadFile) {
+        await replaceEmployeeProfileImage(sp, user.itemId, profileUploadFile, profileUploadFile.name);
+      }
       await onUpdate();
       setIsEditModalOpen(false);
     } catch (error) {
@@ -134,33 +253,20 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                 className="rounded-circle border border-4 border-white shadow-sm"
                 style={{ width: '108px', height: '108px', objectFit: 'cover' }}
               />
-              <button
-                className="btn btn-primary btn-sm position-absolute bottom-0 end-0 rounded-circle p-2 d-flex align-items-center justify-content-center shadow"
-                style={{ width: '32px', height: '32px', backgroundColor: '#2F5596' }}
-                title="Change Avatar (Contact Admin)"
-                type="button"
-              >
-                <Edit2 size={14} />
-              </button>
             </div>
             <h3 className="h5 fw-bold mb-1">{displayText(user.name)}</h3>
             <p className="text-muted small mb-2">{displayText(user.department)} Department</p>
-            <div className="d-flex justify-content-center gap-2 mb-3">
-              <span className="badge rounded-pill px-3 py-2" style={{ backgroundColor: '#2F5596', fontSize: '10px' }}>
-                {role === UserRole.HR ? 'ADMINISTRATOR' : 'EMPLOYEE'}
-              </span>
-              <span className="badge rounded-pill px-3 py-2 bg-success text-white" style={{ fontSize: '10px' }}>
-                ACTIVE
-              </span>
-            </div>
             <hr className="my-3" />
             <div className="d-grid gap-2">
               <button
                 className="btn btn-primary d-flex align-items-center justify-content-center gap-2 py-2"
-                onClick={() => setIsEditModalOpen(true)}
+                onClick={() => {
+                  setEmployeeModalTab('professional');
+                  setIsEditModalOpen(true);
+                }}
                 type="button"
               >
-                <Edit2 size={16} /> Edit Employee Bank Details
+                <Edit2 size={16} /> Edit Profile Data
               </button>
             </div>
           </div>
@@ -296,7 +402,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        title={`Edit Employee Bank Details - ${displayText(user.name)}`}
+        title={`Edit Profile Data - ${displayText(user.name)}`}
         createdInfo={formatAuditInfo(user.createdAt, user.createdByName)}
         modifiedInfo={formatAuditInfo(user.modifiedAt, user.modifiedByName)}
         onVersionHistoryClick={() => {
@@ -307,7 +413,6 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
         size="lg"
         footer={
           <div className="d-flex justify-content-between align-items-center w-100">
-            <span className="small text-muted">Update details for {displayText(user.name)}</span>
             <div className="d-flex gap-2">
               <button type="button" className="btn btn-outline-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button>
               <button
@@ -323,52 +428,219 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
         }
       >
         <form id="edit-profile-form" onSubmit={handleSave}>
-          <div className="row g-4">
-            <div className="col-12">
-              <div className="border rounded p-3 h-100">
-                <h6 className="fw-bold mb-3" style={{ color: '#2F5596' }}>Bank Details</h6>
-                <div className="mb-3">
-                  <label className="form-label fw-semibold">PAN Number</label>
+          <ul className="nav nav-tabs mb-3">
+            <li className="nav-item">
+              <button
+                type="button"
+                className={`nav-link ${employeeModalTab === 'professional' ? 'active' : ''}`}
+                onClick={() => setEmployeeModalTab('professional')}
+              >
+                PROFESSIONAL DETAILS
+              </button>
+            </li>
+            <li className="nav-item">
+              <button
+                type="button"
+                className={`nav-link ${employeeModalTab === 'banking' ? 'active' : ''}`}
+                onClick={() => setEmployeeModalTab('banking')}
+              >
+                BANKING DETAILS
+              </button>
+            </li>
+            <li className="nav-item">
+              <button
+                type="button"
+                className={`nav-link ${employeeModalTab === 'image' ? 'active' : ''}`}
+                onClick={() => setEmployeeModalTab('image')}
+              >
+                PROFILE IMAGE
+              </button>
+            </li>
+          </ul>
+
+          <div className="row g-3">
+            {employeeModalTab === 'professional' && (
+              <>
+                <h6 className="fw-bold color-primary border-bottom pb-2">Professional Details</h6>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">Full Name</label>
+                  <input type="text" className="form-control" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">Employee ID</label>
+                  <input type="text" className="form-control" value={formData.id || ''} onChange={e => setFormData({ ...formData, id: e.target.value })} required />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">Email</label>
+                  <input type="email" className="form-control" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">Department</label>
+                  <select className="form-select" value={formData.department || ''} onChange={e => setFormData({ ...formData, department: e.target.value })} required>
+                    <option value="">Select Department</option>
+                    <option value="Engineering">Engineering</option>
+                    <option value="Product">Product</option>
+                    <option value="Design">Design</option>
+                    <option value="QA">QA</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="HR">HR</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Management">Management</option>
+                  </select>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">Designation</label>
+                  <input type="text" className="form-control" value={formData.position || ''} onChange={e => setFormData({ ...formData, position: e.target.value })} required />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">Joining Date (DOJ)</label>
+                  <input type="date" className="form-control" value={formData.joiningDate || ''} onChange={e => setFormData({ ...formData, joiningDate: e.target.value })} required />
+                </div>
+              </>
+            )}
+
+            {employeeModalTab === 'banking' && (
+              <>
+                <h6 className="fw-bold color-primary border-bottom pb-2">Banking Details</h6>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">PAN Number</label>
+                  <input type="text" className="form-control" value={formData.pan || ''} onChange={e => setFormData({ ...formData, pan: e.target.value })} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">Bank Name</label>
+                  <input type="text" className="form-control" value={formData.bankName || ''} onChange={e => setFormData({ ...formData, bankName: e.target.value })} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">Account Number</label>
+                  <input type="text" className="form-control" value={formData.accountNumber || ''} onChange={e => setFormData({ ...formData, accountNumber: e.target.value })} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">IFSC Code</label>
+                  <input type="text" className="form-control" value={formData.ifscCode || ''} onChange={e => setFormData({ ...formData, ifscCode: e.target.value })} />
+                </div>
+              </>
+            )}
+
+            {employeeModalTab === 'image' && (
+              <>
+                <h6 className="fw-bold color-primary border-bottom pb-2">Profile Image</h6>
+                <div className="col-12 d-flex align-items-center gap-3">
+                  <img
+                    src={profilePreviewUrl || user.avatar}
+                    width="72"
+                    height="72"
+                    className="rounded-circle border"
+                    style={{ objectFit: 'cover' }}
+                    alt={displayText(user.name)}
+                  />
+                  <div>
+                    <div className="small text-muted">Current profile image</div>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger mt-1"
+                      onClick={() => {
+                        setRemoveProfileImage(true);
+                        setProfileUploadFile(null);
+                        setProfilePreviewUrl('');
+                        setSelectedGalleryImageUrl('');
+                      }}
+                    >
+                      Remove Image
+                    </button>
+                  </div>
+                </div>
+                <div className="col-12">
+                  <label className="form-label fw-bold">Upload New Image</label>
                   <input
-                    type="text"
+                    type="file"
                     className="form-control"
-                    value={formData.pan}
-                    onChange={e => setFormData({ ...formData, pan: e.target.value })}
-                    placeholder="Enter PAN"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setProfileUploadFile(file);
+                      setSelectedGalleryImageUrl('');
+                      setRemoveProfileImage(false);
+                    }}
                   />
                 </div>
-                <div className="mb-3">
-                  <label className="form-label fw-semibold">Bank Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.bankName}
-                    onChange={e => setFormData({ ...formData, bankName: e.target.value })}
-                    placeholder="Enter bank name"
-                  />
+                <div className="col-12">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <label className="form-label fw-bold mb-0">Choose from Gallery Folders</label>
+                    <button type="button" className="btn btn-sm color-primary" onClick={() => void loadProfileImageFolders()}>Refresh</button>
+                  </div>
                 </div>
-                <div className="mb-3">
-                  <label className="form-label fw-semibold">Account Number</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.accountNumber}
-                    onChange={e => setFormData({ ...formData, accountNumber: e.target.value })}
-                    placeholder="Enter account number"
-                  />
+                <div className="col-12">
+                  <div className="row g-3">
+                    <div className="col-md-4">
+                      <div className="border rounded p-2" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                        {isLoadingProfileFolders && <div className="text-muted small p-2">Loading image folders...</div>}
+                        {!isLoadingProfileFolders && profileImageFolders.length === 0 && (
+                          <div className="text-muted small p-2">No folders found in Images library.</div>
+                        )}
+                        {profileImageFolders.map((folder) => {
+                          const isActive = selectedProfileFolder?.ServerRelativeUrl === folder.ServerRelativeUrl;
+                          return (
+                            <button
+                              type="button"
+                              key={folder.ServerRelativeUrl}
+                              className={`btn btn-sm w-100 text-start mb-1 ${isActive ? 'btn-primary' : 'btn-light'}`}
+                              onClick={() => { loadImagesForFolder(folder).catch(() => undefined); }}
+                            >
+                              <span>{folder.Name}</span>
+                              <span className="float-end">{folder.ItemCount}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="col-md-8">
+                      <div className="border rounded p-2" style={{ minHeight: '300px' }}>
+                        {selectedProfileFolder && (
+                          <div className="small fw-semibold mb-2">Images in "{selectedProfileFolder.Name}"</div>
+                        )}
+                        {!selectedProfileFolder && (
+                          <div className="text-muted small">Select a folder to view images.</div>
+                        )}
+                        {isLoadingFolderImages && <div className="text-muted small">Loading folder images...</div>}
+                        {!isLoadingFolderImages && selectedProfileFolder && profileFolderImages.length === 0 && (
+                          <div className="text-muted small">No images found in this folder.</div>
+                        )}
+                        {!isLoadingFolderImages && profileFolderImages.length > 0 && (
+                          <div className="d-flex flex-wrap gap-2">
+                            {profileFolderImages.map((image) => {
+                              const isSelected = selectedGalleryImageUrl === image.url;
+                              return (
+                                <button
+                                  type="button"
+                                  key={`${image.folder}-${image.url}`}
+                                  className={`btn p-1 border ${isSelected ? 'border-primary' : 'border-light'}`}
+                                  onClick={() => {
+                                    setSelectedGalleryImageUrl(image.url);
+                                    setProfileUploadFile(null);
+                                    setRemoveProfileImage(false);
+                                    setProfilePreviewUrl('');
+                                  }}
+                                  title={image.name}
+                                >
+                                  <img
+                                    src={image.url}
+                                    alt={image.name}
+                                    width="72"
+                                    height="72"
+                                    style={{ objectFit: 'cover', borderRadius: 6 }}
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="form-label fw-semibold">IFSC Code</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.ifscCode}
-                    onChange={e => setFormData({ ...formData, ifscCode: e.target.value })}
-                    placeholder="Enter IFSC code"
-                  />
-                </div>
-              </div>
-            </div>
+              </>
+            )}
+
           </div>
         </form>
       </Modal>

@@ -1,8 +1,8 @@
 /* Global Bootstrap-first UI layer for the HR app */
 
 :root {
-  --hr-primary: #1f4b7a;
-  --hr-primary-strong: #173a5e;
+  --hr-primary: #2f5596;
+  --hr-primary-strong: #2f5596;
   --hr-primary-soft: #edf4fb;
   --hr-text: #162235;
   --hr-muted: #5f6f86;
@@ -61,23 +61,27 @@ header.navbar {
 }
 
 .nav.nav-pills .nav-link {
-  color: #42556f;
+  color: var(--hr-primary);
+  border: 0 !important;
+  background-color: #fff;
   border-radius: calc(var(--hr-radius-md) - 0.3rem);
-  transition: background-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  transition: none;
   font-weight: 600;
 }
 
 .nav.nav-pills .nav-link:hover {
-  background-color: #f3f6fb;
-  color: #2b425e;
+  background-color: #fff;
+  color: var(--hr-primary);
+  border: 0 !important;
 }
 
 .nav.nav-pills .nav-link.active,
 .nav.nav-pills .show>.nav-link {
   background-color: var(--hr-primary);
+  border: 0 !important;
   color: #fff !important;
-  box-shadow: 0 8px 18px rgba(26, 63, 104, 0.23);
-  transform: translateY(-1px);
+  box-shadow: none;
+  transform: none;
 }
 
 .nav.nav-pills .nav-link.active:hover,
@@ -163,37 +167,68 @@ input[type='date']::-webkit-clear-button {
 
 .btn {
   font-weight: 600;
-  transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  transition: none;
+  border: 0 !important;
 }
 
 .btn:hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .btn-primary {
-  background-color: var(--hr-primary);
-  border-color: var(--hr-primary);
-  box-shadow: 0 6px 14px rgba(24, 62, 102, 0.18);
+  background-color: var(--hr-primary) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: none;
 }
 
 .btn-primary:hover,
 .btn-primary:focus,
 .btn-primary:active {
-  background-color: var(--hr-primary-strong);
-  border-color: var(--hr-primary-strong);
+  background-color: var(--hr-primary) !important;
+  border-color: transparent !important;
+  color: #fff !important;
   transform: translateY(0);
+  box-shadow: none !important;
 }
 
 .btn-outline-primary {
-  border-color: #9db3d4;
-  color: var(--hr-primary);
+  background-color: #fff !important;
+  border-color: transparent !important;
+  color: var(--hr-primary) !important;
 }
 
 .btn-outline-primary:hover,
-.btn-outline-primary:focus {
-  background-color: var(--hr-primary-soft);
-  border-color: var(--hr-primary);
-  color: var(--hr-primary-strong);
+.btn-outline-primary:focus,
+.btn-outline-primary:active {
+  background-color: #fff !important;
+  border-color: transparent !important;
+  color: var(--hr-primary) !important;
+  box-shadow: none !important;
+}
+
+.btn-default {
+  background-color: #fff !important;
+  border: 0 !important;
+  color: var(--hr-primary) !important;
+}
+
+.btn-default:hover,
+.btn-default:focus,
+.btn-default:active {
+  background-color: #fff !important;
+  border-color: transparent !important;
+  color: var(--hr-primary) !important;
+  box-shadow: none !important;
+}
+
+.btn-link,
+.btn-link:hover,
+.btn-link:focus,
+.btn-link:active {
+  color: var(--hr-primary) !important;
+  text-decoration: none;
+  box-shadow: none !important;
 }
 
 .btn:disabled,

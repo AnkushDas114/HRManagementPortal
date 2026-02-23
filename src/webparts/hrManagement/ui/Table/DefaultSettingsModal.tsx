@@ -70,7 +70,7 @@ const DefaultSettingsModal: React.FC<DefaultSettingsModalProps> = ({ isOpen, onC
     <Modal isOpen={isOpen} onClose={onClose} title="" size="xl" footer={footer} zIndex={1200} showMeta={false}>
       <div className="smart-settings-container px-1" style={{ fontFamily: 'Segoe UI, sans-serif' }}>
         <div className="d-flex justify-content-between align-items-center mb-2">
-          <h4 className="modal-title m-0">
+          <h4 className="modal-title m-0" style={{ color: '#1F2937' }}>
             Contact Database - SmartTable Settings
           </h4>
         </div>

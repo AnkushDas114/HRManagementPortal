@@ -72,20 +72,20 @@ const SmartTableModal: React.FC<SmartTableModalProps> = ({ isOpen, onClose, sett
 
   const header = (
     <div className="d-flex align-items-center justify-content-between w-100 pe-4">
-      <span style={{ fontSize: '21px', fontWeight: 600, color: '#2F5596', fontFamily: 'Segoe UI' }}>
+      <span style={{ fontSize: '21px', fontWeight: 600, color: '#1F2937', fontFamily: 'Segoe UI' }}>
         Contact Database - SmartTable Settings
       </span>
       <div className="d-flex align-items-center gap-3">
         <button
           className="btn btn-link p-0 text-decoration-none"
-          style={{ color: '#2F5596', fontWeight: 500, fontSize: '14px' }}
+          style={{ color: '#374151', fontWeight: 500, fontSize: '14px' }}
           onClick={onOpenDefault}
         >
           Default Settings
         </button>
         <button
           className="btn btn-link p-0 text-decoration-none d-flex align-items-center"
-          style={{ color: '#2F5596', fontWeight: 500, fontSize: '14px' }}
+          style={{ color: '#374151', fontWeight: 500, fontSize: '14px' }}
           onClick={() => setLocalSettings(JSON.parse(JSON.stringify(defaultSettings)))}
         >
           Restore default table <i className="bi bi-info-circle ms-1" style={{ fontSize: '14px' }}></i>

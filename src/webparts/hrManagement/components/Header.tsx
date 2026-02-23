@@ -14,7 +14,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, canAccessHr = true, currentUser, onTabChange }) => {
   const portalTitle = canAccessHr ? 'Smalsus - HR Management Portal' : 'Smalsus - Employee Management Portal';
   return (
-    <header className="navbar navbar-expand-lg navbar-light border-bottom shadow-sm sticky-top py-2">
+    <header className="navbar navbar-expand-lg navbar-light border-bottom shadow-sm py-2">
       <div className="container-fluid hr-shell-container">
         <div className="d-flex align-items-center gap-2 navbar-brand">
           <div className="p-1 rounded card-bg-primary d-flex align-items-center justify-content-center shadow-xs">

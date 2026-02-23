@@ -2081,7 +2081,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'leaves-request' ? 'active' : ''}`} onClick={() => setActiveTab('leaves-request')}>Leaves request</button>
                   </li>
                   <li className="nav-item">
-                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'wfh-request' ? 'active' : ''}`} onClick={() => setActiveTab('wfh-request')}>Work From Home Request</button>
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'wfh-request' ? 'active' : ''}`} onClick={() => setActiveTab('wfh-request')}>WFH Request</button>
                   </li>
                   <li className="nav-item">
                     <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'global-directory' ? 'active' : ''}`} onClick={() => setActiveTab('global-directory')}>Global Directory</button>
