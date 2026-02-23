@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { Employee, UserRole } from '../types';
 import { Mail, Briefcase, Calendar, ShieldCheck, Edit2, Eye, EyeOff, Landmark, Wallet } from 'lucide-react';
-import { formatDateForDisplayIST } from '../utils/dateTime';
+import { formatAuditInfo, formatDateForDisplayIST } from '../utils/dateTime';
 import { SPFI } from '@pnp/sp';
 import { updateEmployee } from '../services/EmployeeService';
 import Modal from '../ui/Modal';
+import { openOutOfBoxListItemForm } from '../utils/sharePointForm';
 
 interface ProfileProps {
   user: Employee;
@@ -12,6 +13,7 @@ interface ProfileProps {
   sp: SPFI;
   onBack: () => void;
   onUpdate: () => Promise<void>;
+  onOpenVersionHistory?: (itemId: number) => void;
 }
 
 interface ProfileFormData {
@@ -24,7 +26,7 @@ interface ProfileFormData {
   ifscCode?: string;
 }
 
-const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) => {
+const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onOpenVersionHistory }) => {
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isSensitiveDataVisible, setIsSensitiveDataVisible] = React.useState(false);
@@ -295,6 +297,13 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate }) =
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         title={`Edit Employee Bank Details - ${displayText(user.name)}`}
+        createdInfo={formatAuditInfo(user.createdAt, user.createdByName)}
+        modifiedInfo={formatAuditInfo(user.modifiedAt, user.modifiedByName)}
+        onVersionHistoryClick={() => {
+          if (!user.itemId) return;
+          onOpenVersionHistory?.(user.itemId);
+        }}
+        onOpenFormClick={() => { openOutOfBoxListItemForm(sp, 'EmployeeMaster', user.itemId).catch(() => undefined); }}
         size="lg"
         footer={
           <div className="d-flex justify-content-between align-items-center w-100">

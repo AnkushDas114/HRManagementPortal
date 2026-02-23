@@ -118,7 +118,11 @@ const mapItemToSalarySlip = (item: any): SalarySlip => {
     slipPdfUrl: typeof item.SlipPdfUrl === 'string' ? item.SlipPdfUrl : String(item.SlipPdfUrl?.Url || ''),
     generatedDate: formatDateIST(item.GeneratedDate) || todayIST(),
     workingDays: toNumber(item.WorkingDays),
-    paidDays: toNumber(item.PaidDays)
+    paidDays: toNumber(item.PaidDays),
+    createdAt: formatDateIST(item.Created),
+    modifiedAt: formatDateIST(item.Modified),
+    createdByName: item.Author?.Title || '',
+    modifiedByName: item.Editor?.Title || ''
   };
 };
 
@@ -199,12 +203,16 @@ export async function getAllSalarySlips(sp: SPFI): Promise<SalarySlip[]> {
         'SlipPdfUrl',
         'WorkingDays',
         'PaidDays',
+        'Created',
+        'Modified',
+        'Author/Title',
+        'Editor/Title',
         'EmployeeID/Title',
         'Employee/Title',
         'Employee/EmployeeID',
         'Employee/Email'
       )
-      .expand('EmployeeID', 'Employee')
+      .expand('EmployeeID', 'Employee', 'Author', 'Editor')
       .top(5000)();
     return items.map(mapItemToSalarySlip);
   } catch (error) {

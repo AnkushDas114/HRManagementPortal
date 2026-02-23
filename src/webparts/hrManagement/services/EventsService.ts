@@ -22,11 +22,15 @@ export async function getAllEvents(sp: SPFI, employees: Employee[]): Promise<Tea
                 'Event_x0020_Type',
                 'Description',
                 'Date',
+                'Created',
+                'Modified',
+                'Author/Title',
+                'Editor/Title',
                 'Employee/Title',
                 'Employee/EMail',
                 'Employee/Id'
             )
-            .expand('Employee')
+            .expand('Employee', 'Author', 'Editor')
             .top(5000)();
 
         console.log('Team Events loaded from SharePoint:', items);
@@ -134,6 +138,10 @@ function mapItemToTeamEvent(item: any, employees: Employee[]): TeamEvent {
         type: (item.Event_x0020_Type as any) || 'Other',
         date: formatDateIST(item.Date),
         description: String(item.Description || '').trim(),
-        employee: employee
+        employee: employee,
+        createdAt: formatDateIST(item.Created),
+        modifiedAt: formatDateIST(item.Modified),
+        createdByName: item.Author?.Title || '',
+        modifiedByName: item.Editor?.Title || ''
     };
 }

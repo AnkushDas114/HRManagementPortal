@@ -1,0 +1,82 @@
+.version-history-modal {
+  max-height: 62vh;
+}
+
+.version-history-table-wrap {
+  border: 1px solid #dbe4f0;
+  max-height: 56vh;
+  overflow: auto;
+  background: #ffffff;
+}
+
+.version-history-table thead th {
+  background: #ffffff;
+  color: #2f5596;
+  font-weight: 700;
+  font-size: 14px;
+  border-bottom: 1px solid #dbe4f0;
+  border-right: 1px solid #e7edf6;
+  padding: 10px 10px;
+}
+
+.version-history-table thead th:last-child {
+  border-right: 0;
+}
+
+.version-history-table tbody td {
+  border-bottom: 1px solid #edf2f9;
+  border-right: 1px solid #f0f4fb;
+  vertical-align: top;
+  padding: 8px 10px;
+  background: #ffffff;
+}
+
+.version-history-table tbody td:last-child {
+  border-right: 0;
+}
+
+.version-history-no {
+  color: #3e4e63;
+  font-size: 14px;
+}
+
+.version-history-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.version-history-info-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 10px;
+}
+
+.version-history-info-key {
+  color: #4f6076;
+  font-size: 13px;
+  background: #f7f9fc;
+  border: 1px solid #edf2f8;
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+
+.version-history-info-value {
+  color: #2b3e56;
+  font-size: 13px;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.version-history-modified-time {
+  color: #2f5596;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.version-history-modified-user {
+  color: #6f7f95;
+  font-size: 12px;
+  line-height: 1.4;
+}

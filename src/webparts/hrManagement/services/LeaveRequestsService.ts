@@ -29,6 +29,9 @@ export async function getAllLeaveRequests(sp: SPFI, employees: Employee[]): Prom
                 'SubmittedAt',
                 'ApprovedAt',
                 'Created',
+                'Modified',
+                'Author/Title',
+                'Editor/Title',
                 'ApproverName',
                 'ApproverComment',
                 'LeaveData',
@@ -40,7 +43,7 @@ export async function getAllLeaveRequests(sp: SPFI, employees: Employee[]): Prom
                 'EmployeeLookup/EmployeeID',
 
             )
-            .expand('EmployeeLookup')
+            .expand('EmployeeLookup', 'Author', 'Editor')
             .top(500)();
 
         console.log('Leave Requests loaded from SharePoint:', items);
@@ -323,7 +326,11 @@ function mapItemToLeaveRequest(item: any, employees: Employee[]): LeaveRequest {
         isHalfDay: leaveData.isHalfDay || false,
         halfDayType: leaveData.halfDayType || 'first',
         isRecurring: leaveData.isRecurring || false,
-        recurringFrequency: leaveData.recurrence?.frequency || 'Daily'
+        recurringFrequency: leaveData.recurrence?.frequency || 'Daily',
+        createdAt: formatDateIST(item.Created),
+        modifiedAt: formatDateIST(item.Modified),
+        createdByName: item.Author?.Title || '',
+        modifiedByName: item.Editor?.Title || ''
     };
 
     return leaveRequest;

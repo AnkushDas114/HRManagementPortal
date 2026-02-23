@@ -6,8 +6,8 @@ import type { Employee, LeaveRequest, AttendanceRecord, AttendanceStatus } from 
 import Badge from '../ui/Badge';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import Modal from '../ui/Modal';
-import { Edit3, Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Upload, Calendar, Download } from 'lucide-react';
-import { formatDateIST, getNowIST, todayIST, formatDateForDisplayIST } from '../utils/dateTime';
+import { Edit3, Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Upload, Calendar, Download, Trash2 } from 'lucide-react';
+import { formatAuditInfo, formatDateIST, getNowIST, todayIST, formatDateForDisplayIST } from '../utils/dateTime';
 
 interface AttendanceTrackerProps {
   employees: Employee[];
@@ -15,6 +15,9 @@ interface AttendanceTrackerProps {
   attendanceRecords: AttendanceRecord[];
   onImport: (records: AttendanceRecord[]) => Promise<void> | void;
   onUpdateAttendanceRecord?: (record: AttendanceRecord) => Promise<void> | void;
+  onDeleteAttendanceByDate?: (date: string, employeeId?: string) => Promise<number> | number;
+  onOpenAttendanceForm?: (recordId: number) => void;
+  onOpenAttendanceVersionHistory?: (recordId: number) => void;
   onViewBalance?: (employee: Employee) => void;
   isImporting?: boolean;
   selectedUserId?: string | null;
@@ -27,11 +30,17 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   attendanceRecords,
   onImport,
   onUpdateAttendanceRecord,
+  onDeleteAttendanceByDate,
+  onOpenAttendanceForm,
+  onOpenAttendanceVersionHistory,
   onViewBalance,
   isImporting: isImportingProp,
   selectedUserId,
   leaveQuotas
 }) => {
+  const today = getNowIST();
+  const todayStr = todayIST();
+
   const [isImportingLocal, setIsImportingLocal] = React.useState(false);
   const [isDateAccordionOpen, setIsDateAccordionOpen] = React.useState(false);
   const [selectedDateFilter, setSelectedDateFilter] = React.useState('All Time');
@@ -41,9 +50,10 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
   const [isSavingEdit, setIsSavingEdit] = React.useState(false);
   const [editingAttendance, setEditingAttendance] = React.useState<AttendanceRecord | null>(null);
-
-  const today = getNowIST();
-  const todayStr = todayIST();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
+  const [deleteDate, setDeleteDate] = React.useState(todayStr);
+  const [deleteEmployeeId, setDeleteEmployeeId] = React.useState('');
+  const [isDeletingRecords, setIsDeletingRecords] = React.useState(false);
 
   const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
   const [referenceDate, setReferenceDate] = React.useState<Date>(today);
@@ -273,11 +283,19 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         return recDate.getFullYear() === today.getFullYear() - 1;
       }
 
-      if (selectedDateFilter === 'Custom' && startDate && endDate) {
-        const start = parseRecordDate(startDate);
-        const end = parseRecordDate(endDate);
-        if (!start || !end) return false;
-        return recTime >= startOfDay(start).getTime() && recTime <= startOfDay(end).getTime();
+      if (selectedDateFilter === 'Custom') {
+        if (!startDate || !endDate) return false;
+        const startParsed = parseRecordDate(startDate);
+        const endParsed = parseRecordDate(endDate);
+        if (!startParsed || !endParsed) return false;
+
+        const startKey = formatDateIST(startParsed);
+        const endKey = formatDateIST(endParsed);
+        const from = startKey <= endKey ? startKey : endKey;
+        const to = startKey <= endKey ? endKey : startKey;
+
+        // Compare canonical YYYY-MM-DD keys to avoid timezone and locale drift.
+        return recDateKey >= from && recDateKey <= to;
       }
 
       // 3. View mode filtering (Daily, Weekly, Monthly)
@@ -734,6 +752,44 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     }
   }, [editingAttendance, onUpdateAttendanceRecord]);
 
+  const handleOpenDeleteModal = React.useCallback(() => {
+    setDeleteDate(todayStr);
+    setDeleteEmployeeId('');
+    setIsDeleteModalOpen(true);
+  }, [todayStr]);
+
+  const handleDeleteAttendanceRecords = React.useCallback(async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
+    if (!onDeleteAttendanceByDate) return;
+    if (!deleteDate) {
+      alert('Please select a date.');
+      return;
+    }
+
+    const selectedEmployee = deleteEmployeeId
+      ? employees.find((employee) => employeeIdsMatch(employee.id, deleteEmployeeId))
+      : undefined;
+    const scopeLabel = selectedEmployee ? selectedEmployee.name : 'all users';
+
+    if (!window.confirm(`Delete attendance data for ${scopeLabel} on ${deleteDate}?`)) {
+      return;
+    }
+
+    setIsDeletingRecords(true);
+    try {
+      const deletedCount = await Promise.resolve(onDeleteAttendanceByDate(deleteDate, deleteEmployeeId || undefined));
+      alert(deletedCount > 0
+        ? `Deleted ${deletedCount} attendance record(s).`
+        : 'No attendance records found for the selected date/user.');
+      setIsDeleteModalOpen(false);
+    } catch (error) {
+      console.error('Failed to delete attendance records:', error);
+      alert('Failed to delete attendance records. Please try again.');
+    } finally {
+      setIsDeletingRecords(false);
+    }
+  }, [deleteDate, deleteEmployeeId, employeeIdsMatch, employees, onDeleteAttendanceByDate]);
+
   const handleExportFilteredAttendance = (): void => {
     if (tableRows.length === 0) {
       alert('No attendance data available to export for current filters.');
@@ -866,13 +922,9 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         return {
           'Employee Name': employee?.name || record.employeeName || 'Unknown',
           Department: employee?.department || record.department || 'N/A',
-          Designation: employee?.position || 'N/A',
           Date: parsedDate
             ? formatDateForDisplayIST(parsedDate, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
             : String(record.date || ''),
-          Day: parsedDate
-            ? formatDateForDisplayIST(parsedDate, 'en-US', { weekday: 'long' })
-            : 'N/A',
           'Scheduled Hours': formatMinutesAsHM(scheduledMinutes),
           'Clock In': record.clockIn || 'N/A',
           'Clock Out': record.clockOut || 'N/A',
@@ -894,9 +946,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     worksheet['!cols'] = [
       { wch: 24 }, // Employee Name
       { wch: 20 }, // Department
-      { wch: 18 }, // Designation
       { wch: 14 }, // Date
-      { wch: 12 }, // Day
       { wch: 16 }, // Scheduled Hours
       { wch: 10 }, // Clock In
       { wch: 10 }, // Clock Out
@@ -1067,6 +1117,14 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             >
               <Download size={14} /> Export Attendance
             </button>
+            <button
+              type="button"
+              className="btn btn-outline-danger btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
+              onClick={handleOpenDeleteModal}
+              disabled={isImporting}
+            >
+              <Trash2 size={14} /> Delete By Date
+            </button>
             {viewMode === 'Daily' && (
               <>
                 <button
@@ -1230,6 +1288,68 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       />
 
       <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          if (isDeletingRecords) return;
+          setIsDeleteModalOpen(false);
+        }}
+        title="Delete Attendance Records"
+        size="sm"
+        scrollable={false}
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-default text-decoration-none"
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={isDeletingRecords}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="delete-attendance-form"
+              className="btn btn-danger px-4"
+              disabled={isDeletingRecords || !deleteDate}
+            >
+              {isDeletingRecords ? 'Deleting...' : 'Delete'}
+            </button>
+          </>
+        }
+      >
+        <form id="delete-attendance-form" onSubmit={handleDeleteAttendanceRecords}>
+          <div className="row g-3">
+            <div className="col-12">
+              <label className="form-label fw-bold">Date</label>
+              <input
+                type="date"
+                className="form-control"
+                value={deleteDate}
+                onChange={(event) => setDeleteDate(event.target.value)}
+                required
+              />
+            </div>
+            <div className="col-12">
+              <label className="form-label fw-bold">User</label>
+              <select
+                className="form-select"
+                value={deleteEmployeeId}
+                onChange={(event) => setDeleteEmployeeId(event.target.value)}
+              >
+                <option value="">All Users</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.name} ({employee.id})
+                  </option>
+                ))}
+              </select>
+              <small className="text-muted">Default is All Users.</small>
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
         isOpen={isEditModalOpen}
         onClose={() => {
           if (isSavingEdit) return;
@@ -1237,6 +1357,16 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
           setEditingAttendance(null);
         }}
         title="Edit Attendance"
+        createdInfo={formatAuditInfo(editingAttendance?.createdAt, editingAttendance?.createdByName)}
+        modifiedInfo={formatAuditInfo(editingAttendance?.modifiedAt, editingAttendance?.modifiedByName)}
+        onVersionHistoryClick={() => {
+          if (!editingAttendance?.id) return;
+          onOpenAttendanceVersionHistory?.(editingAttendance.id);
+        }}
+        onOpenFormClick={() => {
+          if (!editingAttendance?.id) return;
+          onOpenAttendanceForm?.(editingAttendance.id);
+        }}
         footer={
           <>
             <button

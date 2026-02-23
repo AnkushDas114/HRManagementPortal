@@ -16,6 +16,7 @@ import EmployeePortal from './EmployeePortal';
 import Profile from './Profile';
 import CarryForwardLeavesAdmin from './CarryForwardLeavesAdmin';
 import Modal from '../ui/Modal';
+import VersionHistoryModal from '../ui/VersionHistoryModal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import Badge from '../ui/Badge';
 import type { LeaveRequest, AttendanceRecord, Employee, SalarySlip, Policy, Concern, Holiday, TeamEvent } from '../types';
@@ -30,13 +31,17 @@ import {
   deleteEmployee,
   clearEmployeeProfileImage,
   replaceEmployeeProfileImage,
-  getProfileGalleryImages,
-  type ProfileGalleryImage
+  getImageLibraryFolders,
+  getImagesByFolder,
+  type ProfileGalleryImage,
+  type SPFolder
 } from '../services/EmployeeService';
-import { getAllAttendanceRecords, saveAttendanceRecords, updateAttendanceRecord } from '../services/AttendanceService';
+import { deleteAttendanceRecordsByDate, getAllAttendanceRecords, saveAttendanceRecords, updateAttendanceRecord } from '../services/AttendanceService';
 import { getAllSalarySlips, createSalarySlip } from '../services/SalarySlipService';
+import { getItemVersionHistory, type VersionHistoryEntry } from '../services/VersionHistoryService';
 import { Plus, Trash2, Edit, Minus, X } from 'lucide-react';
-import { formatDateIST, getNowIST, monthNameIST, todayIST } from '../utils/dateTime';
+import { formatAuditInfo, formatDateIST, getNowIST, monthNameIST, todayIST } from '../utils/dateTime';
+import { openOutOfBoxListItemForm } from '../utils/sharePointForm';
 import { SalarySlipView } from './SalarySlipView';
 
 interface AppProps {
@@ -136,14 +141,23 @@ const calculateSalary = (monthlyCTC: number, insuranceOptIn = true): {
 const App: React.FC<AppProps> = ({ sp }) => {
   React.useEffect(() => {
     const bootstrapLinkId = 'hr-bootstrap-css';
-    const existing = document.getElementById(bootstrapLinkId);
-    if (existing) return;
+    const iconsLinkId = 'hr-bootstrap-icons-css';
 
-    const link = document.createElement('link');
-    link.id = bootstrapLinkId;
-    link.rel = 'stylesheet';
-    link.href = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
-    document.head.appendChild(link);
+    if (!document.getElementById(bootstrapLinkId)) {
+      const link = document.createElement('link');
+      link.id = bootstrapLinkId;
+      link.rel = 'stylesheet';
+      link.href = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
+      document.head.appendChild(link);
+    }
+
+    if (!document.getElementById(iconsLinkId)) {
+      const link = document.createElement('link');
+      link.id = iconsLinkId;
+      link.rel = 'stylesheet';
+      link.href = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
+      document.head.appendChild(link);
+    }
   }, []);
 
   React.useEffect(() => {
@@ -405,8 +419,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [profileUploadFile, setProfileUploadFile] = useState<File | null>(null);
   const [selectedGalleryImageUrl, setSelectedGalleryImageUrl] = useState<string>('');
   const [removeProfileImage, setRemoveProfileImage] = useState(false);
-  const [profileGalleryImages, setProfileGalleryImages] = useState<ProfileGalleryImage[]>([]);
-  const [isLoadingProfileGallery, setIsLoadingProfileGallery] = useState(false);
+  const [profileImageFolders, setProfileImageFolders] = useState<SPFolder[]>([]);
+  const [selectedProfileFolder, setSelectedProfileFolder] = useState<SPFolder | null>(null);
+  const [profileFolderImages, setProfileFolderImages] = useState<ProfileGalleryImage[]>([]);
+  const [isLoadingProfileFolders, setIsLoadingProfileFolders] = useState(false);
+  const [isLoadingFolderImages, setIsLoadingFolderImages] = useState(false);
+  const selectedProfileFolderRef = React.useRef<SPFolder | null>(null);
   const [employeeFormData, setEmployeeFormData] = useState<Partial<Employee>>({
     name: '',
     id: '',
@@ -490,6 +508,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
   // Leave Balance Modal State
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [balanceEmployee, setBalanceEmployee] = useState<Employee | null>(null);
+  const [isVersionHistoryModalOpen, setIsVersionHistoryModalOpen] = useState(false);
+  const [versionHistoryTitle, setVersionHistoryTitle] = useState('Version History');
+  const [versionHistoryEntries, setVersionHistoryEntries] = useState<VersionHistoryEntry[]>([]);
+  const [isVersionHistoryLoading, setIsVersionHistoryLoading] = useState(false);
+  const [versionHistoryError, setVersionHistoryError] = useState<string | undefined>(undefined);
 
   // Current User State
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
@@ -498,6 +521,38 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [currentUserLoginName, setCurrentUserLoginName] = useState<string | null>(null);
   const [isCurrentUserResolved, setIsCurrentUserResolved] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+
+  const editingPolicy = React.useMemo(
+    () => policies.find((policy) => policy.id === editingPolicyId) || null,
+    [policies, editingPolicyId]
+  );
+
+  const editingHoliday = React.useMemo(
+    () => holidays.find((holiday) => holiday.id === editingHolidayId) || null,
+    [holidays, editingHolidayId]
+  );
+
+  const handleOpenVersionHistory = React.useCallback(async (
+    label: string,
+    listTitle: string,
+    itemId?: number
+  ) => {
+    if (!itemId) return;
+    setVersionHistoryTitle(`${label} Version History`);
+    setIsVersionHistoryModalOpen(true);
+    setIsVersionHistoryLoading(true);
+    setVersionHistoryError(undefined);
+    setVersionHistoryEntries([]);
+    try {
+      const entries = await getItemVersionHistory(sp, listTitle, itemId);
+      setVersionHistoryEntries(entries);
+    } catch (error) {
+      console.error('Failed to load version history', error);
+      setVersionHistoryError('Unable to load version history for this item.');
+    } finally {
+      setIsVersionHistoryLoading(false);
+    }
+  }, [sp]);
 
   React.useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -663,6 +718,18 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadAttendance();
     } catch (error) {
       console.error("Error updating attendance record:", error);
+      throw error;
+    }
+  };
+
+  const handleDeleteAttendanceByDate = async (date: string, employeeId?: string): Promise<number> => {
+    if (!sp) return 0;
+    try {
+      const deletedCount = await deleteAttendanceRecordsByDate(sp, date, employeeId);
+      await loadAttendance();
+      return deletedCount;
+    } catch (error) {
+      console.error("Error deleting attendance records by date:", error);
       throw error;
     }
   };
@@ -1256,24 +1323,66 @@ const App: React.FC<AppProps> = ({ sp }) => {
     setIsEmployeeModalOpen(true);
   };
 
-  const loadProfileImageGallery = React.useCallback(async () => {
+  const loadImagesForFolder = React.useCallback(async (folder: SPFolder) => {
     if (!sp) return;
-    setIsLoadingProfileGallery(true);
+    setIsLoadingFolderImages(true);
+    setSelectedProfileFolder(folder);
     try {
-      const images = await getProfileGalleryImages(sp);
-      setProfileGalleryImages(images);
+      const webInfo = await sp.web.select('Url')();
+      const siteUrl = String((webInfo as { Url?: string })?.Url || window.location.href);
+      const images = await getImagesByFolder(sp, siteUrl, folder.ServerRelativeUrl);
+      const mapped: ProfileGalleryImage[] = images.map((image) => ({
+        folder: folder.Name,
+        name: image.fileName,
+        url: image.serverRelativeUrl
+      }));
+      setProfileFolderImages(mapped);
     } catch (error) {
-      console.error('Failed to load profile image gallery', error);
-      setProfileGalleryImages([]);
+      console.error(`Failed to load images for folder ${folder.Name}`, error);
+      setProfileFolderImages([]);
     } finally {
-      setIsLoadingProfileGallery(false);
+      setIsLoadingFolderImages(false);
     }
   }, [sp]);
 
+  const loadProfileImageFolders = React.useCallback(async () => {
+    if (!sp) return;
+    setIsLoadingProfileFolders(true);
+    try {
+      const webInfo = await sp.web.select('Url')();
+      const siteUrl = String((webInfo as { Url?: string })?.Url || window.location.href);
+      const folders = await getImageLibraryFolders(sp, siteUrl);
+      setProfileImageFolders(folders);
+
+      if (!folders.length) {
+        setSelectedProfileFolder(null);
+        setProfileFolderImages([]);
+        return;
+      }
+
+      const selected = selectedProfileFolderRef.current
+        ? folders.find((folder) => folder.ServerRelativeUrl === selectedProfileFolderRef.current?.ServerRelativeUrl) || folders[0]
+        : folders[0];
+
+      await loadImagesForFolder(selected);
+    } catch (error) {
+      console.error('Failed to load image library folders', error);
+      setProfileImageFolders([]);
+      setSelectedProfileFolder(null);
+      setProfileFolderImages([]);
+    } finally {
+      setIsLoadingProfileFolders(false);
+    }
+  }, [sp, loadImagesForFolder]);
+
   React.useEffect(() => {
     if (!isEmployeeModalOpen) return;
-    void loadProfileImageGallery();
-  }, [isEmployeeModalOpen, loadProfileImageGallery]);
+    void loadProfileImageFolders();
+  }, [isEmployeeModalOpen, loadProfileImageFolders]);
+
+  React.useEffect(() => {
+    selectedProfileFolderRef.current = selectedProfileFolder;
+  }, [selectedProfileFolder]);
 
   const handleSaveEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1433,7 +1542,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
     try {
       const items = await sp.web.lists
         .getByTitle(OFFICIAL_LEAVES_LIST_ID)
-        .items.select('Id', 'Title', 'Configurations', 'Created', 'Modified')
+        .items.select('Id', 'Title', 'Configurations', 'Created', 'Modified', 'Author/Title', 'Editor/Title')
+        .expand('Author', 'Editor')
         .filter("TaxType eq 'LeavePolicy'")
         .top(5000)();
       console.log('Policies loaded:', items);
@@ -1441,7 +1551,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
         id: item.Id,
         title: item.Title || 'Untitled Policy',
         content: item.Configurations || '',
-        lastUpdated: formatDateIST(item.Modified) || todayIST()
+        lastUpdated: formatDateIST(item.Modified) || todayIST(),
+        createdAt: formatDateIST(item.Created),
+        modifiedAt: formatDateIST(item.Modified),
+        createdByName: item.Author?.Title || '',
+        modifiedByName: item.Editor?.Title || ''
       }));
 
       setPolicies(mapped);
@@ -1731,7 +1845,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
     try {
       const items = await sp.web.lists
         .getByTitle(OFFICIAL_LEAVES_LIST_ID)
-        .items.select('Id', 'Title', 'Date', 'TaxType', 'LeaveCategory')
+        .items.select('Id', 'Title', 'Date', 'TaxType', 'LeaveCategory', 'Created', 'Modified', 'Author/Title', 'Editor/Title')
+        .expand('Author', 'Editor')
         .filter("TaxType eq 'Official Leave'")
         .top(5000)();
 
@@ -1739,7 +1854,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
         id: item.Id,
         name: item.Title || 'Untitled Holiday',
         date: formatDateIST(item.Date) || todayIST(),
-        type: (item.LeaveCategory || 'Public') as 'Public' | 'Restricted'
+        type: (item.LeaveCategory || 'Public') as 'Public' | 'Restricted',
+        createdAt: formatDateIST(item.Created),
+        modifiedAt: formatDateIST(item.Modified),
+        createdByName: item.Author?.Title || '',
+        modifiedByName: item.Editor?.Title || ''
       }));
 
       setHolidays(mapped);
@@ -1942,291 +2061,301 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
       <main className="container-fluid hr-shell-container hr-main-content py-4">
         {activeTab === 'profile' ? (
-            <Profile
+          <Profile
             user={currentUser || inferredCurrentUser || directoryEmployees[0]}
-              role={role}
-              sp={sp}
-              onBack={() => setActiveTab(role === UserRole.HR ? 'overview' : 'dashboard')}
-              onUpdate={loadDirectoryEmployees}
-            />
-          ) : (
-            <>
-              <ul className="nav nav-pills mb-4 bg-white p-2 rounded shadow-sm d-inline-flex flex-wrap gap-2" role="tablist">
-                {role === UserRole.HR ? (
-                  <>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Dashboard</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'leaves-request' ? 'active' : ''}`} onClick={() => setActiveTab('leaves-request')}>Leaves request</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'wfh-request' ? 'active' : ''}`} onClick={() => setActiveTab('wfh-request')}>Work From Home Request</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'global-directory' ? 'active' : ''}`} onClick={() => setActiveTab('global-directory')}>Global Directory</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>Global Attendance</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'upload-salary-slip' ? 'active' : ''}`} onClick={() => setActiveTab('upload-salary-slip')}>Upload Salary Slip</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'onLeaveToday' ? 'active' : ''}`} onClick={() => setActiveTab('onLeaveToday')}>On Leave / WFH Today</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'policy-admin' ? 'active' : ''}`} onClick={() => setActiveTab('policy-admin')}>Leave Policy</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'holiday-admin' ? 'active' : ''}`} onClick={() => setActiveTab('holiday-admin')}>Official Leaves</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'carry-forward-leaves' ? 'active' : ''}`} onClick={() => setActiveTab('carry-forward-leaves')}>Carry Forward Leaves</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'concerns-admin' ? 'active' : ''}`} onClick={() => setActiveTab('concerns-admin')}>
-                        Concerns {openConcernsCount > 0 && <span className="badge text-bg-danger ms-1">{openConcernsCount}</span>}
-                      </button>
-                    </li>
-                  </>
-                ) : (
-                  <>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>Attendance</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'leave' ? 'active' : ''}`} onClick={() => setActiveTab('leave')}>Leave Applications</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'work-from-home' ? 'active' : ''}`} onClick={() => setActiveTab('work-from-home')}>Work From Home</button>
-                    </li>
-                    <li className="nav-item">
-                      <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'salary' ? 'active' : ''}`} onClick={() => setActiveTab('salary')}>Salary Slip</button>
-                    </li>
-                  </>
-                )}
-              </ul>
+            role={role}
+            sp={sp}
+            onBack={() => setActiveTab(role === UserRole.HR ? 'overview' : 'dashboard')}
+            onUpdate={loadDirectoryEmployees}
+            onOpenVersionHistory={(itemId) => { void handleOpenVersionHistory('Employee', 'EmployeeMaster', itemId); }}
+          />
+        ) : (
+          <>
+            <ul className="nav nav-pills mb-4 bg-white p-2 rounded shadow-sm d-inline-flex flex-wrap gap-2" role="tablist">
+              {role === UserRole.HR ? (
+                <>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Dashboard</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'leaves-request' ? 'active' : ''}`} onClick={() => setActiveTab('leaves-request')}>Leaves request</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'wfh-request' ? 'active' : ''}`} onClick={() => setActiveTab('wfh-request')}>Work From Home Request</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'global-directory' ? 'active' : ''}`} onClick={() => setActiveTab('global-directory')}>Global Directory</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>Global Attendance</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'upload-salary-slip' ? 'active' : ''}`} onClick={() => setActiveTab('upload-salary-slip')}>Upload Salary Slip</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'onLeaveToday' ? 'active' : ''}`} onClick={() => setActiveTab('onLeaveToday')}>On Leave / WFH Today</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'policy-admin' ? 'active' : ''}`} onClick={() => setActiveTab('policy-admin')}>Leave Policy</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'holiday-admin' ? 'active' : ''}`} onClick={() => setActiveTab('holiday-admin')}>Official Leaves</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'carry-forward-leaves' ? 'active' : ''}`} onClick={() => setActiveTab('carry-forward-leaves')}>Carry Forward Leaves</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'concerns-admin' ? 'active' : ''}`} onClick={() => setActiveTab('concerns-admin')}>
+                      Concerns {openConcernsCount > 0 && <span className="badge text-bg-danger ms-1">{openConcernsCount}</span>}
+                    </button>
+                  </li>
+                </>
+              ) : (
+                <>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>Attendance</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'leave' ? 'active' : ''}`} onClick={() => setActiveTab('leave')}>Leave Applications</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'work-from-home' ? 'active' : ''}`} onClick={() => setActiveTab('work-from-home')}>Work From Home</button>
+                  </li>
+                  <li className="nav-item">
+                    <button className={`nav-link btn-sm px-4 py-2 fw-medium ${activeTab === 'salary' ? 'active' : ''}`} onClick={() => setActiveTab('salary')}>Salary Slip</button>
+                  </li>
+                </>
+              )}
+            </ul>
 
-              <div className="tab-content">
-                {role === UserRole.Employee ? (
-                  <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={(preferredTab) => handleOpenLeaveModal(undefined, preferredTab)} onTabChange={setActiveTab} activeTab={activeTab} />
-                ) : (
-                  <>
-                    {activeTab === 'overview' && <Dashboard requests={leaveRequests} attendanceRecords={attendanceRecords} concernsCount={openConcernsCount} holidays={holidays} teamEvents={teamEvents} onAddTeamEvent={handleAddTeamEvent} onUpdateTeamEvent={handleUpdateTeamEvent} onDeleteTeamEvent={handleDeleteTeamEvent} onPendingClick={() => setActiveTab('leaves-request')} onOnLeaveTodayClick={() => setActiveTab('onLeaveToday')} onConcernsClick={() => setActiveTab('concerns-admin')} />}
-                    {activeTab === 'leaves-request' && (
-                      isLoadingLeaveRequests ? (
-                        <div className="d-flex justify-content-center p-5">
-                          <div className="spinner-border text-primary" role="status">
-                            <span className="visually-hidden">Loading...</span>
-                          </div>
+            <div className="tab-content">
+              {role === UserRole.Employee ? (
+                <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={(preferredTab) => handleOpenLeaveModal(undefined, preferredTab)} onTabChange={setActiveTab} activeTab={activeTab} />
+              ) : (
+                <>
+                  {activeTab === 'overview' && <Dashboard requests={leaveRequests} attendanceRecords={attendanceRecords} concernsCount={openConcernsCount} holidays={holidays} teamEvents={teamEvents} onAddTeamEvent={handleAddTeamEvent} onUpdateTeamEvent={handleUpdateTeamEvent} onDeleteTeamEvent={handleDeleteTeamEvent} onPendingClick={() => setActiveTab('leaves-request')} onOnLeaveTodayClick={() => setActiveTab('onLeaveToday')} onConcernsClick={() => setActiveTab('concerns-admin')} onOpenTeamEventForm={(eventId) => { openOutOfBoxListItemForm(sp, 'TeamCelebrations', eventId).catch(() => undefined); }} onOpenTeamEventVersionHistory={(eventId) => { void handleOpenVersionHistory('Team Event', 'TeamCelebrations', eventId); }} />}
+                  {activeTab === 'leaves-request' && (
+                    isLoadingLeaveRequests ? (
+                      <div className="d-flex justify-content-center p-5">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
                         </div>
-                      ) : (
-                        <LeaveRequestsTable requests={leaveOnlyRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} />
-                      )
-                    )}
-                    {activeTab === 'wfh-request' && (
-                      isLoadingLeaveRequests ? (
-                        <div className="d-flex justify-content-center p-5">
-                          <div className="spinner-border text-primary" role="status">
-                            <span className="visually-hidden">Loading...</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <LeaveRequestsTable requests={workFromHomeRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} title="Detailed Work From Home Applications" showLeaveBalance={false} />
-                      )
-                    )}
-                    {activeTab === 'global-directory' && (
-                      <div className="card border-0 shadow-sm">
-                        <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                          <h5 className="mb-0 fw-bold color-primary">Employee Global Directory</h5>
-                          <button className="btn btn-primary btn-sm d-flex align-items-center gap-2" onClick={() => handleOpenEmployeeModal()}>
-                            <Plus size={16} /> Add User
-                          </button>
-                        </div>
-                        {directoryError && (
-                          <div className="alert alert-warning m-3 mb-0">{directoryError}</div>
-                        )}
-                        <CommonTable
-                          data={directoryEmployees}
-                          columns={employeeColumns}
-                          getRowId={(row) => row.id}
-                          globalSearchPlaceholder="Search employees"
-                          enableRowSelection
-                        />
                       </div>
-                    )}
-                    {activeTab === 'attendance' && <AttendanceTracker employees={directoryEmployees} leaveRequests={leaveRequests} attendanceRecords={attendanceRecords} onImport={handleImportAttendance} isImporting={isImportingAttendance} onViewBalance={handleViewBalance} leaveQuotas={leaveQuotas} onUpdateAttendanceRecord={handleUpdateAttendanceRecord} />}
-                    {activeTab === 'upload-salary-slip' && (
-                      <div className="card border-0 shadow-sm">
-                        <div className="card-header bg-white py-3">
-                          <h5 className="mb-0 fw-bold color-primary">Upload Salary Slip</h5>
+                    ) : (
+                      <LeaveRequestsTable requests={leaveOnlyRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Leave Request', 'Leave Request', requestId); }} />
+                    )
+                  )}
+                  {activeTab === 'wfh-request' && (
+                    isLoadingLeaveRequests ? (
+                      <div className="d-flex justify-content-center p-5">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
                         </div>
-                        <CommonTable
-                          data={directoryEmployees}
-                          columns={uploadSalaryColumns}
-                          getRowId={(row) => row.id}
-                          globalSearchPlaceholder="Search employees"
-                        />
                       </div>
-                    )}
-                    {activeTab === 'onLeaveToday' && (
-                      <OnLeaveTodayTable
-                        requests={leaveRequests}
-                        onEdit={handleOpenLeaveModal}
-                        leaveQuotas={leaveQuotas}
-                        sp={sp}
-                        employees={directoryEmployees}
-                        onRefresh={loadLeaveRequests}
+                    ) : (
+                      <LeaveRequestsTable requests={workFromHomeRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} title="Detailed Work From Home Applications" showLeaveBalance={false} onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Work From Home Request', 'Leave Request', requestId); }} />
+                    )
+                  )}
+                  {activeTab === 'global-directory' && (
+                    <div className="card border-0 shadow-sm">
+                      <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h5 className="mb-0 fw-bold color-primary">Employee Global Directory</h5>
+                        <button className="btn btn-primary btn-sm d-flex align-items-center gap-2" onClick={() => handleOpenEmployeeModal()}>
+                          <Plus size={16} /> Add User
+                        </button>
+                      </div>
+                      {directoryError && (
+                        <div className="alert alert-warning m-3 mb-0">{directoryError}</div>
+                      )}
+                      <CommonTable
+                        data={directoryEmployees}
+                        columns={employeeColumns}
+                        getRowId={(row) => row.id}
+                        globalSearchPlaceholder="Search employees"
+                        enableRowSelection
                       />
-                    )}
-                    {activeTab === 'policy-admin' && (
-                      <div className="card border-0 shadow-sm">
-                        <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                          <h5 className="mb-0 fw-bold color-primary">Leave Policies</h5>
-                          <button className="btn btn-primary btn-sm" onClick={() => handleOpenPolicyModal()} disabled={isLoadingPolicies}><Plus size={16} /> Add Policy</button>
-                        </div>
-                        {isLoadingPolicies && (
-                          <div className="text-center py-4">
-                            <div className="spinner-border text-primary" role="status">
-                              <span className="visually-hidden">Loading...</span>
-                            </div>
-                          </div>
-                        )}
-                        {policiesError && (
-                          <div className="alert alert-danger m-3" role="alert">
-                            {policiesError}
-                          </div>
-                        )}
-                        {!isLoadingPolicies && !policiesError && (
-                          <CommonTable
-                            data={policies}
-                            columns={policyColumns}
-                            getRowId={(row) => row.id}
-                            globalSearchPlaceholder="Search policies"
-                          />
-                        )}
+                    </div>
+                  )}
+                  {activeTab === 'attendance' && <AttendanceTracker employees={directoryEmployees} leaveRequests={leaveRequests} attendanceRecords={attendanceRecords} onImport={handleImportAttendance} isImporting={isImportingAttendance} onViewBalance={handleViewBalance} leaveQuotas={leaveQuotas} onUpdateAttendanceRecord={handleUpdateAttendanceRecord} onDeleteAttendanceByDate={handleDeleteAttendanceByDate} onOpenAttendanceForm={(recordId) => { openOutOfBoxListItemForm(sp, 'AttendanceList', recordId).catch(() => undefined); }} onOpenAttendanceVersionHistory={(recordId) => { void handleOpenVersionHistory('Attendance', 'AttendanceList', recordId); }} />}
+                  {activeTab === 'upload-salary-slip' && (
+                    <div className="card border-0 shadow-sm">
+                      <div className="card-header bg-white py-3">
+                        <h5 className="mb-0 fw-bold color-primary">Upload Salary Slip</h5>
                       </div>
-                    )}
-                    {activeTab === 'holiday-admin' && (
-                      <div className="row g-3">
-                        <div className="col-lg-6">
-                          <div className="card border-0 shadow-sm h-100">
-                            <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                              <h5 className="mb-0 fw-bold color-primary">Official Holidays</h5>
-                              <button className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1" onClick={() => handleOpenHolidayModal()} disabled={isLoadingHolidays}>
-                                <Plus size={14} /> Add Holiday
-                              </button>
-                            </div>
-                            {isLoadingHolidays && (
-                              <div className="text-center py-4">
-                                <div className="spinner-border text-primary" role="status">
-                                  <span className="visually-hidden">Loading...</span>
-                                </div>
-                              </div>
-                            )}
-                            {holidaysError && (
-                              <div className="alert alert-danger m-3" role="alert">
-                                {holidaysError}
-                              </div>
-                            )}
-                            {!isLoadingHolidays && !holidaysError && (
-                              <CommonTable
-                                data={sortedHolidays}
-                                columns={holidayColumns}
-                                getRowId={(row) => row.id}
-                                globalSearchPlaceholder="Search holidays"
-                              />
-                            )}
+                      <CommonTable
+                        data={directoryEmployees}
+                        columns={uploadSalaryColumns}
+                        getRowId={(row) => row.id}
+                        globalSearchPlaceholder="Search employees"
+                      />
+                    </div>
+                  )}
+                  {activeTab === 'onLeaveToday' && (
+                    <OnLeaveTodayTable
+                      requests={leaveRequests}
+                      onEdit={handleOpenLeaveModal}
+                      leaveQuotas={leaveQuotas}
+                      sp={sp}
+                      employees={directoryEmployees}
+                      onRefresh={loadLeaveRequests}
+                    />
+                  )}
+                  {activeTab === 'policy-admin' && (
+                    <div className="card border-0 shadow-sm">
+                      <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h5 className="mb-0 fw-bold color-primary">Leave Policies</h5>
+                        <button className="btn btn-primary btn-sm" onClick={() => handleOpenPolicyModal()} disabled={isLoadingPolicies}><Plus size={16} /> Add Policy</button>
+                      </div>
+                      {isLoadingPolicies && (
+                        <div className="text-center py-4">
+                          <div className="spinner-border text-primary" role="status">
+                            <span className="visually-hidden">Loading...</span>
                           </div>
                         </div>
-                        <div className="col-lg-6">
-                          <div className="card border-0 shadow-sm h-100">
-                            <div className="card-header color-primary bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                              <h5 className="mb-0 fw-bold">Unofficial Leave Quotas</h5>
-                              <button
-                                className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"
-                                onClick={() => setIsAddLeaveModalOpen(true)}
-                              >
-                                <Plus size={14} /> Add Unofficial Leave
-                              </button>
+                      )}
+                      {policiesError && (
+                        <div className="alert alert-danger m-3" role="alert">
+                          {policiesError}
+                        </div>
+                      )}
+                      {!isLoadingPolicies && !policiesError && (
+                        <CommonTable
+                          data={policies}
+                          columns={policyColumns}
+                          getRowId={(row) => row.id}
+                          globalSearchPlaceholder="Search policies"
+                        />
+                      )}
+                    </div>
+                  )}
+                  {activeTab === 'holiday-admin' && (
+                    <div className="row g-3">
+                      <div className="col-lg-6">
+                        <div className="card border-0 shadow-sm h-100">
+                          <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <h5 className="mb-0 fw-bold color-primary">Official Holidays</h5>
+                            <button className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1" onClick={() => handleOpenHolidayModal()} disabled={isLoadingHolidays}>
+                              <Plus size={14} /> Add Holiday
+                            </button>
+                          </div>
+                          {isLoadingHolidays && (
+                            <div className="text-center py-4">
+                              <div className="spinner-border text-primary" role="status">
+                                <span className="visually-hidden">Loading...</span>
+                              </div>
                             </div>
-                            {isLoadingQuotas && (
-                              <div className="text-center py-4">
-                                <div className="spinner-border spinner-border-sm text-primary" role="status">
-                                  <span className="visually-hidden">Loading...</span>
-                                </div>
+                          )}
+                          {holidaysError && (
+                            <div className="alert alert-danger m-3" role="alert">
+                              {holidaysError}
+                            </div>
+                          )}
+                          {!isLoadingHolidays && !holidaysError && (
+                            <CommonTable
+                              data={sortedHolidays}
+                              columns={holidayColumns}
+                              getRowId={(row) => row.id}
+                              globalSearchPlaceholder="Search holidays"
+                            />
+                          )}
+                        </div>
+                      </div>
+                      <div className="col-lg-6">
+                        <div className="card border-0 shadow-sm h-100">
+                          <div className="card-header color-primary bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <h5 className="mb-0 fw-bold">Unofficial Leave Quotas</h5>
+                            <button
+                              className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"
+                              onClick={() => setIsAddLeaveModalOpen(true)}
+                            >
+                              <Plus size={14} /> Add Unofficial Leave
+                            </button>
+                          </div>
+                          {isLoadingQuotas && (
+                            <div className="text-center py-4">
+                              <div className="spinner-border spinner-border-sm text-primary" role="status">
+                                <span className="visually-hidden">Loading...</span>
                               </div>
-                            )}
-                            {quotasError && (
-                              <div className="alert alert-warning m-3 mb-0 small" role="alert">
-                                {quotasError}
-                              </div>
-                            )}
-                            {!isLoadingQuotas && !quotasError && (
-                              <div className="card-body p-0">
-                                {Object.keys(leaveQuotas).length > 0 ? (
-                                  <>
-                                    <ul className="list-group list-group-flush">
-                                      {Object.entries(leaveQuotas).map(([type, quota]) => (
-                                        <li key={type} className="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
-                                          <div className="small fw-medium">{type}</div>
-                                          <span className="badge text-bg-light border fw-bold">{quota}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                    <div className="p-3 bg-light text-center border-top">
-                                      <button
-                                        className="btn btn-sm btn-primary"
-                                        onClick={() => setIsAddLeaveModalOpen(true)}
-                                        disabled={isLoadingQuotas}
-                                      >
-                                        Manage Unofficial Leaves
-                                      </button>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div className="p-4 text-center text-muted">
-                                    <p className="mb-2">No leave quotas configured</p>
-                                    <button className="btn btn-sm btn-primary" onClick={() => setIsAddLeaveModalOpen(true)}>Add Unofficial Leave</button>
+                            </div>
+                          )}
+                          {quotasError && (
+                            <div className="alert alert-warning m-3 mb-0 small" role="alert">
+                              {quotasError}
+                            </div>
+                          )}
+                          {!isLoadingQuotas && !quotasError && (
+                            <div className="card-body p-0">
+                              {Object.keys(leaveQuotas).length > 0 ? (
+                                <>
+                                  <ul className="list-group list-group-flush">
+                                    {Object.entries(leaveQuotas).map(([type, quota]) => (
+                                      <li key={type} className="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
+                                        <div className="small fw-medium">{type}</div>
+                                        <span className="badge text-bg-light border fw-bold">{quota}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  <div className="p-3 bg-light text-center border-top">
+                                    <button
+                                      className="btn btn-sm btn-primary"
+                                      onClick={() => setIsAddLeaveModalOpen(true)}
+                                      disabled={isLoadingQuotas}
+                                    >
+                                      Manage Unofficial Leaves
+                                    </button>
                                   </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                                </>
+                              ) : (
+                                <div className="p-4 text-center text-muted">
+                                  <p className="mb-2">No leave quotas configured</p>
+                                  <button className="btn btn-sm btn-primary" onClick={() => setIsAddLeaveModalOpen(true)}>Add Unofficial Leave</button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    )}
-                    {activeTab === 'carry-forward-leaves' && (
-                      <CarryForwardLeavesAdmin
-                        sp={sp}
-                        employees={directoryEmployees}
-                        leaveRequests={leaveRequests}
-                        listId={LEAVE_MONTHLY_BALANCE_LIST_REF}
+                    </div>
+                  )}
+                  {activeTab === 'carry-forward-leaves' && (
+                    <CarryForwardLeavesAdmin
+                      sp={sp}
+                      employees={directoryEmployees}
+                      leaveRequests={leaveRequests}
+                      listId={LEAVE_MONTHLY_BALANCE_LIST_REF}
+                    />
+                  )}
+                  {activeTab === 'concerns-admin' && (
+                    <div className="card border-0 shadow-sm">
+                      <div className="card-header bg-white py-3"><h5 className="mb-0 fw-bold color-primary">Employee Concerns</h5></div>
+                      <CommonTable
+                        data={concerns}
+                        columns={concernColumns}
+                        getRowId={(row) => row.id}
+                        globalSearchPlaceholder="Search concerns"
                       />
-                    )}
-                    {activeTab === 'concerns-admin' && (
-                      <div className="card border-0 shadow-sm">
-                        <div className="card-header bg-white py-3"><h5 className="mb-0 fw-bold color-primary">Employee Concerns</h5></div>
-                        <CommonTable
-                          data={concerns}
-                          columns={concernColumns}
-                          getRowId={(row) => row.id}
-                          globalSearchPlaceholder="Search concerns"
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </>
-          )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        )}
       </main>
 
-      <Modal isOpen={isPolicyModalOpen} onClose={() => setIsPolicyModalOpen(false)} title={editingPolicyId ? "Edit Policy" : "New Policy"} footer={<div className="d-flex justify-content-end gap-2 w-100"><button className="btn btn-outline-secondary" onClick={() => setIsPolicyModalOpen(false)}>Cancel</button><button type="submit" form="policy-form" className="btn btn-primary">{editingPolicyId ? "Update" : "Save"}</button></div>}>
+      <Modal
+        isOpen={isPolicyModalOpen}
+        onClose={() => setIsPolicyModalOpen(false)}
+        title={editingPolicyId ? "Edit Policy" : "New Policy"}
+        createdInfo={formatAuditInfo(editingPolicy?.createdAt, editingPolicy?.createdByName)}
+        modifiedInfo={formatAuditInfo(editingPolicy?.modifiedAt, editingPolicy?.modifiedByName)}
+        onVersionHistoryClick={() => { void handleOpenVersionHistory('Policy', OFFICIAL_LEAVES_LIST_ID, editingPolicyId || undefined); }}
+        onOpenFormClick={() => { openOutOfBoxListItemForm(sp, OFFICIAL_LEAVES_LIST_ID, editingPolicyId ?? undefined).catch(() => undefined); }}
+        footer={<div className="d-flex justify-content-end gap-2 w-100"><button className="btn btn-outline-secondary" onClick={() => setIsPolicyModalOpen(false)}>Cancel</button><button type="submit" form="policy-form" className="btn btn-primary">{editingPolicyId ? "Update" : "Save"}</button></div>}
+      >
         <form id="policy-form" onSubmit={handleSavePolicy}><div className="mb-3"><label className="form-label fw-bold">Title</label><input type="text" className="form-control" value={policyFormData.title} onChange={e => setPolicyFormData({ ...policyFormData, title: e.target.value })} required /></div><div className="mb-3"><label className="form-label fw-bold">Description</label><textarea className="form-control" rows={8} value={policyFormData.content} onChange={e => setPolicyFormData({ ...policyFormData, content: e.target.value })} required></textarea></div></form>
       </Modal>
 
@@ -2283,17 +2412,44 @@ const App: React.FC<AppProps> = ({ sp }) => {
         )}
       </Modal>
 
-      <Modal isOpen={isHolidayModalOpen} onClose={() => setIsHolidayModalOpen(false)} title={editingHolidayId ? "Edit Holiday" : "New Holiday"} footer={<><button className="btn btn-default text-decoration-none" onClick={() => setIsHolidayModalOpen(false)}>Cancel</button><button type="submit" form="holiday-form" className="btn btn-primary">{editingHolidayId ? "Update" : "Save"}</button></>}>
+      <Modal
+        isOpen={isHolidayModalOpen}
+        onClose={() => setIsHolidayModalOpen(false)}
+        title={editingHolidayId ? "Edit Holiday" : "New Holiday"}
+        createdInfo={formatAuditInfo(editingHoliday?.createdAt, editingHoliday?.createdByName)}
+        modifiedInfo={formatAuditInfo(editingHoliday?.modifiedAt, editingHoliday?.modifiedByName)}
+        onVersionHistoryClick={() => { void handleOpenVersionHistory('Holiday', OFFICIAL_LEAVES_LIST_ID, editingHolidayId || undefined); }}
+        onOpenFormClick={() => { openOutOfBoxListItemForm(sp, OFFICIAL_LEAVES_LIST_ID, editingHolidayId ?? undefined).catch(() => undefined); }}
+        footer={<><button className="btn btn-default text-decoration-none" onClick={() => setIsHolidayModalOpen(false)}>Cancel</button><button type="submit" form="holiday-form" className="btn btn-primary">{editingHolidayId ? "Update" : "Save"}</button></>}
+      >
         <form id="holiday-form" onSubmit={handleSaveHoliday}><div className="mb-3"><label className="form-label fw-bold">Name</label><input type="text" className="form-control" value={holidayFormData.name} onChange={e => setHolidayFormData({ ...holidayFormData, name: e.target.value })} required /></div><div className="mb-3"><label className="form-label fw-bold">Date</label><input type="date" className="form-control" value={holidayFormData.date} onChange={e => setHolidayFormData({ ...holidayFormData, date: e.target.value })} required /></div><div className="mb-3"><label className="form-label fw-bold">Type</label><select className="form-select" value={holidayFormData.type} onChange={e => setHolidayFormData({ ...holidayFormData, type: e.target.value as any })}>{leaveCategories.length > 0 ? leaveCategories.map(cat => <option key={cat} value={cat}>{cat}</option>) : <><option value="Public">Public</option><option value="Restricted">Restricted</option></>}</select></div></form>
       </Modal>
 
-      <Modal isOpen={isConcernReplyModalOpen} onClose={() => setIsConcernReplyModalOpen(false)} title="Resolve Concern" footer={<><button className="btn btn-link text-decoration-none" onClick={() => setIsConcernReplyModalOpen(false)}>Cancel</button><button type="submit" form="concern-reply-form" className="btn btn-primary px-4">Submit</button></>}>
+      <Modal
+        isOpen={isConcernReplyModalOpen}
+        onClose={() => setIsConcernReplyModalOpen(false)}
+        title="Resolve Concern"
+        createdInfo={formatAuditInfo(selectedConcern?.createdAt, selectedConcern?.createdByName)}
+        modifiedInfo={formatAuditInfo(selectedConcern?.modifiedAt, selectedConcern?.modifiedByName)}
+        onVersionHistoryClick={() => { void handleOpenVersionHistory('Concern', 'EmployeeConcerns', selectedConcern?.id); }}
+        onOpenFormClick={() => { openOutOfBoxListItemForm(sp, 'EmployeeConcerns', selectedConcern?.id).catch(() => undefined); }}
+        footer={<><button className="btn btn-link text-decoration-none" onClick={() => setIsConcernReplyModalOpen(false)}>Cancel</button><button type="submit" form="concern-reply-form" className="btn btn-primary px-4">Submit</button></>}
+      >
         {selectedConcern && (
           <form id="concern-reply-form" onSubmit={handleSaveConcernReply}><div className="mb-3 p-3 bg-light rounded border"><div className="small fw-bold text-muted text-uppercase">{selectedConcern.type}</div><div className="text-dark small mt-1">{selectedConcern.description}</div></div><div className="mb-3"><label className="form-label fw-bold">Resolution</label><textarea className="form-control" rows={5} value={concernReplyText} onChange={e => setConcernReplyText(e.target.value)} required placeholder="Resolution message..."></textarea></div></form>
         )}
       </Modal>
 
-      <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title={editingRequest ? (leaveModalTab === 'workFromHome' ? "Edit Work From Home" : "Edit Leave") : (leaveModalTab === 'workFromHome' ? "New Work From Home Request" : "New Leave")} footer={<><button className="btn btn-link text-decoration-none" onClick={() => setIsLeaveModalOpen(false)}>Cancel</button><button type="submit" form="leave-application-form" className="btn btn-primary px-4">Submit</button></>}>
+      <Modal
+        isOpen={isLeaveModalOpen}
+        onClose={() => setIsLeaveModalOpen(false)}
+        title={editingRequest ? (leaveModalTab === 'workFromHome' ? "Edit Work From Home" : "Edit Leave") : (leaveModalTab === 'workFromHome' ? "New Work From Home Request" : "New Leave")}
+        createdInfo={formatAuditInfo(editingRequest?.createdAt, editingRequest?.createdByName)}
+        modifiedInfo={formatAuditInfo(editingRequest?.modifiedAt, editingRequest?.modifiedByName)}
+        onVersionHistoryClick={() => { void handleOpenVersionHistory('Leave Request', 'Leave Request', editingRequest?.id); }}
+        onOpenFormClick={() => { openOutOfBoxListItemForm(sp, 'Leave Request', editingRequest?.id).catch(() => undefined); }}
+        footer={<><button className="btn btn-link text-decoration-none" onClick={() => setIsLeaveModalOpen(false)}>Cancel</button><button type="submit" form="leave-application-form" className="btn btn-primary px-4">Submit</button></>}
+      >
         <form id="leave-application-form" onSubmit={saveLeaveRequest}>
           <div className="d-flex align-items-center gap-2 mb-3">
             {/* <button
@@ -3124,6 +3280,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
         onClose={() => setIsEmployeeModalOpen(false)}
         title={editingEmployee ? "Edit Employee Details" : "Add New Employee"}
         size="lg"
+        createdInfo={formatAuditInfo(editingEmployee?.createdAt, editingEmployee?.createdByName)}
+        modifiedInfo={formatAuditInfo(editingEmployee?.modifiedAt, editingEmployee?.modifiedByName)}
+        onVersionHistoryClick={() => { void handleOpenVersionHistory('Employee', 'EmployeeMaster', editingEmployee?.itemId); }}
+        onOpenFormClick={() => { openOutOfBoxListItemForm(sp, 'EmployeeMaster', editingEmployee?.itemId).catch(() => undefined); }}
         footer={<><button className="btn btn-default" onClick={() => setIsEmployeeModalOpen(false)}>Cancel</button><button type="submit" form="employee-form" className="btn btn-primary">Save Employee</button></>}
       >
         <form id="employee-form" onSubmit={handleSaveEmployee}>
@@ -3368,51 +3528,78 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 <div className="col-12">
                   <div className="d-flex justify-content-between align-items-center">
                     <label className="form-label fw-bold mb-0">Choose from Gallery Folders</label>
-                    <button type="button" className="btn btn-sm color-primary" onClick={() => void loadProfileImageGallery()}>Refresh</button>
+                    <button type="button" className="btn btn-sm color-primary" onClick={() => void loadProfileImageFolders()}>Refresh</button>
                   </div>
                 </div>
-                {isLoadingProfileGallery && <div className="col-12 text-muted small">Loading gallery images...</div>}
-                {!isLoadingProfileGallery && profileGalleryImages.length === 0 && (
-                  <div className="col-12 text-muted small">No gallery images found in configured folders.</div>
-                )}
-                {!isLoadingProfileGallery && profileGalleryImages.length > 0 && (
+                {isLoadingProfileFolders && <div className="col-12 text-muted small">Loading image folders...</div>}
+                {!isLoadingProfileFolders && (
                   <div className="col-12">
-                    {Object.entries(profileGalleryImages.reduce<Record<string, ProfileGalleryImage[]>>((acc, image) => {
-                      if (!acc[image.folder]) acc[image.folder] = [];
-                      acc[image.folder].push(image);
-                      return acc;
-                    }, {})).map(([folder, images]) => (
-                      <div key={folder} className="mb-3">
-                        <div className="fw-semibold mb-2">{folder}</div>
-                        <div className="d-flex flex-wrap gap-2">
-                          {images.map((image) => {
-                            const isSelected = selectedGalleryImageUrl === image.url;
+                    <div className="row g-3">
+                      <div className="col-md-4">
+                        <div className="border rounded p-2" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                          {profileImageFolders.length === 0 && (
+                            <div className="text-muted small">No folders found in Images library.</div>
+                          )}
+                          {profileImageFolders.map((folder) => {
+                            const isActive = selectedProfileFolder?.ServerRelativeUrl === folder.ServerRelativeUrl;
                             return (
                               <button
                                 type="button"
-                                key={`${folder}-${image.url}`}
-                                className={`btn p-1 border ${isSelected ? 'border-primary' : 'border-light'}`}
-                                onClick={() => {
-                                  setSelectedGalleryImageUrl(image.url);
-                                  setProfileUploadFile(null);
-                                  setRemoveProfileImage(false);
-                                  setEmployeeFormData({ ...employeeFormData, avatar: image.url });
-                                }}
-                                title={image.name}
+                                key={folder.ServerRelativeUrl}
+                                className={`btn btn-sm w-100 text-start mb-1 ${isActive ? 'btn-primary' : 'btn-light'}`}
+                                onClick={() => { loadImagesForFolder(folder).catch(() => undefined); }}
                               >
-                                <img
-                                  src={image.url}
-                                  alt={image.name}
-                                  width="72"
-                                  height="72"
-                                  style={{ objectFit: 'cover', borderRadius: 6 }}
-                                />
+                                <span>{folder.Name}</span>
+                                <span className="float-end">{folder.ItemCount}</span>
                               </button>
                             );
                           })}
                         </div>
                       </div>
-                    ))}
+                      <div className="col-md-8">
+                        <div className="border rounded p-2" style={{ minHeight: '300px' }}>
+                          {selectedProfileFolder && (
+                            <div className="small fw-semibold mb-2">Images in "{selectedProfileFolder.Name}"</div>
+                          )}
+                          {!selectedProfileFolder && (
+                            <div className="text-muted small">Select a folder to view images.</div>
+                          )}
+                          {isLoadingFolderImages && <div className="text-muted small">Loading folder images...</div>}
+                          {!isLoadingFolderImages && selectedProfileFolder && profileFolderImages.length === 0 && (
+                            <div className="text-muted small">No images found in this folder.</div>
+                          )}
+                          {!isLoadingFolderImages && profileFolderImages.length > 0 && (
+                            <div className="d-flex flex-wrap gap-2">
+                              {profileFolderImages.map((image) => {
+                                const isSelected = selectedGalleryImageUrl === image.url;
+                                return (
+                                  <button
+                                    type="button"
+                                    key={`${image.folder}-${image.url}`}
+                                    className={`btn p-1 border ${isSelected ? 'border-primary' : 'border-light'}`}
+                                    onClick={() => {
+                                      setSelectedGalleryImageUrl(image.url);
+                                      setProfileUploadFile(null);
+                                      setRemoveProfileImage(false);
+                                      setEmployeeFormData({ ...employeeFormData, avatar: image.url });
+                                    }}
+                                    title={image.name}
+                                  >
+                                    <img
+                                      src={image.url}
+                                      alt={image.name}
+                                      width="72"
+                                      height="72"
+                                      style={{ objectFit: 'cover', borderRadius: 6 }}
+                                    />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </>
@@ -3420,6 +3607,15 @@ const App: React.FC<AppProps> = ({ sp }) => {
           </div>
         </form>
       </Modal>
+
+      <VersionHistoryModal
+        isOpen={isVersionHistoryModalOpen}
+        onClose={() => setIsVersionHistoryModalOpen(false)}
+        title={versionHistoryTitle}
+        entries={versionHistoryEntries}
+        isLoading={isVersionHistoryLoading}
+        error={versionHistoryError}
+      />
     </div >
   );
 };

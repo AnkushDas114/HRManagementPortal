@@ -9,8 +9,7 @@ import { Employee } from "../types";
 import { formatDateIST } from "../utils/dateTime";
 
 const EMPLOYEE_MASTER_LIST_TITLE = "EmployeeMaster";
-
-export const PROFILE_IMAGE_FOLDERS = ['Covers', 'Logos', 'Page-Images', 'PXCDescriptionImage', 'SliderImages', 'TeamMembers', 'Tiles'] as const;
+const IMAGE_LIBRARY_TITLE = 'Images';
 
 export interface ProfileGalleryImage {
   folder: string;
@@ -18,11 +17,61 @@ export interface ProfileGalleryImage {
   url: string;
 }
 
+export interface SPFolder {
+  Name: string;
+  ItemCount: number;
+  ServerRelativeUrl: string;
+}
+
+export interface SPImage {
+  id: string;
+  fileName: string;
+  serverRelativeUrl: string;
+  absoluteUrl: string;
+  folderName: string;
+}
+
+const IMAGE_RETRY_BASE_DELAY_MS = 700;
+const IMAGE_RETRY_MAX_ATTEMPTS = 5;
+const IMAGE_CACHE_TTL_MS = 2 * 60 * 1000;
+let imageGalleryCache: { ts: number; data: ProfileGalleryImage[] } | null = null;
+
+const sleep = async (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isThrottleError = (error: unknown): boolean => {
+  const status = Number((error as { status?: number; statusCode?: number })?.status || (error as { statusCode?: number })?.statusCode || 0);
+  const message = String((error as { message?: string })?.message || '').toLowerCase();
+  return status === 429 || status === 503 || message.includes('throttl') || message.includes('too many requests');
+};
+
+const withThrottleRetry = async <T>(operation: () => Promise<T>, label: string): Promise<T> => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < IMAGE_RETRY_MAX_ATTEMPTS; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isThrottleError(error) || attempt === IMAGE_RETRY_MAX_ATTEMPTS - 1) break;
+      const jitter = Math.floor(Math.random() * 220);
+      const delay = IMAGE_RETRY_BASE_DELAY_MS * (2 ** attempt) + jitter;
+      console.warn(`Throttled while ${label}. Retrying in ${delay}ms (attempt ${attempt + 1}/${IMAGE_RETRY_MAX_ATTEMPTS}).`);
+      await sleep(delay);
+    }
+  }
+  throw lastError;
+};
+
 async function fetchEmployeeItems(sp: SPFI): Promise<any[]> {
   const items = await sp.web.lists
     .getByTitle(EMPLOYEE_MASTER_LIST_TITLE)
     .items
-    .select('*')
+    .select(
+      '*',
+      'Author/Title',
+      'Editor/Title',
+      'AttachmentFiles'
+    )
+    .expand('Author', 'Editor', 'AttachmentFiles')
     .top(5000)();
   return items;
 }
@@ -127,12 +176,107 @@ export async function replaceEmployeeProfileImage(sp: SPFI, itemId: number, blob
 }
 
 export async function getProfileGalleryImages(sp: SPFI): Promise<ProfileGalleryImage[]> {
+  if (imageGalleryCache && (Date.now() - imageGalleryCache.ts) < IMAGE_CACHE_TTL_MS) {
+    return imageGalleryCache.data;
+  }
+
+  const webInfo = await sp.web.select('Url')();
+  const siteUrl = String((webInfo as { Url?: string })?.Url || window.location.href);
+  try {
+    const folders = await getImageLibraryFolders(sp, siteUrl);
+    const allImages: ProfileGalleryImage[] = [];
+    for (const folder of folders) {
+      if (folder.ItemCount <= 0) continue;
+      const files = await getImagesByFolder(sp, siteUrl, folder.ServerRelativeUrl);
+      files.forEach((file) => {
+        allImages.push({
+          folder: folder.Name,
+          name: file.fileName,
+          url: file.serverRelativeUrl
+        });
+      });
+    }
+    if (allImages.length > 0) {
+      imageGalleryCache = { ts: Date.now(), data: allImages };
+      return allImages;
+    }
+  } catch {
+    // fallback below
+  }
+
+  const fallback = await getProfileGalleryImagesFallback(sp);
+  imageGalleryCache = { ts: Date.now(), data: fallback };
+  return fallback;
+}
+
+export const getImageLibraryFolders = async (
+  sp: SPFI,
+  _siteUrl: string
+): Promise<SPFolder[]> => {
+  try {
+    const folders = await withThrottleRetry(
+      async () => sp.web.lists
+        .getByTitle(IMAGE_LIBRARY_TITLE)
+        .rootFolder
+        .folders
+        .select("Name", "ServerRelativeUrl", "ItemCount")(),
+      'loading image library folders'
+    );
+
+    return (folders as Array<{ Name?: string; ItemCount?: number; ServerRelativeUrl?: string }>)
+      .filter((f) => String(f.Name || '') !== 'Forms' && !String(f.Name || '').startsWith('_'))
+      .map((f) => ({
+        Name: String(f.Name || ''),
+        ItemCount: Number(f.ItemCount || 0),
+        ServerRelativeUrl: String(f.ServerRelativeUrl || '')
+      }))
+      .filter((f) => !!f.Name && !!f.ServerRelativeUrl);
+  } catch (e) {
+    console.error("Error fetching image library folders:", e);
+    return [];
+  }
+};
+
+export const getImagesByFolder = async (
+  sp: SPFI,
+  siteUrl: string,
+  folderServerRelativeUrl: string
+): Promise<SPImage[]> => {
+  try {
+    const files = await withThrottleRetry(
+      async () => sp.web
+        .getFolderByServerRelativePath(folderServerRelativeUrl)
+        .files
+        .select('UniqueId', 'Name', 'ServerRelativeUrl')(),
+      `loading images from ${folderServerRelativeUrl}`
+    );
+
+    let origin = '';
+    try {
+      origin = new URL(siteUrl).origin;
+    } catch {
+      origin = window.location.origin;
+    }
+
+    return (files as Array<{ UniqueId?: string; Name?: string; ServerRelativeUrl?: string }>).map((f) => {
+      const serverRelativeUrl = String(f.ServerRelativeUrl || '');
+      return {
+        id: String(f.UniqueId || serverRelativeUrl || f.Name || ''),
+        fileName: String(f.Name || ''),
+        serverRelativeUrl,
+        absoluteUrl: `${origin}${serverRelativeUrl}`,
+        folderName: folderServerRelativeUrl.split('/').pop() || ''
+      };
+    }).filter((file) => !!file.serverRelativeUrl);
+  } catch (e) {
+    console.error(`Error fetching images from ${folderServerRelativeUrl}:`, e);
+    return [];
+  }
+};
+
+export async function getProfileGalleryImagesFallback(sp: SPFI): Promise<ProfileGalleryImage[]> {
   const images: ProfileGalleryImage[] = [];
   const seen = new Set<string>();
-  const normalize = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const targetByNormalized = new Map<string, string>(
-    PROFILE_IMAGE_FOLDERS.map((name) => [normalize(name), name])
-  );
 
   try {
     const webInfo = await sp.web.select('ServerRelativeUrl')();
@@ -176,9 +320,6 @@ export async function getProfileGalleryImages(sp: SPFI): Promise<ProfileGalleryI
 
         for (const folderInfo of subFolders as any[]) {
           const folderName = String(folderInfo.Name || '');
-          const normalized = normalize(folderName);
-          const mappedFolderName = targetByNormalized.get(normalized);
-          if (!mappedFolderName) continue;
 
           const folderPath = String(folderInfo.ServerRelativeUrl || '').trim();
           if (!folderPath) continue;
@@ -194,7 +335,7 @@ export async function getProfileGalleryImages(sp: SPFI): Promise<ProfileGalleryI
               if (!url || seen.has(url)) return;
               seen.add(url);
               images.push({
-                folder: mappedFolderName,
+                folder: folderName || 'Images',
                 name: String(file.Name || 'image'),
                 url
               });
@@ -269,6 +410,10 @@ async function mapItemToEmployee(sp: SPFI, item: any): Promise<Employee> {
     insuranceTaken: normalizeInsuranceTaken(item.InsuranceTaken),
     phone: item.Phone,
     location: item.Location,
-    reportingManager: item.ReportingManager
+    reportingManager: item.ReportingManager,
+    createdAt: formatDateIST(item.Created),
+    modifiedAt: formatDateIST(item.Modified),
+    createdByName: item.Author?.Title || '',
+    modifiedByName: item.Editor?.Title || ''
   };
 }

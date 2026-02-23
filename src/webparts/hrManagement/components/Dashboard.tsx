@@ -6,7 +6,7 @@ import StatCard from '../ui/StatCard';
 import { generateLeaveSummaryReport } from '../services/geminiService';
 import Modal from '../ui/Modal';
 import { Sparkle, Users, CheckCircle, Clock, XCircle, UserCheck, Calendar as CalendarIcon, Flag, PartyPopper, Cake, MessageSquare, Plus, Calendar, Trash2, Edit3 } from 'lucide-react';
-import { formatDateForDisplayIST, monthNameIST, todayIST, getNowIST } from '../utils/dateTime';
+import { formatAuditInfo, formatDateForDisplayIST, monthNameIST, todayIST, getNowIST } from '../utils/dateTime';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 
 const RxXAxis = XAxis as unknown as React.ComponentType<any>;
@@ -22,13 +22,15 @@ interface DashboardProps {
   onAddTeamEvent: (event: Omit<TeamEvent, 'id'>, employeeId?: string) => Promise<void> | void;
   onUpdateTeamEvent: (eventId: number, event: Omit<TeamEvent, 'id'>, employeeId?: string) => Promise<void> | void;
   onDeleteTeamEvent: (eventId: number) => void;
+  onOpenTeamEventForm?: (eventId: number) => void;
+  onOpenTeamEventVersionHistory?: (eventId: number) => void;
   onPendingClick?: () => void;
   onOnLeaveTodayClick?: () => void;
   onConcernsClick?: () => void;
 }
 
 
-const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, concernsCount, holidays, teamEvents, onAddTeamEvent, onUpdateTeamEvent, onDeleteTeamEvent, onPendingClick, onOnLeaveTodayClick, onConcernsClick }) => {
+const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, concernsCount, holidays, teamEvents, onAddTeamEvent, onUpdateTeamEvent, onDeleteTeamEvent, onOpenTeamEventForm, onOpenTeamEventVersionHistory, onPendingClick, onOnLeaveTodayClick, onConcernsClick }) => {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = React.useState(false);
   const [editingEventId, setEditingEventId] = React.useState<number | null>(null);
@@ -44,6 +46,11 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
     date: todayIST(),
     description: ''
   });
+
+  const editingEvent = React.useMemo(
+    () => teamEvents.find((event) => event.id === editingEventId) || null,
+    [teamEvents, editingEventId]
+  );
 
   const resetEventForm = React.useCallback(() => {
     setEditingEventId(null);
@@ -796,6 +803,16 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
           resetEventForm();
         }}
         title={editingEventId !== null ? 'Edit Team Event' : 'Add New Team Event'}
+        createdInfo={formatAuditInfo(editingEvent?.createdAt, editingEvent?.createdByName)}
+        modifiedInfo={formatAuditInfo(editingEvent?.modifiedAt, editingEvent?.modifiedByName)}
+        onVersionHistoryClick={() => {
+          if (editingEventId === null || editingEventId === undefined) return;
+          onOpenTeamEventVersionHistory?.(editingEventId);
+        }}
+        onOpenFormClick={() => {
+          if (editingEventId === null || editingEventId === undefined) return;
+          onOpenTeamEventForm?.(editingEventId);
+        }}
         footer={
           <>
             <button className="btn btn-outline-secondary" onClick={() => {

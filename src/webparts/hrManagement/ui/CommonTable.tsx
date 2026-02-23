@@ -1,8 +1,7 @@
 import * as React from 'react';
-import { Settings2 } from 'lucide-react';
-import Modal from './Modal';
+import { SmartTable } from './Table/SmartTable';
+import { ColumnSetting, TableSettings } from './Table/TableTypes';
 import { formatDateForDisplayIST } from '../utils/dateTime';
-import './CommonTable.css';
 
 type Align = 'start' | 'center' | 'end';
 
@@ -40,22 +39,11 @@ const normalize = (value: unknown): string => {
   return String(value);
 };
 
-const matchesSearch = (text: string, query: string, mode: SearchMode): boolean => {
-  if (!query) return true;
-  const hay = text.toLowerCase();
-  const q = query.toLowerCase().trim();
-  if (!q) return true;
-
-  if (mode === 'exact') {
-    return hay.includes(q);
-  }
-
-  const tokens = q.split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return true;
-  if (mode === 'all') {
-    return tokens.every(t => hay.includes(t));
-  }
-  return tokens.some(t => hay.includes(t));
+const getComparableValue = (value: unknown): string | number => {
+  if (typeof value === 'number') return value;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  return normalize(value).toLowerCase();
 };
 
 const CommonTable = <T,>({
@@ -66,320 +54,359 @@ const CommonTable = <T,>({
   showColumnFilters = true,
   enableGlobalSearch = true,
   globalSearchPlaceholder = 'Search',
-  compact = false,
+  // compact = false,
   headerActions,
-  enableRowSelection = false,
+  // enableRowSelection = false,
 }: CommonTableProps<T>): JSX.Element => {
-  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
-  const [searchMode, setSearchMode] = React.useState<SearchMode>('all');
-  const [globalQuery, setGlobalQuery] = React.useState('');
-  const [columnFilters, setColumnFilters] = React.useState<Record<string, string>>({});
-  const [selectedIds, setSelectedIds] = React.useState<Record<string, boolean>>({});
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchType, setSearchType] = React.useState<'All Words' | 'Any Words' | 'Exact Phrase'>('All Words');
+  const [searchFields, setSearchFields] = React.useState<string[]>(columns.filter(c => c.searchable !== false).map(c => c.key));
+  const [filters, setFilters] = React.useState<Record<string, string>>({});
+  const [sortKey, setSortKey] = React.useState<string | null>(null);
+  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc' | null>(null);
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
 
-  const [headerVisible, setHeaderVisible] = React.useState(showHeader);
-  const [filtersVisible, setFiltersVisible] = React.useState(showColumnFilters);
-  const [searchVisible, setSearchVisible] = React.useState(enableGlobalSearch);
-
-  type ColumnConfig = {
-    key: string;
-    header: string;
-    visible: boolean;
-    width?: number | string;
-    order: number;
-  };
-
-  const [columnConfig, setColumnConfig] = React.useState<ColumnConfig[]>(() =>
-    columns.map((col, index) => ({
+  const [tableSettings, setTableSettings] = React.useState<TableSettings>(() => ({
+    showHeader,
+    showColumnFilter: showColumnFilters,
+    showAdvancedSearch: enableGlobalSearch,
+    tableHeight: 'Flexible',
+    columns: columns.map((col, index) => ({
+      id: col.key,
       key: col.key,
-      header: col.header,
+      label: col.header,
       visible: true,
-      width: col.width,
-      order: index + 1,
-    }))
-  );
+      width: typeof col.width === 'number' ? col.width : (typeof col.width === 'string' ? parseInt(col.width) || 150 : 150),
+      order: index,
+    })),
+    visibleIcons: ['search', 'filter', 'settings'],
+  }));
 
-  const [draftConfig, setDraftConfig] = React.useState<ColumnConfig[]>(columnConfig);
-  const [draftHeaderVisible, setDraftHeaderVisible] = React.useState(headerVisible);
-  const [draftFiltersVisible, setDraftFiltersVisible] = React.useState(filtersVisible);
-  const [draftSearchVisible, setDraftSearchVisible] = React.useState(searchVisible);
+  const defaultSettings = React.useMemo<TableSettings>(() => ({
+    showHeader,
+    showColumnFilter: showColumnFilters,
+    showAdvancedSearch: enableGlobalSearch,
+    tableHeight: 'Flexible',
+    columns: columns.map((col, index) => ({
+      id: col.key,
+      key: col.key,
+      label: col.header,
+      visible: true,
+      width: 150,
+      order: index,
+    })),
+    visibleIcons: ['search', 'filter', 'settings'],
+  }), [columns, showHeader, showColumnFilters, enableGlobalSearch]);
 
-  React.useEffect(() => {
-    setHeaderVisible(showHeader);
-    setFiltersVisible(showColumnFilters);
-    setSearchVisible(enableGlobalSearch);
-  }, [showHeader, showColumnFilters, enableGlobalSearch]);
+  const mappedData = React.useMemo(() => {
+    return data.map((item, index) => {
+      const id = getRowId ? String(getRowId(item, index)) : ((item as any).id ? String((item as any).id) : String(index));
+      return { ...item, id };
+    }) as (T & { id: string })[];
+  }, [data, getRowId]);
 
-  React.useEffect(() => {
-    setColumnConfig((prev) => {
-      const next: ColumnConfig[] = columns.map((col, index) => {
-        const existing = prev.find(p => p.key === col.key);
-        return {
-          key: col.key,
-          header: col.header,
-          visible: existing ? existing.visible : true,
-          width: existing?.width ?? col.width,
-          order: existing?.order ?? index + 1,
-        };
-      });
-      return next;
-    });
-  }, [columns]);
+  const processedData = React.useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const searchableColumns = columns.filter(c => c.searchable !== false);
+    const activeSearchColumns = searchFields.length > 0
+      ? searchableColumns.filter(c => searchFields.indexOf(c.key) !== -1)
+      : searchableColumns;
 
-  const openSettings = () => {
-    setDraftConfig(columnConfig.map(c => ({ ...c })));
-    setDraftHeaderVisible(headerVisible);
-    setDraftFiltersVisible(filtersVisible);
-    setDraftSearchVisible(searchVisible);
-    setIsSettingsOpen(true);
-  };
-
-  const applySettings = () => {
-    setColumnConfig(draftConfig.map(c => ({ ...c })));
-    setHeaderVisible(draftHeaderVisible);
-    setFiltersVisible(draftFiltersVisible);
-    setSearchVisible(draftSearchVisible);
-    setIsSettingsOpen(false);
-  };
-
-  const sortedColumns = React.useMemo(() => {
-    const configMap = new Map(columnConfig.map(c => [c.key, c]));
-    return columns
-      .map(col => {
-        const cfg = configMap.get(col.key);
-        return {
-          col,
-          cfg,
-        };
-      })
-      .filter(({ cfg }) => cfg?.visible !== false)
-      .sort((a, b) => (a.cfg?.order ?? 0) - (b.cfg?.order ?? 0))
-      .map(({ col, cfg }) => ({ ...col, width: cfg?.width ?? col.width }));
-  }, [columns, columnConfig]);
-
-  const filtered = React.useMemo(() => {
-    const searchableColumns = sortedColumns.filter(c => c.searchable !== false);
-    const filterableColumns = sortedColumns.filter(c => c.filterable !== false);
-
-    return data.filter((row) => {
-      const perColumnOk = filterableColumns.every(col => {
-        const filterValue = (columnFilters[col.key] || '').trim();
-        if (!filterValue) return true;
-        const cell = col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key];
-        return normalize(cell).toLowerCase().includes(filterValue.toLowerCase());
-      });
-      if (!perColumnOk) return false;
-
-      if (!searchVisible) return true;
-      if (!globalQuery.trim()) return true;
-
-      const combined = searchableColumns
-        .map(col => {
-          const cell = col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key];
-          return normalize(cell);
+    const matchesSearch = (row: T & { id: string }): boolean => {
+      if (!normalizedQuery) return true;
+      const combined = activeSearchColumns
+        .map((col) => {
+          const value = col.accessor ? col.accessor(row as unknown as T) : (row as any)[col.key];
+          return normalize(value).toLowerCase();
         })
         .join(' ');
 
-      return matchesSearch(combined, globalQuery, searchMode);
+      if (searchType === 'Exact Phrase') return combined.indexOf(normalizedQuery) !== -1;
+
+      const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+      if (tokens.length === 0) return true;
+      if (searchType === 'All Words') return tokens.every(token => combined.indexOf(token) !== -1);
+      return tokens.some(token => combined.indexOf(token) !== -1);
+    };
+
+    const matchesFilters = (row: T & { id: string }): boolean => {
+      return Object.keys(filters).every((key) => {
+        const filterValue = (filters[key] || '').trim().toLowerCase();
+        if (!filterValue) return true;
+        const col = columns.find(c => c.key === key);
+        if (!col) return true;
+        const value = col.accessor ? col.accessor(row as unknown as T) : (row as any)[col.key];
+        return normalize(value).toLowerCase().indexOf(filterValue) !== -1;
+      });
+    };
+
+    const filteredRows = mappedData.filter(row => matchesSearch(row) && matchesFilters(row));
+    if (!sortKey || !sortDirection) return filteredRows;
+
+    const sortCol = columns.find(c => c.key === sortKey);
+    if (!sortCol) return filteredRows;
+
+    return filteredRows
+      .map((row, idx) => ({ row, idx }))
+      .sort((a, b) => {
+        const left = sortCol.accessor ? sortCol.accessor(a.row as unknown as T) : (a.row as any)[sortCol.key];
+        const right = sortCol.accessor ? sortCol.accessor(b.row as unknown as T) : (b.row as any)[sortCol.key];
+        const l = getComparableValue(left);
+        const r = getComparableValue(right);
+
+        let result = 0;
+        if (typeof l === 'number' && typeof r === 'number') {
+          result = l - r;
+        } else {
+          result = String(l).localeCompare(String(r), undefined, { numeric: true, sensitivity: 'base' });
+        }
+
+        if (result === 0) return a.idx - b.idx;
+        return sortDirection === 'asc' ? result : -result;
+      })
+      .map(item => item.row);
+  }, [mappedData, columns, searchQuery, searchType, searchFields, filters, sortKey, sortDirection]);
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : prev === 'desc' ? null : 'asc'));
+      if (sortDirection === 'desc') setSortKey(null);
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set<string>();
+      prev.forEach(id => next.add(id));
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-  }, [data, sortedColumns, columnFilters, globalQuery, searchMode, searchVisible]);
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedIds.size === processedData.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(processedData.map(item => item.id)));
+    }
+  };
+
+  const renderCell = (item: T, columnSetting: ColumnSetting) => {
+    const colDef = columns.find(c => c.key === columnSetting.key);
+    if (!colDef) return null;
+    if (colDef.render) return colDef.render(item);
+    const value = colDef.accessor ? colDef.accessor(item) : (item as any)[colDef.key];
+    return normalize(value);
+  };
 
   return (
-    <div className="common-table m-2">
-      {searchVisible && (
-        <div className="common-table__toolbar">
-          <div className="common-table__count">Showing {filtered.length} of {data.length}</div>
-          <div className="common-table__search">
-            <div className="input-group input-group-sm common-table__search-group">
-              {/* <span className="input-group-text">Search</span> */}
-              <input
-                type="text"
-                className="form-control"
-                placeholder={globalSearchPlaceholder}
-                value={globalQuery}
-                onChange={e => setGlobalQuery(e.target.value)}
-              />
-            </div>
-            <button type="button" className="btn btn-light btn-sm common-table__icon-btn" aria-label="Settings" onClick={openSettings}>
-              <Settings2 size={20} strokeWidth={2.3} className="common-table__icon-svg" />
-            </button>
-            <select
-              className="form-select form-select-sm common-table__mode"
-              value={searchMode}
-              onChange={e => setSearchMode(e.target.value as SearchMode)}
-            >
-              <option value="all">All Words</option>
-              <option value="any">Any Words</option>
-              <option value="exact">Exact Phrase</option>
-            </select>
-          </div>
-          <div className="common-table__actions">{headerActions}</div>
-        </div>
-      )}
-
-      <div className="table-responsive common-table__responsive">
-        <table className={`table table-hover align-middle mb-0 ${compact ? 'table-sm' : ''}`}>
-          {headerVisible && (
-            <thead className="table-light">
-              <tr>
-                {enableRowSelection && (
-                  <th style={{ width: 36 }} className="text-center">
-                    <input
-                      type="checkbox"
-                      className="form-check-input common-table__checkbox"
-                      checked={filtered.length > 0 && filtered.every((row, idx) => selectedIds[String(getRowId ? getRowId(row, idx) : idx)])}
-                      onChange={(e) => {
-                        const next: Record<string, boolean> = {};
-                        if (e.target.checked) {
-                          filtered.forEach((row, idx) => {
-                            next[String(getRowId ? getRowId(row, idx) : idx)] = true;
-                          });
-                        }
-                        setSelectedIds(next);
-                      }}
-                    />
-                  </th>
-                )}
-                {sortedColumns.map(col => (
-                  <th
-                    key={col.key}
-                    style={{ width: col.width }}
-                    className={`${col.align ? `text-${col.align}` : ''} common-table__head-cell`.trim()}
-                  >
-                    <div className="fw-bold small common-table__header-label">{col.header}</div>
-                    {filtersVisible && col.filterable !== false && (
-                      <input
-                        type="text"
-                        className="form-control form-control-sm mt-1 common-table__filter"
-                        value={columnFilters[col.key] || ''}
-                        onChange={e => setColumnFilters(prev => ({ ...prev, [col.key]: e.target.value }))}
-                        placeholder={col.header}
-                      />
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          )}
-          <tbody>
-            {filtered.map((row, index) => {
-              const rowKey = getRowId ? getRowId(row, index) : index;
-              return (
-                <tr key={rowKey}>
-                  {enableRowSelection && (
-                    <td className="text-center">
-                      <input
-                        type="checkbox"
-                        className="form-check-input common-table__checkbox"
-                        checked={!!selectedIds[String(rowKey)]}
-                        onChange={(e) => setSelectedIds(prev => ({ ...prev, [String(rowKey)]: e.target.checked }))}
-                      />
-                    </td>
-                  )}
-                  {sortedColumns.map(col => (
-                    <td key={col.key} className={`${col.align ? `text-${col.align}` : ''} common-table__cell`.trim()}>
-                      {col.render ? col.render(row) : normalize(col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key])}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={sortedColumns.length + (enableRowSelection ? 1 : 0)} className="text-center text-muted py-4">
-                  No data found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <Modal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        title="Common Table Settings"
-        size="lg"
-        footer={
-          <div className="d-flex justify-content-end gap-2 w-100">
-            <button className="btn btn-outline-secondary" onClick={() => setIsSettingsOpen(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={applySettings}>Apply</button>
-          </div>
+    <div className="common-table-upgrade w-100">
+      <SmartTable
+        data={processedData}
+        totalCount={mappedData.length}
+        columns={tableSettings.columns}
+        tableSettings={tableSettings}
+        onSettingsChange={setTableSettings}
+        defaultSettings={defaultSettings}
+        selectedIds={selectedIds}
+        onToggleSelect={handleToggleSelect}
+        onToggleSelectAll={handleToggleSelectAll}
+        isAllSelected={processedData.length > 0 && processedData.every(item => selectedIds.has(item.id))}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchType={searchType}
+        onSearchTypeChange={setSearchType}
+        searchFields={searchFields}
+        onSearchFieldsChange={setSearchFields}
+        sortKey={sortKey}
+        sortDirection={sortDirection}
+        onSort={handleSort}
+        filters={filters}
+        onFilterChange={(key, val) => setFilters(prev => ({ ...prev, [key]: val }))}
+        renderCell={renderCell as (item: any, column: ColumnSetting) => React.ReactNode}
+        viewportHeight={600}
+        onIconClick={() => { }}
+        toolbarActions={headerActions}
+        showActionColumn={false}
+      />
+      <style>{`
+        .common-table-upgrade {
+          background: #fff;
+          border-radius: 8px;
+          overflow: visible;
+          border: 1px solid #d5dfeb;
+          box-shadow: 0 8px 22px rgba(14, 30, 52, 0.06);
+          position: relative;
+          z-index: 1;
         }
-      >
-        <div className="common-table-settings">
-          <div className="common-table-settings__panel">
-            <div className="fw-bold mb-2">Customized Setting</div>
-            <div className="border rounded p-3 bg-white h-100">
-              <div className="small fw-bold text-muted mb-2">Table Header</div>
-              <div className="form-check mb-2">
-                <input className="form-check-input" type="checkbox" id="showHeader" checked={draftHeaderVisible} onChange={(e) => setDraftHeaderVisible(e.target.checked)} />
-                <label className="form-check-label" htmlFor="showHeader">Show Header</label>
-              </div>
-              <div className="form-check mb-2">
-                <input className="form-check-input" type="checkbox" id="showFilters" checked={draftFiltersVisible} onChange={(e) => setDraftFiltersVisible(e.target.checked)} />
-                <label className="form-check-label" htmlFor="showFilters">Show Column Filter</label>
-              </div>
-              <div className="form-check">
-                <input className="form-check-input" type="checkbox" id="showSearch" checked={draftSearchVisible} onChange={(e) => setDraftSearchVisible(e.target.checked)} />
-                <label className="form-check-label" htmlFor="showSearch">Show Advanced Search</label>
-              </div>
-            </div>
-          </div>
-
-          <div className="common-table-settings__panel common-table-settings__panel--wide">
-            <div className="fw-bold mb-2">Column Settings</div>
-            <div className="border rounded overflow-auto px-2">
-              <div className="row g-0 border-bottom bg-light small fw-bold text-muted">
-                <div className="col-5 p-2">Columns</div>
-                <div className="col-4 p-2">Column Width</div>
-                <div className="col-3 p-2">Column Ordering</div>
-              </div>
-              {draftConfig.map((col, idx) => (
-                <div key={col.key} className="row g-0 border-bottom align-items-center">
-                  <div className="col-5 p-2 d-flex align-items-center gap-2">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      checked={col.visible}
-                      onChange={(e) => {
-                        const next = [...draftConfig];
-                        next[idx] = { ...next[idx], visible: e.target.checked };
-                        setDraftConfig(next);
-                      }}
-                    />
-                    <span className="small">{col.header}</span>
-                  </div>
-                  <div className="col-4 p-2">
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      value={typeof col.width === 'number' ? col.width : Number(col.width) || ''}
-                      onChange={(e) => {
-                        const next = [...draftConfig];
-                        const val = e.target.value === '' ? undefined : Number(e.target.value);
-                        next[idx] = { ...next[idx], width: val };
-                        setDraftConfig(next);
-                      }}
-                    />
-                  </div>
-                  <div className="col-3 p-2">
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      value={col.order}
-                      onChange={(e) => {
-                        const next = [...draftConfig];
-                        next[idx] = { ...next[idx], order: Number(e.target.value) || col.order };
-                        setDraftConfig(next);
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Modal>
+        .common-table-upgrade .smart-table-wrapper {
+          padding: 0;
+          position: relative;
+          z-index: 1;
+        }
+        .common-table-upgrade .toolbar {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 10px;
+          background: linear-gradient(180deg, #fbfdff 0%, #f6f9fd 100%);
+          border-bottom: 1px solid #e2e9f2;
+          flex-wrap: nowrap;
+          overflow: visible;
+          position: relative;
+          z-index: 50;
+        }
+        .common-table-upgrade .small-text {
+          font-size: 12px;
+          color: #475569;
+          white-space: nowrap;
+        }
+        .common-table-upgrade .search-container {
+          min-width: 190px;
+          max-width: 240px;
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          border: 1px solid #c8d5e5;
+          border-radius: 4px;
+          padding: 0 8px;
+          height: 32px;
+          background: #fff;
+        }
+        .common-table-upgrade .search-container input {
+          border: 0;
+          outline: none;
+          flex: 1;
+          min-width: 0;
+          font-size: 12px;
+          background: transparent;
+        }
+        .common-table-upgrade .search-container i {
+          color: #6b7280;
+          font-size: 12px;
+        }
+        .common-table-upgrade .icon-btn-outline {
+          width: 32px;
+          height: 32px;
+          border: 1px solid #ccd8e7;
+          border-radius: 4px;
+          background: #fff;
+          color: #31547f;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          flex: 0 0 32px;
+        }
+        .common-table-upgrade .icon-btn-outline:hover {
+          border-color: #9fb3cc;
+          background: #f7faff;
+        }
+        .common-table-upgrade .custom-dropdown-trigger {
+          height: 32px !important;
+          min-width: 110px;
+          font-size: 12px !important;
+          border-color: #c8d5e5 !important;
+        }
+        .common-table-upgrade .custom-dropdown-container {
+          position: relative;
+          z-index: 80;
+        }
+        .common-table-upgrade .custom-dropdown-list {
+          z-index: 2000 !important;
+        }
+        .common-table-upgrade .ms-auto {
+          margin-left: auto !important;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: nowrap;
+          white-space: nowrap;
+        }
+        .common-table-upgrade .table-wrapper {
+          border-top: 1px solid #edf2f7;
+        }
+        .common-table-upgrade .table-wrapper table {
+          margin-bottom: 0;
+          background: #ffffff;
+        }
+        .common-table-upgrade .table-wrapper thead {
+          background: #ffffff;
+        }
+        .common-table-upgrade .table-wrapper thead tr {
+          background: #ffffff;
+        }
+        .common-table-upgrade .table-wrapper thead th {
+          background: #ffffff;
+          vertical-align: bottom;
+          border-bottom: 1px solid #d6e0ee;
+          padding: 8px 10px;
+        }
+        .common-table-upgrade .table-wrapper tbody tr {
+          background: #ffffff;
+        }
+        .common-table-upgrade .table-wrapper tbody td {
+          padding: 10px;
+          border-bottom: 1px solid #e6edf5;
+          color: #27384f;
+          font-size: 13px;
+          background: #ffffff;
+        }
+        .common-table-upgrade .filter-input-group {
+          position: relative;
+          background: #ffffff;
+        }
+        .common-table-upgrade .filter-input-group input {
+          width: 100%;
+          height: 28px;
+          border: 1px solid #d1dceb;
+          border-radius: 4px;
+          background: #fff;
+          font-size: 12px;
+          color: #27384f;
+          padding: 0 22px 0 8px;
+        }
+        .common-table-upgrade .filter-input-group input::placeholder {
+          color: #8da4c1;
+        }
+        .common-table-upgrade .filter-input-group .arrows {
+          position: absolute;
+          right: 6px;
+          top: 50%;
+          transform: translateY(-50%);
+          display: flex;
+          flex-direction: column;
+          line-height: 0.7;
+          font-size: 8px;
+          color: #cbd5e1;
+          cursor: pointer;
+          user-select: none;
+        }
+        .common-table-upgrade .filter-input-group .arrows i {
+          height: 8px;
+          display: block;
+        }
+        @media (max-width: 900px) {
+          .common-table-upgrade .toolbar {
+            flex-wrap: wrap;
+          }
+          .common-table-upgrade .ms-auto {
+            margin-left: 0 !important;
+            width: 100%;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+          }
+          .common-table-upgrade .search-container {
+            max-width: none;
+            flex: 1 1 220px;
+          }
+        }
+      `}</style>
     </div>
   );
 };

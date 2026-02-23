@@ -21,8 +21,13 @@ export async function getAllAttendanceRecords(sp: SPFI): Promise<AttendanceRecor
                 "WorkDuration",
                 "Status",
                 "Remarks",
-                "Department"
+                "Department",
+                "Created",
+                "Modified",
+                "Author/Title",
+                "Editor/Title"
             )
+            .expand("Author", "Editor")
             .top(5000)();
         console.log(items)
         return items.map(item => ({
@@ -35,7 +40,11 @@ export async function getAllAttendanceRecords(sp: SPFI): Promise<AttendanceRecor
             clockOut: item.OutTime,
             workDuration: item.WorkDuration,
             status: item.Status as AttendanceStatus,
-            remarks: item.Remarks
+            remarks: item.Remarks,
+            createdAt: formatDateIST(item.Created),
+            modifiedAt: formatDateIST(item.Modified),
+            createdByName: item.Author?.Title || '',
+            modifiedByName: item.Editor?.Title || ''
         }));
     } catch (error) {
         console.error("Error fetching attendance records:", error);
@@ -90,6 +99,59 @@ export async function updateAttendanceRecord(sp: SPFI, record: AttendanceRecord)
             });
     } catch (error) {
         console.error("Error updating attendance record:", error);
+        throw error;
+    }
+}
+
+const normalizeEmployeeId = (value: unknown): string => {
+    const raw = String(value ?? "").trim();
+    if (!raw) return "";
+    const compact = raw.replace(/\s+/g, "");
+    const digits = compact.replace(/\D/g, "");
+    if (!digits) return compact.toLowerCase();
+    const trimmed = digits.replace(/^0+/, "");
+    return trimmed || "0";
+};
+
+export async function deleteAttendanceRecordsByDate(
+    sp: SPFI,
+    targetDate: string,
+    employeeId?: string
+): Promise<number> {
+    const normalizedTargetDate = String(targetDate || "").trim();
+    if (!normalizedTargetDate) return 0;
+
+    try {
+        const allItems = await sp.web.lists.getByTitle(LIST_NAME).items
+            .select("Id", "Date", "EmployeeID")
+            .top(5000)();
+
+        const normalizedTargetEmployeeId = normalizeEmployeeId(employeeId);
+
+        const itemsToDelete = allItems.filter((item: any) => {
+            const itemDate = formatDateIST(item.Date);
+            if (itemDate !== normalizedTargetDate) return false;
+
+            if (!normalizedTargetEmployeeId) return true;
+            return normalizeEmployeeId(item.EmployeeID) === normalizedTargetEmployeeId;
+        });
+
+        if (!itemsToDelete.length) {
+            return 0;
+        }
+
+        const list = sp.web.lists.getByTitle(LIST_NAME);
+        const chunkSize = 25;
+        for (let i = 0; i < itemsToDelete.length; i += chunkSize) {
+            const chunk = itemsToDelete.slice(i, i + chunkSize);
+            await Promise.all(
+                chunk.map((item: any) => list.items.getById(item.Id).delete())
+            );
+        }
+
+        return itemsToDelete.length;
+    } catch (error) {
+        console.error("Error deleting attendance records by date:", error);
         throw error;
     }
 }

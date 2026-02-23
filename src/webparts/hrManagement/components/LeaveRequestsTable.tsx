@@ -6,7 +6,7 @@ import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import { Check, X, Filter, MessageSquare, Info, RotateCcw, ChevronDown, ChevronRight, Clock } from 'lucide-react';
-import { formatDateIST, getNowIST, todayIST } from '../utils/dateTime';
+import { formatAuditInfo, formatDateIST, getNowIST, todayIST } from '../utils/dateTime';
 
 interface LeaveRequestsTableProps {
   requests: LeaveRequest[];
@@ -17,12 +17,14 @@ interface LeaveRequestsTableProps {
   onUpdateStatus: (id: number, status: LeaveStatus, comment: string) => void;
   onDelete: (id: number) => void;
   onViewBalance?: (employee: Employee) => void;
+  onOpenRequestForm?: (requestId: number) => void;
+  onOpenRequestVersionHistory?: (requestId: number) => void;
   teams: string[];
   title?: string;
   showLeaveBalance?: boolean;
 }
 
-const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, employees, leaveQuotas, filter, onFilterChange, onUpdateStatus, onDelete, onViewBalance, teams, title = 'Detailed Leave Applications', showLeaveBalance = true }) => {
+const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, employees, leaveQuotas, filter, onFilterChange, onUpdateStatus, onDelete, onViewBalance, onOpenRequestForm, onOpenRequestVersionHistory, teams, title = 'Detailed Leave Applications', showLeaveBalance = true }) => {
   const [isCommentModalOpen, setIsCommentModalOpen] = React.useState(false);
   const [selectedRequest, setSelectedRequest] = React.useState<LeaveRequest | null>(null);
   const [comment, setComment] = React.useState('');
@@ -403,7 +405,22 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         />
       </div >
 
-      <Modal isOpen={isCommentModalOpen} onClose={() => setIsCommentModalOpen(false)} title={modalTitle} footer={modalFooter}>
+      <Modal
+        isOpen={isCommentModalOpen}
+        onClose={() => setIsCommentModalOpen(false)}
+        title={modalTitle}
+        createdInfo={formatAuditInfo(selectedRequest?.createdAt, selectedRequest?.createdByName)}
+        modifiedInfo={formatAuditInfo(selectedRequest?.modifiedAt, selectedRequest?.modifiedByName)}
+        onVersionHistoryClick={() => {
+          if (!selectedRequest?.id) return;
+          onOpenRequestVersionHistory?.(selectedRequest.id);
+        }}
+        onOpenFormClick={() => {
+          if (!selectedRequest?.id) return;
+          onOpenRequestForm?.(selectedRequest.id);
+        }}
+        footer={modalFooter}
+      >
         <div className="animate-in fade-in">
           <p className="small text-dark mb-4 p-3 bg-light rounded border">
             Decision for <strong>{selectedRequest?.employee.name}</strong><br />

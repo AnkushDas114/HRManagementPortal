@@ -77,6 +77,10 @@ export interface Employee {
   salaryInsurance?: number;
   salaryBonus?: number;
   insuranceTaken?: 'Yes' | 'No';
+  createdAt?: string;
+  modifiedAt?: string;
+  createdByName?: string;
+  modifiedByName?: string;
 }
 
 export interface LeaveRequest {
@@ -96,6 +100,10 @@ export interface LeaveRequest {
   halfDayType?: 'first' | 'second';
   isRecurring?: boolean;
   recurringFrequency?: string;
+  createdAt?: string;
+  modifiedAt?: string;
+  createdByName?: string;
+  modifiedByName?: string;
 }
 
 export interface AttendanceRecord {
@@ -109,6 +117,10 @@ export interface AttendanceRecord {
   clockOut?: string;
   workDuration?: string;
   remarks?: string;
+  createdAt?: string;
+  modifiedAt?: string;
+  createdByName?: string;
+  modifiedByName?: string;
 }
 
 export interface SalarySlip {
@@ -136,6 +148,10 @@ export interface SalarySlip {
   generatedDate: string;
   workingDays?: number;
   paidDays?: number;
+  createdAt?: string;
+  modifiedAt?: string;
+  createdByName?: string;
+  modifiedByName?: string;
 }
 
 export interface Holiday {
@@ -143,6 +159,10 @@ export interface Holiday {
   name: string;
   date: string;
   type: 'Public' | 'Restricted';
+  createdAt?: string;
+  modifiedAt?: string;
+  createdByName?: string;
+  modifiedByName?: string;
 }
 
 export interface Policy {
@@ -150,6 +170,10 @@ export interface Policy {
   title: string;
   content: string;
   lastUpdated: string;
+  createdAt?: string;
+  modifiedAt?: string;
+  createdByName?: string;
+  modifiedByName?: string;
 }
 
 export interface Concern {
@@ -162,6 +186,10 @@ export interface Concern {
   status: ConcernStatus;
   submittedAt: string;
   repliedAt?: string;
+  createdAt?: string;
+  modifiedAt?: string;
+  createdByName?: string;
+  modifiedByName?: string;
 }
 
 export interface TeamEvent {
@@ -181,4 +209,8 @@ export interface TeamEvent {
   date: string;
   description?: string;
   employee?: Employee;
+  createdAt?: string;
+  modifiedAt?: string;
+  createdByName?: string;
+  modifiedByName?: string;
 }

@@ -25,11 +25,14 @@ export async function getAllConcerns(sp: SPFI): Promise<Concern[]> {
                 'Reply',
                 'RepliedAt',
                 'Created',
+                'Modified',
+                'Author/Title',
+                'Editor/Title',
                 'Employee/Id',
                 'Employee/Title',
                 'Employee/EMail'
             )
-            .expand('Employee')
+            .expand('Employee', 'Author', 'Editor')
             .orderBy('Created', false)();
         console.log("concern", items);
         return items.map(mapItemToConcern);
@@ -108,6 +111,10 @@ function mapItemToConcern(item: any): Concern {
         reply: item.Reply || undefined,
         status: (item.Status as ConcernStatus) || ConcernStatus.Open,
         submittedAt: formatDateIST(item.Created),
-        repliedAt: formatDateIST(item.RepliedAt) || undefined
+        repliedAt: formatDateIST(item.RepliedAt) || undefined,
+        createdAt: formatDateIST(item.Created),
+        modifiedAt: formatDateIST(item.Modified),
+        createdByName: item.Author?.Title || '',
+        modifiedByName: item.Editor?.Title || ''
     };
 }

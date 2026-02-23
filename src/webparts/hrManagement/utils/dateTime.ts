@@ -74,3 +74,15 @@ export const nowISTISOString = (): string => {
 
   return `${datePart}T${timePart}${IST_OFFSET}`;
 };
+
+export const formatAuditInfo = (dateValue?: string, userName?: string): string => {
+  const hasDate = !!String(dateValue || '').trim();
+  const hasUser = !!String(userName || '').trim();
+  if (!hasDate && !hasUser) return '';
+
+  const datePart = hasDate
+    ? (formatDateForDisplayIST(dateValue || '', 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) || '-')
+    : '-';
+  const userPart = hasUser ? String(userName || '').trim() : 'Unknown';
+  return `${datePart} by ${userPart}`;
+};
