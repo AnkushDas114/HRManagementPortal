@@ -2451,22 +2451,6 @@ const App: React.FC<AppProps> = ({ sp }) => {
         footer={<><button className="btn btn-link text-decoration-none" onClick={() => setIsLeaveModalOpen(false)}>Cancel</button><button type="submit" form="leave-application-form" className="btn btn-primary px-4">Submit</button></>}
       >
         <form id="leave-application-form" onSubmit={saveLeaveRequest}>
-          <div className="d-flex align-items-center gap-2 mb-3">
-            {/* <button
-              type="button"
-              className={`btn btn-sm ${leaveModalTab === 'leave' ? 'btn-primary' : 'btn-outline-secondary'}`}
-              onClick={() => setLeaveModalTab('leave')}
-            >
-              Leave
-            </button> */}
-            <button
-              type="button"
-              className={`btn btn-sm ${leaveModalTab === 'workFromHome' ? 'btn-primary' : 'btn-outline-secondary'}`}
-              onClick={() => setLeaveModalTab('workFromHome')}
-            >
-              Work From Home
-            </button>
-          </div>
           {leaveModalTab === 'leave' ? (
             <div className="row g-3">
               <div className="col-12"><label className="form-label fw-bold">Leave Type</label><select className="form-select" value={leaveFormData.leaveType} onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}>{Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))}</select></div>

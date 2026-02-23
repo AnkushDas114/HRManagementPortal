@@ -231,6 +231,11 @@ input[type='date']::-webkit-clear-button {
   box-shadow: none !important;
 }
 
+/* Hide legacy leave/WFH toggle row in leave modal (keep only form fields). */
+#leave-application-form > .d-flex.align-items-center.gap-2.mb-3 {
+  display: none !important;
+}
+
 .btn:disabled,
 .btn.disabled {
   opacity: 0.58;
@@ -467,7 +472,7 @@ input[type='date']::-webkit-clear-button {
   white-space: normal;
   word-break: break-word;
   text-align: left;
-  z-index: 30;
+  z-index: 3000;
   transition: opacity 0.14s ease, transform 0.14s ease;
 }
 
