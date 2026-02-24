@@ -59,7 +59,7 @@ const Modal: React.FC<ModalProps> = ({
   const showMetaRow = !!(String(createdInfo || '').trim() || String(modifiedInfo || '').trim());
 
   return (
-    <div className="hr-modal-backdrop" onClick={onClose}>
+    <div className="hr-modal-backdrop">
       <div
         className={`hr-modal ${dialogSizeClass}`}
         role="dialog"
