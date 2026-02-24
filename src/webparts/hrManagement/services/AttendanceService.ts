@@ -155,3 +155,13 @@ export async function deleteAttendanceRecordsByDate(
         throw error;
     }
 }
+
+export async function deleteAttendanceRecordById(sp: SPFI, itemId: number): Promise<void> {
+    if (!itemId) return;
+    try {
+        await sp.web.lists.getByTitle(LIST_NAME).items.getById(itemId).delete();
+    } catch (error) {
+        console.error("Error deleting attendance record by id:", error);
+        throw error;
+    }
+}

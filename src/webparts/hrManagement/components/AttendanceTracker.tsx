@@ -22,6 +22,8 @@ interface AttendanceTrackerProps {
   isImporting?: boolean;
   selectedUserId?: string | null;
   leaveQuotas?: Record<string, number>;
+  initialEditRecord?: AttendanceRecord | null;
+  onInitialEditConsumed?: () => void;
 }
 
 const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
@@ -36,7 +38,9 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   onViewBalance,
   isImporting: isImportingProp,
   selectedUserId,
-  leaveQuotas
+  leaveQuotas,
+  initialEditRecord,
+  onInitialEditConsumed
 }) => {
   const today = getNowIST();
   const todayStr = todayIST();
@@ -734,6 +738,20 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     setIsEditModalOpen(true);
   }, []);
 
+  React.useEffect(() => {
+    if (!initialEditRecord || !initialEditRecord.id) return;
+    setEditingAttendance({
+      ...initialEditRecord,
+      clockIn: initialEditRecord.clockIn || '',
+      clockOut: initialEditRecord.clockOut || '',
+      workDuration: initialEditRecord.workDuration || '',
+      remarks: initialEditRecord.remarks || '',
+      department: initialEditRecord.department || ''
+    });
+    setIsEditModalOpen(true);
+    onInitialEditConsumed?.();
+  }, [initialEditRecord, onInitialEditConsumed]);
+
   const handleSaveEditedAttendance = React.useCallback(async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     if (!editingAttendance || !editingAttendance.id) return;
@@ -925,6 +943,9 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
           Date: parsedDate
             ? formatDateForDisplayIST(parsedDate, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
             : String(record.date || ''),
+          Day: parsedDate
+            ? formatDateForDisplayIST(parsedDate, 'en-US', { weekday: 'long' })
+            : '',
           'Scheduled Hours': formatMinutesAsHM(scheduledMinutes),
           'Clock In': record.clockIn || 'N/A',
           'Clock Out': record.clockOut || 'N/A',
@@ -932,12 +953,6 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
           Shortage: formatMinutesAsHM(shortageMinutes),
           'Shortage (minutes)': shortageMinutes
         };
-
-        if (mode === 'short-hours') {
-          exportRow.Day = parsedDate
-            ? formatDateForDisplayIST(parsedDate, 'en-US', { weekday: 'long' })
-            : '';
-        }
 
         return exportRow;
       })

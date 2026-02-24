@@ -5,6 +5,7 @@ import { LeaveStatus, ConcernStatus, ConcernType } from '../types';
 import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
+import CalendarView, { CalendarViewEvent } from './CalendarView';
 import {
   Plus, Download, FileText, Sun, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, AlertCircle, MessageSquare, ChevronLeft, ChevronRight, Calendar, Users, Sparkle
 } from 'lucide-react';
@@ -27,6 +28,18 @@ interface EmployeePortalProps {
   activeTab: string;
 }
 
+const LEAVE_EVENT_COLORS = ['#5f8fbd', '#8b6fc8', '#4d7ac7', '#6c63c7', '#557bd6', '#7a6cd6', '#4f70b8', '#7b5fc1', '#6680d2', '#6a57b0'];
+const HOLIDAY_EVENT_COLOR = '#1f8f3a';
+
+const getLeaveEventColor = (value: string): string => {
+  const key = String(value || 'leave').trim().toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
+  }
+  return LEAVE_EVENT_COLORS[Math.abs(hash) % LEAVE_EVENT_COLORS.length];
+};
+
 const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attendance, salarySlips, policies, holidays, concerns, leaveQuotas, teamEvents, onRaiseConcern, onSubmitLeave, onTabChange, activeTab }) => {
   const [isPolicyModalOpen, setIsPolicyModalOpen] = React.useState(false);
   const [isConcernModalOpen, setIsConcernModalOpen] = React.useState(false);
@@ -38,6 +51,11 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   const [selectedConcern, setSelectedConcern] = React.useState<Concern | null>(null);
   const [selectedCelebration, setSelectedCelebration] = React.useState<TeamEvent | null>(null);
   const [eventBurst, setEventBurst] = React.useState<{ id: number; type: TeamEvent['type'] } | null>(null);
+  const [calendarViewByTab, setCalendarViewByTab] = React.useState<Record<string, boolean>>({
+    attendance: false,
+    leave: false,
+    'work-from-home': false
+  });
   // Attendance Navigation State
   const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
   const [referenceDate, setReferenceDate] = React.useState<Date>(getNowIST());
@@ -212,6 +230,63 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       return true;
     }).sort((a, b) => b.date.localeCompare(a.date));
   }, [attendance, user, idsMatch, normalizeText, viewMode, referenceDate]);
+
+  const myAttendanceAll = React.useMemo(() => {
+    return attendance
+      .filter(a => idsMatch(a.employeeId, user.id) || normalizeText(a.employeeName) === normalizeText(user.name))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [attendance, idsMatch, normalizeText, user.id, user.name]);
+
+  const employeeAttendanceCalendarEvents = React.useMemo<CalendarViewEvent[]>(() => {
+    return myAttendanceAll.map((record, index) => ({
+      id: record.id || `${record.employeeId}-${record.date}-${index}`,
+      title: `${record.employeeName || user.name} - ${record.status}`,
+      subtitle: `${record.clockIn || '--:--'} - ${record.clockOut || '--:--'}`,
+      startDate: record.date,
+      referenceId: record.date,
+      raw: record
+    }));
+  }, [myAttendanceAll, user.name]);
+
+  const holidayCalendarEvents = React.useMemo<CalendarViewEvent[]>(() => {
+    return holidays.map((holiday) => ({
+      id: `holiday-${holiday.id}`,
+      title: `Holiday - ${holiday.name}`,
+      color: HOLIDAY_EVENT_COLOR,
+      subtitle: holiday.type,
+      startDate: holiday.date,
+      endDate: holiday.date,
+      referenceId: holiday.id,
+      raw: holiday
+    }));
+  }, [holidays]);
+
+  const employeeLeaveCalendarEvents = React.useMemo<CalendarViewEvent[]>(() => {
+    const leaveEvents = myLeaveRequests.map((request) => ({
+      id: request.id,
+      title: `${request.employee.name} - ${request.leaveType}`,
+      color: getLeaveEventColor(request.leaveType || request.requestCategory || 'Leave'),
+      subtitle: request.reason,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      referenceId: request.id,
+      raw: request
+    }));
+    return [...leaveEvents, ...holidayCalendarEvents];
+  }, [holidayCalendarEvents, myLeaveRequests]);
+
+  const employeeWfhCalendarEvents = React.useMemo<CalendarViewEvent[]>(() => {
+    const wfhEvents = myWorkFromHomeRequests.map((request) => ({
+      id: request.id,
+      title: `${request.employee.name} - Work From Home`,
+      subtitle: request.reason,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      referenceId: request.id,
+      raw: request
+    }));
+    return [...wfhEvents, ...holidayCalendarEvents];
+  }, [holidayCalendarEvents, myWorkFromHomeRequests]);
 
   const handlePrev = () => {
     const nextDate = new Date(referenceDate);
@@ -1095,51 +1170,72 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       {activeTab === 'attendance' && (
         <>
           <div className="card shadow-sm border-0 mb-4 px-4 py-3">
-            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-              <div className="d-flex align-items-center gap-3">
-                {/* View Toggles */}
-                <div className="btn-group shadow-xs" style={{ borderRadius: '8px', overflow: 'hidden' }}>
-                  <button
-                    className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Daily' ? 'btn-primary' : 'bg-white text-dark'}`}
-                    onClick={() => setViewMode('Daily')}
-                  >
-                    <Clock size={16} className={viewMode === 'Daily' ? 'text-white' : 'text-primary'} /> Daily
-                  </button>
-                  <button
-                    className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Weekly' ? 'btn-primary' : 'bg-white text-dark'}`}
-                    onClick={() => setViewMode('Weekly')}
-                  >
-                    <Calendar size={16} className={viewMode === 'Weekly' ? 'text-white' : 'text-primary'} /> Weekly
-                  </button>
-                  <button
-                    className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Monthly' ? 'btn-primary' : 'bg-white text-dark'}`}
-                    onClick={() => setViewMode('Monthly')}
-                  >
-                    <Calendar size={16} className={viewMode === 'Monthly' ? 'text-white' : 'text-primary'} /> Monthly
-                  </button>
-                </div>
-
-                {/* Date Navigator */}
-                <div className="d-flex align-items-center gap-2 bg-light rounded-pill px-2 py-1 border shadow-xs">
-                  <button className="btn btn-sm btn-link text-dark p-1 rounded-circle" onClick={handlePrev}>
-                    <ChevronLeft size={20} />
-                  </button>
-                  <div className="fw-bold px-3 text-center" style={{ minWidth: '180px', color: '#2F5596', fontSize: '13px' }}>
-                    {getDateDisplay()}
-                  </div>
-                  <button className="btn btn-sm btn-link text-dark p-1 rounded-circle" onClick={handleNext}>
-                    <ChevronRight size={20} />
-                  </button>
-                </div>
+            <div className="d-flex justify-content-end align-items-center mb-3">
+              <div>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${calendarViewByTab.attendance ? 'btn-primary' : 'btn-default'}`}
+                  onClick={() => setCalendarViewByTab((prev) => ({ ...prev, attendance: !prev.attendance }))}
+                >
+                  {calendarViewByTab.attendance ? 'Table View' : 'Calendar View'}
+                </button>
               </div>
             </div>
+            {!calendarViewByTab.attendance && (
+              <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                <div className="d-flex align-items-center gap-3">
+                  {/* View Toggles */}
+                  <div className="btn-group shadow-xs" style={{ borderRadius: '8px', overflow: 'hidden' }}>
+                    <button
+                      className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Daily' ? 'btn-primary' : 'bg-white text-dark'}`}
+                      onClick={() => setViewMode('Daily')}
+                    >
+                      <Clock size={16} className={viewMode === 'Daily' ? 'text-white' : 'text-primary'} /> Daily
+                    </button>
+                    <button
+                      className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Weekly' ? 'btn-primary' : 'bg-white text-dark'}`}
+                      onClick={() => setViewMode('Weekly')}
+                    >
+                      <Calendar size={16} className={viewMode === 'Weekly' ? 'text-white' : 'text-primary'} /> Weekly
+                    </button>
+                    <button
+                      className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Monthly' ? 'btn-primary' : 'bg-white text-dark'}`}
+                      onClick={() => setViewMode('Monthly')}
+                    >
+                      <Calendar size={16} className={viewMode === 'Monthly' ? 'text-white' : 'text-primary'} /> Monthly
+                    </button>
+                  </div>
 
-            <CommonTable
-              data={myAttendance}
-              columns={attendanceColumns}
-              getRowId={(row, index) => `${row.employeeId}-${row.date}-${index}`}
-              globalSearchPlaceholder="Search attendance"
-            />
+                  {/* Date Navigator */}
+                  <div className="d-flex align-items-center gap-2 bg-light rounded-pill px-2 py-1 border shadow-xs">
+                    <button className="btn btn-sm btn-link text-dark p-1 rounded-circle" onClick={handlePrev}>
+                      <ChevronLeft size={20} />
+                    </button>
+                    <div className="fw-bold px-3 text-center" style={{ minWidth: '180px', color: '#2F5596', fontSize: '13px' }}>
+                      {getDateDisplay()}
+                    </div>
+                    <button className="btn btn-sm btn-link text-dark p-1 rounded-circle" onClick={handleNext}>
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {calendarViewByTab.attendance ? (
+              <CalendarView
+                heading="Attendance Calendar"
+                events={[...employeeAttendanceCalendarEvents, ...holidayCalendarEvents]}
+                showConcern
+                onConcern={(_, date) => handleOpenConcern(ConcernType.Attendance, date)}
+              />
+            ) : (
+              <CommonTable
+                data={myAttendance}
+                columns={attendanceColumns}
+                getRowId={(row, index) => `${row.employeeId}-${row.date}-${index}`}
+                globalSearchPlaceholder="Search attendance"
+              />
+            )}
           </div>
           <ConcernSection type={ConcernType.Attendance} />
         </>
@@ -1167,19 +1263,39 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <h5 className="mb-0 fw-bold" style={{ color: '#2F5596' }}>Leave Request History</h5>
               <p className="small text-muted mb-0">Manage your leave applications</p>
             </div>
-            <button className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm" onClick={() => onSubmitLeave('leave')}>
-              <Plus size={18} /> New Request
-            </button>
+            <div className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                className={`btn btn-sm ${calendarViewByTab.leave ? 'btn-primary' : 'btn-default'}`}
+                onClick={() => setCalendarViewByTab((prev) => ({ ...prev, leave: !prev.leave }))}
+              >
+                {calendarViewByTab.leave ? 'Table View' : 'Calendar View'}
+              </button>
+              <button className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm" onClick={() => onSubmitLeave('leave')}>
+                <Plus size={18} /> New Request
+              </button>
+            </div>
           </div>
 
-          <div className="card shadow-sm border-0 overflow-hidden mb-4">
-            <CommonTable
-              data={myLeaveRequests}
-              columns={leaveColumns}
-              getRowId={(row) => row.id}
-              globalSearchPlaceholder="Search leave history"
+          {calendarViewByTab.leave ? (
+            <CalendarView
+              heading="Leave Calendar"
+              events={employeeLeaveCalendarEvents}
+              showCreate
+              showConcern
+              onCreate={() => onSubmitLeave('leave')}
+              onConcern={(event) => handleOpenConcern(ConcernType.Leave, event.referenceId || event.startDate)}
             />
-          </div>
+          ) : (
+            <div className="card shadow-sm border-0 overflow-hidden mb-4">
+              <CommonTable
+                data={myLeaveRequests}
+                columns={leaveColumns}
+                getRowId={(row) => row.id}
+                globalSearchPlaceholder="Search leave history"
+              />
+            </div>
+          )}
 
           {/* {approvedLeaveNotes.length > 0 && (
             <div className="card shadow-sm border-0 p-3 mb-4">
@@ -1236,19 +1352,39 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <h5 className="mb-0 fw-bold" style={{ color: '#2F5596' }}>Work From Home Requests</h5>
               <p className="small text-muted mb-0">Manage your work from home applications</p>
             </div>
-            <button className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm" onClick={() => onSubmitLeave('workFromHome')}>
-              <Plus size={18} /> New Request
-            </button>
+            <div className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                className={`btn btn-sm ${calendarViewByTab['work-from-home'] ? 'btn-primary' : 'btn-default'}`}
+                onClick={() => setCalendarViewByTab((prev) => ({ ...prev, 'work-from-home': !prev['work-from-home'] }))}
+              >
+                {calendarViewByTab['work-from-home'] ? 'Table View' : 'Calendar View'}
+              </button>
+              <button className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm" onClick={() => onSubmitLeave('workFromHome')}>
+                <Plus size={18} /> New Request
+              </button>
+            </div>
           </div>
 
-          <div className="card shadow-sm border-0 overflow-hidden mb-4">
-            <CommonTable
-              data={myWorkFromHomeRequests}
-              columns={leaveColumns}
-              getRowId={(row) => row.id}
-              globalSearchPlaceholder="Search work from home history"
+          {calendarViewByTab['work-from-home'] ? (
+            <CalendarView
+              heading="Work From Home Calendar"
+              events={employeeWfhCalendarEvents}
+              showCreate
+              showConcern
+              onCreate={() => onSubmitLeave('workFromHome')}
+              onConcern={(event) => handleOpenConcern(ConcernType.WorkFromHome, event.referenceId || event.startDate)}
             />
-          </div>
+          ) : (
+            <div className="card shadow-sm border-0 overflow-hidden mb-4">
+              <CommonTable
+                data={myWorkFromHomeRequests}
+                columns={leaveColumns}
+                getRowId={(row) => row.id}
+                globalSearchPlaceholder="Search work from home history"
+              />
+            </div>
+          )}
 
           <ConcernSection type={ConcernType.WorkFromHome} />
         </>

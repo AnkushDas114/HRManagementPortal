@@ -232,7 +232,7 @@ input[type='date']::-webkit-clear-button {
 }
 
 /* Hide legacy leave/WFH toggle row in leave modal (keep only form fields). */
-#leave-application-form > .d-flex.align-items-center.gap-2.mb-3 {
+#leave-application-form>.d-flex.align-items-center.gap-2.mb-3 {
   display: none !important;
 }
 
@@ -736,7 +736,7 @@ input[type='date']::-webkit-clear-button {
   background: #ffffff;
 }
 
-.profile-details-card .row > [class*='col-'] > .d-flex {
+.profile-details-card .row>[class*='col-']>.d-flex {
   padding: 0.2rem 0;
 }
 
@@ -937,12 +937,15 @@ input[type='date']::-webkit-clear-button {
 #spPageCanvasContent [data-automation-id="CanvasZone-SectionContainer"] {
   max-width: 100% !important;
 }
-.card-bg-primary{
+
+.card-bg-primary {
   background-color: #2f5596 !important;
 }
-.color-primary{
+
+.color-primary {
   color: #2f5596 !important;
 }
+
 .common-table__icon-btn svg {
   margin-left: -7px;
 }
@@ -1019,4 +1022,10 @@ input[type='date']::-webkit-clear-button {
     opacity: 0;
     transform: translate(-50%, -50%) scale(4.5);
   }
+}
+
+.common-table-upgrade .approver-comment-tooltip__box {
+  bottom: 0px;
+  right: 0px;
+  left: 50px;
 }

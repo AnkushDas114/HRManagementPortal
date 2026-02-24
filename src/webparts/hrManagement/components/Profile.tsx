@@ -482,6 +482,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                     <option value="Product">Product</option>
                     <option value="Design">Design</option>
                     <option value="QA">QA</option>
+                    <option value="Trainee">Trainee</option>
                     <option value="Marketing">Marketing</option>
                     <option value="HR">HR</option>
                     <option value="Finance">Finance</option>

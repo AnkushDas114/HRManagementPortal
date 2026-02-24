@@ -1,11 +1,12 @@
 
 import * as React from 'react';
+import * as XLSX from 'xlsx';
 import type { LeaveRequest, Employee } from '../types';
 import { LeaveStatus } from '../types';
 import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
-import { Check, X, Filter, MessageSquare, Info, RotateCcw, ChevronDown, ChevronRight, Clock } from 'lucide-react';
+import { Check, X, Filter, MessageSquare, Info, RotateCcw, ChevronDown, ChevronRight, Clock, Download, FileText } from 'lucide-react';
 import { formatAuditInfo, formatDateIST, getNowIST, todayIST } from '../utils/dateTime';
 
 interface LeaveRequestsTableProps {
@@ -22,9 +23,134 @@ interface LeaveRequestsTableProps {
   teams: string[];
   title?: string;
   showLeaveBalance?: boolean;
+  showGenerateReportButton?: boolean;
+  externalOpenReportKey?: number;
 }
 
-const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, employees, leaveQuotas, filter, onFilterChange, onUpdateStatus, onDelete, onViewBalance, onOpenRequestForm, onOpenRequestVersionHistory, teams, title = 'Detailed Leave Applications', showLeaveBalance = true }) => {
+type ReportDatePreset =
+  | 'Custom'
+  | 'Today'
+  | 'Yesterday'
+  | 'This Week'
+  | 'Last Week'
+  | 'This Month'
+  | 'Last Month'
+  | 'Last 3 Months'
+  | 'This Year'
+  | 'Last Year'
+  | 'All Time';
+
+interface ReportTypeGroup {
+  type: string;
+  entries: Array<{
+    requestId: number;
+    employeeId: string;
+    employeeName: string;
+    department: string;
+    requestCategory: string;
+    startDate: string;
+    endDate: string;
+    description: string;
+    status: LeaveStatus;
+    days: number;
+    submittedAt: string;
+    approverName: string;
+    approverComment: string;
+    isHalfDay: boolean;
+    halfDayType: string;
+  }>;
+}
+
+interface LeaveReportRow {
+  employee: Employee;
+  planned: number;
+  unplanned: number;
+  restrictedHoliday: number;
+  halfDay: number;
+  totalLeave: number;
+  details: ReportTypeGroup[];
+}
+
+const toDateValue = (value: string): Date | null => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split('-').map(Number);
+    const parsed = new Date(year, month - 1, day, 12, 0, 0);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const startOfDay = (date: Date): Date => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const endOfDay = (date: Date): Date => {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
+
+const resolvePresetRange = (preset: ReportDatePreset, today: Date): { start: Date | null; end: Date | null } => {
+  const now = new Date(today);
+  if (preset === 'All Time') return { start: null, end: null };
+  if (preset === 'Today') return { start: startOfDay(now), end: endOfDay(now) };
+  if (preset === 'Yesterday') {
+    const y = new Date(now);
+    y.setDate(now.getDate() - 1);
+    return { start: startOfDay(y), end: endOfDay(y) };
+  }
+  if (preset === 'This Week') {
+    const first = new Date(now);
+    first.setDate(now.getDate() - now.getDay());
+    return { start: startOfDay(first), end: endOfDay(now) };
+  }
+  if (preset === 'Last Week') {
+    const first = new Date(now);
+    first.setDate(now.getDate() - now.getDay() - 7);
+    const last = new Date(now);
+    last.setDate(now.getDate() - now.getDay() - 1);
+    return { start: startOfDay(first), end: endOfDay(last) };
+  }
+  if (preset === 'This Month') {
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { start: startOfDay(first), end: endOfDay(now) };
+  }
+  if (preset === 'Last Month') {
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const last = new Date(now.getFullYear(), now.getMonth(), 0);
+    return { start: startOfDay(first), end: endOfDay(last) };
+  }
+  if (preset === 'Last 3 Months') {
+    const three = new Date(now);
+    three.setMonth(now.getMonth() - 3);
+    return { start: startOfDay(three), end: endOfDay(now) };
+  }
+  if (preset === 'This Year') {
+    const first = new Date(now.getFullYear(), 0, 1);
+    return { start: startOfDay(first), end: endOfDay(now) };
+  }
+  if (preset === 'Last Year') {
+    const first = new Date(now.getFullYear() - 1, 0, 1);
+    const last = new Date(now.getFullYear() - 1, 11, 31);
+    return { start: startOfDay(first), end: endOfDay(last) };
+  }
+  return { start: null, end: null };
+};
+
+const classifyLeaveBucket = (request: LeaveRequest): 'planned' | 'unplanned' | 'restrictedHoliday' => {
+  const leaveType = String(request.leaveType || '').toLowerCase();
+  if (leaveType.indexOf('restricted') !== -1 || leaveType === 'rh') return 'restrictedHoliday';
+  if (leaveType.indexOf('planned') !== -1) return 'planned';
+  if (leaveType.indexOf('unplanned') !== -1) return 'unplanned';
+  return 'unplanned';
+};
+
+const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, employees, leaveQuotas, filter, onFilterChange, onUpdateStatus, onDelete, onViewBalance, onOpenRequestForm, onOpenRequestVersionHistory, teams, title = 'Detailed Leave Applications', showLeaveBalance = true, showGenerateReportButton = true, externalOpenReportKey }) => {
   const [isCommentModalOpen, setIsCommentModalOpen] = React.useState(false);
   const [selectedRequest, setSelectedRequest] = React.useState<LeaveRequest | null>(null);
   const [comment, setComment] = React.useState('');
@@ -36,6 +162,29 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
   const [startDate, setStartDate] = React.useState('');
   const [endDate, setEndDate] = React.useState('');
   const [selectedMemberId, setSelectedMemberId] = React.useState<string | null>(null);
+  const [isReportFilterModalOpen, setIsReportFilterModalOpen] = React.useState(false);
+  const [reportSelectedMemberIds, setReportSelectedMemberIds] = React.useState<string[]>([]);
+  const [reportDatePreset, setReportDatePreset] = React.useState<ReportDatePreset>('Today');
+  const [reportStartDate, setReportStartDate] = React.useState(todayIST());
+  const [reportEndDate, setReportEndDate] = React.useState(todayIST());
+  const [generatedReportRows, setGeneratedReportRows] = React.useState<LeaveReportRow[]>([]);
+  const [expandedReportEmployeeIds, setExpandedReportEmployeeIds] = React.useState<Set<string>>(new Set());
+  const [isReportGenerated, setIsReportGenerated] = React.useState(false);
+  const lastExternalOpenKeyRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    if (typeof externalOpenReportKey !== 'number') return;
+    if (lastExternalOpenKeyRef.current === null) {
+      lastExternalOpenKeyRef.current = externalOpenReportKey;
+      return;
+    }
+    if (externalOpenReportKey === lastExternalOpenKeyRef.current) return;
+    lastExternalOpenKeyRef.current = externalOpenReportKey;
+    setIsReportGenerated(false);
+    setGeneratedReportRows([]);
+    setReportSelectedMemberIds([]);
+    setIsReportFilterModalOpen(true);
+  }, [externalOpenReportKey]);
 
   const today = getNowIST();
   const todayStr = todayIST();
@@ -121,6 +270,148 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       setActionType(null);
     }
   };
+
+  const toggleReportRow = React.useCallback((employeeId: string): void => {
+    setExpandedReportEmployeeIds((prev) => {
+      const next = new Set<string>();
+      prev.forEach((id) => next.add(id));
+      if (next.has(employeeId)) next.delete(employeeId);
+      else next.add(employeeId);
+      return next;
+    });
+  }, []);
+
+  const runReportGeneration = React.useCallback((): void => {
+    const todayDate = getNowIST();
+    const selectedEmployeeIds = reportSelectedMemberIds;
+    let source = requests.filter((request) => selectedEmployeeIds.indexOf(request.employee.id) !== -1);
+
+    if (reportDatePreset === 'Custom') {
+      if (reportStartDate && reportEndDate) {
+        const start = toDateValue(reportStartDate);
+        const end = toDateValue(reportEndDate);
+        if (start && end) {
+          const startAt = startOfDay(start).getTime();
+          const endAt = endOfDay(end).getTime();
+          source = source.filter((request) => {
+            const requestDate = toDateValue(request.startDate);
+            if (!requestDate) return false;
+            const requestAt = requestDate.getTime();
+            return requestAt >= startAt && requestAt <= endAt;
+          });
+        }
+      }
+    } else {
+      const range = resolvePresetRange(reportDatePreset, todayDate);
+      if (range.start && range.end) {
+        const startAt = range.start.getTime();
+        const endAt = range.end.getTime();
+        source = source.filter((request) => {
+          const requestDate = toDateValue(request.startDate);
+          if (!requestDate) return false;
+          const requestAt = requestDate.getTime();
+          return requestAt >= startAt && requestAt <= endAt;
+        });
+      }
+    }
+
+    const grouped: Record<string, LeaveReportRow> = {};
+    source.forEach((request) => {
+      const key = request.employee.id;
+      if (!grouped[key]) {
+        grouped[key] = {
+          employee: request.employee,
+          planned: 0,
+          unplanned: 0,
+          restrictedHoliday: 0,
+          halfDay: 0,
+          totalLeave: 0,
+          details: []
+        };
+      }
+      const row = grouped[key];
+      const bucket = classifyLeaveBucket(request);
+      const days = Number(request.days || 0);
+      row[bucket] += days;
+      if (request.isHalfDay) row.halfDay += days;
+      row.totalLeave += days;
+
+      const detailType = request.leaveType || 'Leave';
+      let group = row.details.find((d) => d.type === detailType);
+      if (!group) {
+        group = { type: detailType, entries: [] };
+        row.details.push(group);
+      }
+      group.entries.push({
+        requestId: request.id,
+        employeeId: request.employee.id,
+        employeeName: request.employee.name,
+        department: request.employee.department,
+        requestCategory: request.requestCategory || 'Leave',
+        startDate: request.startDate,
+        endDate: request.endDate,
+        description: request.reason || 'No Information',
+        status: request.status,
+        days,
+        submittedAt: request.submittedAt,
+        approverName: request.approverName || '',
+        approverComment: request.approverComment || '',
+        isHalfDay: Boolean(request.isHalfDay),
+        halfDayType: request.halfDayType || ''
+      });
+    });
+
+    const rows = Object.keys(grouped).map((key) => grouped[key]).sort((a, b) => a.employee.name.localeCompare(b.employee.name));
+    setGeneratedReportRows(rows);
+    setExpandedReportEmployeeIds(new Set<string>());
+    setIsReportGenerated(true);
+  }, [reportDatePreset, reportEndDate, reportSelectedMemberIds, reportStartDate, requests]);
+
+  const handleDownloadReport = React.useCallback((): void => {
+    if (generatedReportRows.length === 0) return;
+
+    const summaryRows = generatedReportRows.map((row) => ({
+      Name: row.employee.name,
+      EmployeeID: row.employee.id,
+      Department: row.employee.department,
+      Planned: row.planned,
+      Unplanned: row.unplanned,
+      RestrictedHoliday: row.restrictedHoliday,
+      HalfDay: row.halfDay,
+      TotalLeave: row.totalLeave
+    }));
+
+    const detailRows: Array<Record<string, string | number>> = [];
+    generatedReportRows.forEach((row) => {
+      row.details.forEach((group) => {
+        group.entries.forEach((entry) => {
+          detailRows.push({
+            RequestID: entry.requestId,
+            Name: entry.employeeName,
+            EmployeeID: entry.employeeId,
+            Department: entry.department,
+            RequestCategory: entry.requestCategory,
+            LeaveType: group.type,
+            EventStartDate: entry.startDate,
+            EventEndDate: entry.endDate,
+            Description: entry.description,
+            Status: entry.status,
+            Days: entry.days,
+            SubmittedAt: entry.submittedAt,
+            ApproverName: entry.approverName,
+            ApproverComment: entry.approverComment,
+            IsHalfDay: entry.isHalfDay ? 'Yes' : 'No',
+            HalfDayType: entry.halfDayType || '-'
+          });
+        });
+      });
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'Summary');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailRows), 'Details');
+    XLSX.writeFile(wb, 'leave-report.xlsx');
+  }, [generatedReportRows]);
 
   const handleClearFilters = () => {
     setSelectedDateFilter('All Time');
@@ -296,6 +587,19 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         <div className="card-header bg-white d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 py-3 border-bottom-0">
           <h2 className="h5 mb-0 fw-bold" style={{ color: '#2F5596' }}>{title}</h2>
           <div className="d-flex align-items-center gap-2">
+            {showGenerateReportButton && (
+              <button
+                className="btn btn-sm btn-default d-flex align-items-center gap-1"
+                onClick={() => {
+                  setIsReportGenerated(false);
+                  setGeneratedReportRows([]);
+                  setReportSelectedMemberIds([]);
+                  setIsReportFilterModalOpen(true);
+                }}
+              >
+                <FileText size={14} /> Generate Report
+              </button>
+            )}
             <Filter className="text-muted" width="18" height="18" />
             <select
               value={filter}
@@ -439,6 +743,230 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
             />
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={isReportFilterModalOpen}
+        onClose={() => setIsReportFilterModalOpen(false)}
+        title="Employee Leave Report"
+        size="lg"
+        footer={
+          <>
+            <button className="btn btn-default" onClick={() => setIsReportFilterModalOpen(false)}>Cancel</button>
+            {!isReportGenerated ? (
+              <button className="btn btn-primary px-4" onClick={runReportGeneration}>Submit</button>
+            ) : (
+              <>
+                <button className="btn btn-default d-flex align-items-center gap-1" onClick={handleDownloadReport}>
+                  <Download size={14} /> Download Excel
+                </button>
+                <button className="btn btn-primary px-4" onClick={runReportGeneration}>Refresh</button>
+              </>
+            )}
+          </>
+        }
+      >
+        <div className="row g-3 align-items-end">
+          <div className="col-12">
+            <div className="d-flex align-items-center justify-content-between mb-1">
+              <label className="form-label fw-bold mb-0">Team Members</label>
+              <div className="d-flex align-items-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-default btn-sm text-nowrap"
+                  onClick={() => setReportSelectedMemberIds(employees.map((emp) => emp.id))}
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-default btn-sm text-nowrap"
+                  onClick={() => setReportSelectedMemberIds([])}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div className="small text-muted mb-2">
+              {reportSelectedMemberIds.length === 0
+                ? 'No users selected'
+                : reportSelectedMemberIds.length === employees.length
+                  ? 'All users selected'
+                  : `${reportSelectedMemberIds.length} user(s) selected`}
+            </div>
+          </div>
+          <div className="col-12">
+            <div className="d-flex flex-wrap gap-4 border rounded p-2" style={{ background: '#f7f9fc', borderColor: '#d9e2f2' }}>
+              {teams.map((teamName) => {
+                const teamMembers = employees.filter((emp) => emp.department === teamName);
+                if (teamMembers.length === 0) return null;
+                const teamLabel = /team$/i.test(teamName) ? teamName : `${teamName} Team`;
+                return (
+                  <div key={`report-team-${teamName}`} style={{ minWidth: '190px' }}>
+                    <div className="small text-muted border-bottom mb-2 pb-1 fw-bold text-uppercase" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>
+                      {teamLabel}
+                    </div>
+                    <div className="d-flex flex-wrap gap-1">
+                      {teamMembers.map((emp) => {
+                        const isActive = reportSelectedMemberIds.indexOf(emp.id) !== -1;
+                        return (
+                          <button
+                            key={`report-member-${emp.id}`}
+                            type="button"
+                            className="p-0 border-0 bg-transparent"
+                            title={`${emp.name} (${emp.id})`}
+                            onClick={() => {
+                              setReportSelectedMemberIds((prev) => {
+                                const exists = prev.indexOf(emp.id) !== -1;
+                                const next = exists ? prev.filter((id) => id !== emp.id) : [...prev, emp.id];
+                                return next;
+                              });
+                            }}
+                          >
+                            <img
+                              src={emp.avatar}
+                              alt={emp.name}
+                              width="30"
+                              height="30"
+                              className="rounded-circle"
+                              style={{
+                                objectFit: 'cover',
+                                border: isActive ? '2px solid #2f5596' : '2px solid #d9e2f2',
+                                boxShadow: isActive ? '0 0 0 1px #ffffff inset' : 'none'
+                              }}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="col-12">
+            <label className="form-label fw-bold">Date</label>
+            <div className="d-flex flex-wrap gap-3 mb-2">
+              {(['Custom', 'Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month', 'Last 3 Months', 'This Year', 'Last Year', 'All Time'] as ReportDatePreset[]).map((preset) => (
+                <div key={`report-${preset}`} className="form-check">
+                  <input
+                    className="form-check-input"
+                    type="radio"
+                    id={`report-preset-${preset}`}
+                    checked={reportDatePreset === preset}
+                    onChange={() => setReportDatePreset(preset)}
+                  />
+                  <label className="form-check-label small" htmlFor={`report-preset-${preset}`}>{preset}</label>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="col-md-6">
+            <label className="form-label fw-bold">Start Date</label>
+            <input
+              type="date"
+              className="form-control"
+              value={reportStartDate}
+              onChange={(e) => { setReportStartDate(e.target.value); setReportDatePreset('Custom'); }}
+            />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label fw-bold">End Date</label>
+            <input
+              type="date"
+              className="form-control"
+              value={reportEndDate}
+              onChange={(e) => { setReportEndDate(e.target.value); setReportDatePreset('Custom'); }}
+            />
+          </div>
+        </div>
+        {isReportGenerated && (
+          <div className="mt-3 pt-3 border-top">
+            <h3 className="h5 mb-3 fw-bold" style={{ color: '#2F5596' }}>Monthly Report of Leave</h3>
+            <div className="table-responsive border rounded" style={{ borderColor: '#d9e2f2' }}>
+              <table className="table table-sm mb-0 align-middle">
+                <thead style={{ background: '#eef3fb' }}>
+                  <tr>
+                    <th style={{ width: 28 }} />
+                    <th>Name</th>
+                    <th>Planned</th>
+                    <th>Unplanned</th>
+                    <th>Restricted Holiday</th>
+                    <th>Half-Day</th>
+                    <th>Total Leave</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {generatedReportRows.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center text-muted py-3">No report data found for selected filters.</td>
+                    </tr>
+                  )}
+                  {generatedReportRows.map((row) => {
+                    const isOpen = expandedReportEmployeeIds.has(row.employee.id);
+                    return (
+                      <React.Fragment key={`report-row-${row.employee.id}`}>
+                        <tr>
+                          <td>
+                            <button
+                              className="p-0 border-0 bg-transparent d-flex align-items-center justify-content-center"
+                              style={{ width: 18, height: 18, boxShadow: 'none' }}
+                              onClick={() => toggleReportRow(row.employee.id)}
+                            >
+                              {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                            </button>
+                          </td>
+                          <td>{row.employee.name}</td>
+                          <td>{row.planned}</td>
+                          <td>{row.unplanned}</td>
+                          <td>{row.restrictedHoliday}</td>
+                          <td>{row.halfDay}</td>
+                          <td>{row.totalLeave}</td>
+                        </tr>
+                        {isOpen && (
+                          <tr>
+                            <td />
+                            <td colSpan={6}>
+                              <div className="d-flex flex-column gap-3 py-2">
+                                {row.details.map((detail) => (
+                                  <div key={`detail-${row.employee.id}-${detail.type}`} className="border rounded p-2" style={{ borderColor: '#d9e2f2' }}>
+                                    <div className="badge mb-2" style={{ background: '#2F5596' }}>{detail.type}: {detail.entries.length}</div>
+                                    <div className="table-responsive">
+                                      <table className="table table-sm mb-0">
+                                        <thead style={{ background: '#f7f9fc' }}>
+                                          <tr>
+                                            <th>Event Start Date</th>
+                                            <th>Event End Date</th>
+                                            <th>Description</th>
+                                            <th>Status</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {detail.entries.map((entry, idx) => (
+                                            <tr key={`detail-entry-${row.employee.id}-${detail.type}-${idx}`}>
+                                              <td>{entry.startDate}</td>
+                                              <td>{entry.endDate}</td>
+                                              <td>{entry.description}</td>
+                                              <td>{entry.status}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </Modal>
     </>
   );

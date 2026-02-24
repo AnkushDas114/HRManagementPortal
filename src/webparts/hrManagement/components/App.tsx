@@ -13,6 +13,7 @@ import LeaveRequestsTable from './LeaveRequestsTable';
 import AttendanceTracker from './AttendanceTracker';
 import OnLeaveTodayTable from './OnLeaveTodayTable';
 import EmployeePortal from './EmployeePortal';
+import CalendarView, { CalendarViewEvent } from './CalendarView';
 import Profile from './Profile';
 import CarryForwardLeavesAdmin from './CarryForwardLeavesAdmin';
 import Modal from '../ui/Modal';
@@ -36,11 +37,11 @@ import {
   type ProfileGalleryImage,
   type SPFolder
 } from '../services/EmployeeService';
-import { deleteAttendanceRecordsByDate, getAllAttendanceRecords, saveAttendanceRecords, updateAttendanceRecord } from '../services/AttendanceService';
+import { deleteAttendanceRecordById, deleteAttendanceRecordsByDate, getAllAttendanceRecords, saveAttendanceRecords, updateAttendanceRecord } from '../services/AttendanceService';
 import { getAllSalarySlips, createSalarySlip } from '../services/SalarySlipService';
 import { getItemVersionHistory, type VersionHistoryEntry } from '../services/VersionHistoryService';
-import { Plus, Trash2, Edit, Minus, X } from 'lucide-react';
-import { formatAuditInfo, formatDateIST, getNowIST, monthNameIST, todayIST } from '../utils/dateTime';
+import { Plus, Trash2, Edit, Minus, X, Send } from 'lucide-react';
+import { formatAuditInfo, formatDateForDisplayIST, formatDateIST, getNowIST, monthNameIST, todayIST } from '../utils/dateTime';
 import { openOutOfBoxListItemForm } from '../utils/sharePointForm';
 import { SalarySlipView } from './SalarySlipView';
 
@@ -51,7 +52,133 @@ interface AppProps {
 const OFFICIAL_LEAVES_LIST_ID = 'SmartMetadata';
 const LEAVE_MONTHLY_BALANCE_LIST_REF = 'LeaveMonthlyBalance';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const HR_ALLOWED_NAMES = ['Juli', "Tanu Jain", 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Satendra Sakhya', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi'];
+const HR_ALLOWED_NAMES = ['Juli', 'Satendra Shakya', 'Tanu Jain', 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi'];
+const HR_ALLOWED_EMAILS = ['skshakya@hochhuth-consulting.de'];
+const LEAVE_EVENT_COLORS = ['#5f8fbd', '#8b6fc8', '#4d7ac7', '#6c63c7', '#557bd6', '#7a6cd6', '#4f70b8', '#7b5fc1', '#6680d2', '#6a57b0'];
+const HOLIDAY_EVENT_COLOR = '#1f8f3a';
+type SendReportDatePreset =
+  | 'Custom'
+  | 'Today'
+  | 'Yesterday'
+  | 'This Week'
+  | 'Last Week'
+  | 'This Month'
+  | 'Last Month'
+  | 'Last 3 Months'
+  | 'This Year'
+  | 'Last Year'
+  | 'All Time';
+
+const startOfDay = (date: Date): Date => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const endOfDay = (date: Date): Date => {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
+
+const resolveSendReportRange = (
+  preset: SendReportDatePreset,
+  today: Date
+): { start: Date | null; end: Date | null } => {
+  const now = new Date(today);
+  if (preset === 'All Time') return { start: null, end: null };
+  if (preset === 'Today') return { start: startOfDay(now), end: endOfDay(now) };
+  if (preset === 'Yesterday') {
+    const y = new Date(now);
+    y.setDate(now.getDate() - 1);
+    return { start: startOfDay(y), end: endOfDay(y) };
+  }
+  if (preset === 'This Week') {
+    const first = new Date(now);
+    first.setDate(now.getDate() - now.getDay());
+    return { start: startOfDay(first), end: endOfDay(now) };
+  }
+  if (preset === 'Last Week') {
+    const first = new Date(now);
+    first.setDate(now.getDate() - now.getDay() - 7);
+    const last = new Date(now);
+    last.setDate(now.getDate() - now.getDay() - 1);
+    return { start: startOfDay(first), end: endOfDay(last) };
+  }
+  if (preset === 'This Month') {
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { start: startOfDay(first), end: endOfDay(now) };
+  }
+  if (preset === 'Last Month') {
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const last = new Date(now.getFullYear(), now.getMonth(), 0);
+    return { start: startOfDay(first), end: endOfDay(last) };
+  }
+  if (preset === 'Last 3 Months') {
+    const three = new Date(now);
+    three.setMonth(now.getMonth() - 3);
+    return { start: startOfDay(three), end: endOfDay(now) };
+  }
+  if (preset === 'This Year') {
+    const first = new Date(now.getFullYear(), 0, 1);
+    return { start: startOfDay(first), end: endOfDay(now) };
+  }
+  if (preset === 'Last Year') {
+    const first = new Date(now.getFullYear() - 1, 0, 1);
+    const last = new Date(now.getFullYear() - 1, 11, 31);
+    return { start: startOfDay(first), end: endOfDay(last) };
+  }
+  return { start: null, end: null };
+};
+
+interface SendReportTypeSummary {
+  type: 'Staff' | 'Trainee';
+  total: number;
+  available: number;
+  onLeave: number;
+}
+
+interface SendReportTeamMatrixCell {
+  team: string;
+  total: number;
+  available: number;
+  onLeave: number;
+}
+
+interface SendReportDetailRow {
+  no: number;
+  name: string;
+  employeeId: string;
+  employeeType: 'Staff' | 'Trainee';
+  attendance: string;
+  reason: string;
+  expectedLeaveEnd: string;
+  team: string;
+  status: string;
+  totalLeaveThisYear: number;
+}
+
+interface SendReportSnapshot {
+  generatedAt: string;
+  reportPreset: SendReportDatePreset;
+  rangeStartDate: string;
+  rangeEndDate: string;
+  totalTeamCount: number;
+  availableCount: number;
+  onLeaveCount: number;
+  typeSummary: SendReportTypeSummary[];
+  teamMatrix: Array<{ type: 'Staff' | 'Trainee'; cells: SendReportTeamMatrixCell[] }>;
+  details: SendReportDetailRow[];
+}
+
+const getLeaveEventColor = (value: string): string => {
+  const key = String(value || 'leave').trim().toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
+  }
+  return LEAVE_EVENT_COLORS[Math.abs(hash) % LEAVE_EVENT_COLORS.length];
+};
 
 export const getUserId = async (email: string, sp: SPFI) => {
   const web = Web([sp.web, 'https://hhhhteams.sharepoint.com/sites/HHHH/SP']);
@@ -205,6 +332,21 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [teamEvents, setTeamEvents] = useState<TeamEvent[]>([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [leaveFilter, setLeaveFilter] = useState<LeaveStatus | 'All'>('All');
+  const [hrCalendarViewByTab, setHrCalendarViewByTab] = useState<Record<string, boolean>>({
+    'leaves-request': false,
+    'wfh-request': false,
+    attendance: false,
+    onLeaveToday: false
+  });
+  const [pendingAttendanceEditRecord, setPendingAttendanceEditRecord] = useState<AttendanceRecord | null>(null);
+  const [openLeaveReportKey, setOpenLeaveReportKey] = useState(0);
+  const [openWfhReportKey, setOpenWfhReportKey] = useState(0);
+  const [isSendReportModalOpen, setIsSendReportModalOpen] = useState(false);
+  const [sendReportPreset, setSendReportPreset] = useState<SendReportDatePreset>('Today');
+  const [sendReportStartDate, setSendReportStartDate] = useState(todayIST());
+  const [sendReportEndDate, setSendReportEndDate] = useState(todayIST());
+  const [sendReportPayload, setSendReportPayload] = useState('');
+  const [sendReportSnapshot, setSendReportSnapshot] = useState<SendReportSnapshot | null>(null);
 
   // Add Leave Modal State
   const [isAddLeaveModalOpen, setIsAddLeaveModalOpen] = useState(false);
@@ -654,10 +796,17 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   const canAccessHr = React.useMemo(() => {
     const normalize = (value: unknown): string => String(value || '').trim().toLowerCase();
-    const allowed = HR_ALLOWED_NAMES.map(normalize);
+    const allowedNames = HR_ALLOWED_NAMES.map(normalize);
+    const allowedEmails = HR_ALLOWED_EMAILS.map(normalize);
+
     const currentName = normalize(currentUserTitle || inferredCurrentUser?.name);
-    return currentName ? allowed.indexOf(currentName) !== -1 : false;
-  }, [currentUserTitle, inferredCurrentUser]);
+    const currentEmail = normalize(currentUserEmail);
+
+    const isNameAllowed = !!currentName && allowedNames.indexOf(currentName) !== -1;
+    const isEmailAllowed = !!currentEmail && allowedEmails.indexOf(currentEmail) !== -1;
+
+    return isNameAllowed || isEmailAllowed;
+  }, [currentUserTitle, inferredCurrentUser, currentUserEmail]);
 
   React.useEffect(() => {
     if (canAccessHr) return;
@@ -742,6 +891,18 @@ const App: React.FC<AppProps> = ({ sp }) => {
     } catch (error) {
       console.error("Error deleting leave request:", error);
       alert("Failed to delete leave request. Please try again.");
+    }
+  };
+
+  const handleDeleteAttendanceRecord = async (record: AttendanceRecord): Promise<void> => {
+    if (!record.id || !sp) return;
+    if (!confirm("Are you sure you want to delete this attendance record?")) return;
+    try {
+      await deleteAttendanceRecordById(sp, record.id);
+      await loadAttendance();
+    } catch (error) {
+      console.error("Error deleting attendance record:", error);
+      alert("Failed to delete attendance record. Please try again.");
     }
   };
 
@@ -842,7 +1003,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
   // Save Leave Request
   const saveLeaveRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEmployeeForLeave) return;
+    if (!selectedEmployeeForLeave) {
+      alert('Please select an employee.');
+      return;
+    }
 
     try {
       if (editingRequest) {
@@ -2024,6 +2188,404 @@ const App: React.FC<AppProps> = ({ sp }) => {
     [leaveRequests]
   );
 
+  const toDateKey = React.useCallback((value: string): string => {
+    const raw = String(value || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return formatDateIST(parsed);
+  }, []);
+
+  const handleGenerateSendReportData = React.useCallback(() => {
+    const now = getNowIST();
+    let startBound: Date | null = null;
+    let endBound: Date | null = null;
+
+    if (sendReportPreset === 'Custom') {
+      startBound = sendReportStartDate ? startOfDay(new Date(sendReportStartDate)) : null;
+      endBound = sendReportEndDate ? endOfDay(new Date(sendReportEndDate)) : null;
+    } else {
+      const range = resolveSendReportRange(sendReportPreset, now);
+      startBound = range.start;
+      endBound = range.end;
+    }
+
+    const filtered = leaveRequests.filter((request) => {
+      if (request.status === LeaveStatus.Rejected) return false;
+      const requestDateKey = toDateKey(request.startDate);
+      if (!requestDateKey) return false;
+      const requestDate = new Date(requestDateKey);
+      if (Number.isNaN(requestDate.getTime())) return false;
+      const requestTime = requestDate.getTime();
+      if (startBound && requestTime < startBound.getTime()) return false;
+      if (endBound && requestTime > endBound.getTime()) return false;
+      return true;
+    });
+
+    const statusSummaryMap: Record<string, { count: number; totalDays: number }> = {};
+    const typeStatusSummaryMap: Record<string, { type: string; status: string; count: number; totalDays: number }> = {};
+
+    filtered.forEach((request) => {
+      const statusKey = String(request.status || 'Unknown');
+      const days = Number(request.days || 0);
+      if (!statusSummaryMap[statusKey]) statusSummaryMap[statusKey] = { count: 0, totalDays: 0 };
+      statusSummaryMap[statusKey].count += 1;
+      statusSummaryMap[statusKey].totalDays += days;
+
+      const typeKey = request.requestCategory === 'Work From Home' ? 'Work From Home' : (request.leaveType || 'Leave');
+      const compositeKey = `${typeKey}__${statusKey}`;
+      if (!typeStatusSummaryMap[compositeKey]) {
+        typeStatusSummaryMap[compositeKey] = { type: typeKey, status: statusKey, count: 0, totalDays: 0 };
+      }
+      typeStatusSummaryMap[compositeKey].count += 1;
+      typeStatusSummaryMap[compositeKey].totalDays += days;
+    });
+
+    const uniqueEmployees: Record<string, true> = {};
+    filtered.forEach((r) => { uniqueEmployees[r.employee.id] = true; });
+
+    const payload = {
+      reportMeta: {
+        generatedAt: new Date().toISOString(),
+        sourceTab: 'On Leave / WFH Today',
+        reportPreset: sendReportPreset,
+        rangeStartDate: startBound ? formatDateIST(startBound) : '',
+        rangeEndDate: endBound ? formatDateIST(endBound) : '',
+        totalRequests: filtered.length,
+        totalEmployees: Object.keys(uniqueEmployees).length
+      },
+      summaryByStatus: Object.keys(statusSummaryMap).map((key) => ({
+        status: key,
+        count: statusSummaryMap[key].count,
+        totalDays: Number(statusSummaryMap[key].totalDays.toFixed(2))
+      })),
+      summaryByTypeAndStatus: Object.keys(typeStatusSummaryMap).map((key) => ({
+        type: typeStatusSummaryMap[key].type,
+        status: typeStatusSummaryMap[key].status,
+        count: typeStatusSummaryMap[key].count,
+        totalDays: Number(typeStatusSummaryMap[key].totalDays.toFixed(2))
+      })),
+      records: filtered
+        .slice()
+        .sort((a, b) => (a.startDate || '').localeCompare(b.startDate || '') || a.employee.name.localeCompare(b.employee.name))
+        .map((request) => ({
+          requestId: request.id,
+          employeeId: request.employee.id,
+          employeeName: request.employee.name,
+          department: request.employee.department,
+          requestCategory: request.requestCategory || 'Leave',
+          leaveType: request.leaveType,
+          status: request.status,
+          startDate: request.startDate,
+          endDate: request.endDate,
+          days: request.days,
+          reason: request.reason,
+          submittedAt: request.submittedAt,
+          approverName: request.approverName || '',
+          approverComment: request.approverComment || ''
+        }))
+    };
+
+    setSendReportPayload(JSON.stringify(payload, null, 2));
+
+    const toEmployeeType = (department: string): 'Staff' | 'Trainee' => (
+      String(department || '').trim().toLowerCase() === 'trainee' ? 'Trainee' : 'Staff'
+    );
+
+    const onLeaveEmployeeIds: Record<string, true> = {};
+    filtered.forEach((request) => { onLeaveEmployeeIds[request.employee.id] = true; });
+    const totalTeamCount = directoryEmployees.length;
+    const onLeaveCount = Object.keys(onLeaveEmployeeIds).length;
+    const availableCount = Math.max(0, totalTeamCount - onLeaveCount);
+
+    const typeSummary: SendReportTypeSummary[] = ['Staff', 'Trainee'].map((type) => {
+      const teamMembers = directoryEmployees.filter((employee) => toEmployeeType(employee.department) === type);
+      const onLeaveMembers = teamMembers.filter((employee) => Boolean(onLeaveEmployeeIds[employee.id]));
+      return {
+        type: type as 'Staff' | 'Trainee',
+        total: teamMembers.length,
+        available: Math.max(0, teamMembers.length - onLeaveMembers.length),
+        onLeave: onLeaveMembers.length
+      };
+    });
+
+    const teamNames = directoryEmployees
+      .map((employee) => String(employee.department || '').trim())
+      .filter((team, index, arr) => Boolean(team) && arr.indexOf(team) === index)
+      .sort((a, b) => a.localeCompare(b));
+
+    const teamMatrix: Array<{ type: 'Staff' | 'Trainee'; cells: SendReportTeamMatrixCell[] }> = ['Staff', 'Trainee'].map((type) => {
+      const cells = teamNames.map((team) => {
+        const teamMembers = directoryEmployees.filter((employee) => String(employee.department || '').trim() === team);
+        const teamTypeMembers = teamMembers.filter((employee) => toEmployeeType(employee.department) === type);
+        const teamOnLeave = teamTypeMembers.filter((employee) => Boolean(onLeaveEmployeeIds[employee.id])).length;
+        return {
+          team,
+          total: teamTypeMembers.length,
+          available: Math.max(0, teamTypeMembers.length - teamOnLeave),
+          onLeave: teamOnLeave
+        };
+      });
+      return { type: type as 'Staff' | 'Trainee', cells };
+    });
+
+    const currentYear = getNowIST().getFullYear();
+    const details: SendReportDetailRow[] = filtered
+      .slice()
+      .sort((a, b) => (a.startDate || '').localeCompare(b.startDate || '') || a.employee.name.localeCompare(b.employee.name))
+      .map((request, index) => {
+        const leaveTypeText = request.isHalfDay
+          ? `${request.leaveType} (${request.halfDayType === 'second' ? 'Second Half Day' : 'First Half Day'})`
+          : request.leaveType;
+        const totalLeaveThisYear = leaveRequests
+          .filter((r) => r.employee.id === request.employee.id && r.status !== LeaveStatus.Rejected && String(r.startDate || '').startsWith(String(currentYear)))
+          .reduce((sum, r) => sum + Number(r.days || 0), 0);
+
+        return {
+          no: index + 1,
+          name: request.employee.name,
+          employeeId: request.employee.id,
+          employeeType: toEmployeeType(request.employee.department),
+          attendance: leaveTypeText,
+          reason: request.reason || '',
+          expectedLeaveEnd: request.endDate,
+          team: request.employee.department || '',
+          status: String(request.status || ''),
+          totalLeaveThisYear: Number(totalLeaveThisYear.toFixed(2))
+        };
+      });
+
+    setSendReportSnapshot({
+      generatedAt: new Date().toISOString(),
+      reportPreset: sendReportPreset,
+      rangeStartDate: startBound ? formatDateIST(startBound) : '',
+      rangeEndDate: endBound ? formatDateIST(endBound) : '',
+      totalTeamCount,
+      availableCount,
+      onLeaveCount,
+      typeSummary,
+      teamMatrix,
+      details
+    });
+
+  }, [directoryEmployees, leaveRequests, sendReportEndDate, sendReportPreset, sendReportStartDate, toDateKey]);
+
+  const hrLeavesCalendarEvents = useMemo<CalendarViewEvent[]>(() => {
+    const leaveEvents = leaveOnlyRequests.map((request) => ({
+      id: request.id,
+      title: `${request.employee.name} - ${request.leaveType} (${request.status})`,
+      color: getLeaveEventColor(request.leaveType || request.requestCategory || 'Leave'),
+      subtitle: request.reason || request.status,
+      status: request.status,
+      startDate: toDateKey(request.startDate),
+      endDate: toDateKey(request.endDate || request.startDate),
+      referenceId: request.id,
+      raw: request
+    }));
+    const holidayEvents = holidays.map((holiday) => ({
+      id: `holiday-${holiday.id}`,
+      title: `Holiday - ${holiday.name}`,
+      color: HOLIDAY_EVENT_COLOR,
+      subtitle: holiday.type,
+      startDate: toDateKey(holiday.date),
+      endDate: toDateKey(holiday.date),
+      referenceId: holiday.id,
+      raw: holiday
+    }));
+    return [...leaveEvents, ...holidayEvents];
+  }, [holidays, leaveOnlyRequests, toDateKey]);
+
+  const handleGenerateSendReportPdf = React.useCallback(() => {
+    if (!sendReportSnapshot) {
+      alert('Please click Generate Data first.');
+      return;
+    }
+
+    const escapeHtml = (value: unknown): string => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const popup = window.open('', '_blank', 'width=1200,height=900');
+    if (!popup) {
+      alert('Please allow popups to generate PDF.');
+      return;
+    }
+
+    const firstMatrixRow = sendReportSnapshot.teamMatrix[0];
+    const matrixHeaderCells = firstMatrixRow
+      ? firstMatrixRow.cells.map((cell) => `<th colspan="2">${escapeHtml(cell.team)} (${cell.total})</th>`).join('')
+      : '';
+    const matrixBodyRows = sendReportSnapshot.teamMatrix.map((row) => {
+      const cells = row.cells.map((cell) => (
+        `<td class="num available">${cell.available}</td><td class="num onleave">${cell.onLeave}</td>`
+      )).join('');
+      return `<tr><td class="rowHead">${escapeHtml(row.type)}</td>${cells}</tr>`;
+    }).join('');
+
+    const detailRows = sendReportSnapshot.details.map((item) => `
+      <tr>
+        <td>${item.no}</td>
+        <td>${escapeHtml(item.name)}</td>
+        <td>${escapeHtml(item.employeeType)}</td>
+        <td>${escapeHtml(item.attendance)}</td>
+        <td>${escapeHtml(item.reason)}</td>
+        <td>${escapeHtml(item.expectedLeaveEnd)}</td>
+        <td>${escapeHtml(item.team)}</td>
+        <td>${escapeHtml(item.status)}</td>
+        <td>${item.totalLeaveThisYear}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8"/>
+        <title>Send Report</title>
+        <style>
+          body{font-family:Segoe UI,Arial,sans-serif;margin:18px;color:#1f2937;}
+          .title{font-size:20px;font-weight:700;color:#2f5596;margin-bottom:14px;}
+          table{border-collapse:collapse;width:100%;margin-bottom:14px;}
+          th,td{border:1px solid #d7deea;padding:7px 8px;font-size:12px;vertical-align:middle;}
+          .box th{color:#fff;text-align:center;}
+          .box .team{background:#2f5596;}
+          .box .avail{background:#11803f;}
+          .box .leave{background:#b4232c;}
+          .num{text-align:center;font-weight:700;}
+          .available{color:#11803f;}
+          .onleave{color:#b4232c;}
+          .matrix thead th,.matrix .rowHead{background:#2f5596;color:#fff;font-weight:700;text-align:center;}
+          .details thead th{background:#eef3fb;font-weight:700;}
+          .details td:nth-child(4){background:#f5efe3;}
+          .meta{font-size:11px;color:#6b7280;margin-bottom:8px;}
+        </style>
+      </head>
+      <body>
+        <div class="title">On Leave / WFH Report</div>
+        <div class="meta">Generated: ${escapeHtml(formatDateForDisplayIST(sendReportSnapshot.generatedAt, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</div>
+        <div class="meta">Time Frame: ${escapeHtml(sendReportSnapshot.reportPreset)}${sendReportSnapshot.rangeStartDate || sendReportSnapshot.rangeEndDate ? ` (${escapeHtml(sendReportSnapshot.rangeStartDate || '-')} to ${escapeHtml(sendReportSnapshot.rangeEndDate || '-')})` : ''}</div>
+
+        <table class="box" style="max-width:420px">
+          <tr>
+            <th class="team">Team (${sendReportSnapshot.totalTeamCount})</th>
+            <th class="avail">Available (${sendReportSnapshot.availableCount})</th>
+            <th class="leave">On Leave (${sendReportSnapshot.onLeaveCount})</th>
+          </tr>
+          ${sendReportSnapshot.typeSummary.map((item) => `<tr><td class="rowHead" style="background:#2f5596;color:#fff;text-align:center">${escapeHtml(item.type)}</td><td class="num available">${item.available}</td><td class="num onleave">${item.onLeave}</td></tr>`).join('')}
+        </table>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Team</th>
+              ${matrixHeaderCells}
+            </tr>
+          </thead>
+          <tbody>
+            ${matrixBodyRows}
+          </tbody>
+        </table>
+
+        <table class="details">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Name</th>
+              <th>Employee Type</th>
+              <th>Attendance</th>
+              <th>Reason</th>
+              <th>Expected leave end</th>
+              <th>Team</th>
+              <th>Status</th>
+              <th>Total leave this year</th>
+            </tr>
+          </thead>
+          <tbody>${detailRows || '<tr><td colspan="9" style="text-align:center;color:#6b7280">No data found</td></tr>'}</tbody>
+        </table>
+
+        <script>window.onload=function(){window.print();}</script>
+      </body>
+      </html>
+    `;
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+  }, [sendReportSnapshot]);
+
+  const hrWfhCalendarEvents = useMemo<CalendarViewEvent[]>(() => {
+    const wfhEvents = workFromHomeRequests.map((request) => ({
+      id: request.id,
+      title: `${request.employee.name} - Work From Home (${request.status})`,
+      subtitle: request.reason || request.status,
+      status: request.status,
+      startDate: toDateKey(request.startDate),
+      endDate: toDateKey(request.endDate || request.startDate),
+      referenceId: request.id,
+      raw: request
+    }));
+    const holidayEvents = holidays.map((holiday) => ({
+      id: `holiday-${holiday.id}`,
+      title: `Holiday - ${holiday.name}`,
+      color: HOLIDAY_EVENT_COLOR,
+      subtitle: holiday.type,
+      startDate: toDateKey(holiday.date),
+      endDate: toDateKey(holiday.date),
+      referenceId: holiday.id,
+      raw: holiday
+    }));
+    return [...wfhEvents, ...holidayEvents];
+  }, [holidays, toDateKey, workFromHomeRequests]);
+
+  const hrAttendanceCalendarEvents = useMemo<CalendarViewEvent[]>(() => {
+    const attendanceEvents = attendanceRecords.map((record, index) => ({
+      id: record.id || `${record.employeeId}-${record.date}-${index}`,
+      title: `${record.employeeName || record.employeeId} - ${record.status}`,
+      subtitle: `${record.clockIn || '--:--'} - ${record.clockOut || '--:--'}`,
+      startDate: toDateKey(record.date),
+      referenceId: record.id || record.date,
+      raw: record
+    }));
+    const holidayEvents = holidays.map((holiday) => ({
+      id: `holiday-${holiday.id}`,
+      title: `Holiday - ${holiday.name}`,
+      color: HOLIDAY_EVENT_COLOR,
+      subtitle: holiday.type,
+      startDate: toDateKey(holiday.date),
+      endDate: toDateKey(holiday.date),
+      referenceId: holiday.id,
+      raw: holiday
+    }));
+    return [...attendanceEvents, ...holidayEvents];
+  }, [attendanceRecords, holidays, toDateKey]);
+
+  const hrOnLeaveTodayCalendarEvents = useMemo<CalendarViewEvent[]>(() => {
+    const onLeaveEvents = leaveRequests.map((request) => ({
+      id: request.id,
+      title: `${request.employee.name} - ${request.requestCategory === 'Work From Home' ? 'WFH' : request.leaveType} (${request.status})`,
+      color: getLeaveEventColor(request.requestCategory === 'Work From Home' ? 'Work From Home' : (request.leaveType || 'Leave')),
+      subtitle: request.reason || request.status,
+      status: request.status,
+      startDate: toDateKey(request.startDate),
+      endDate: toDateKey(request.endDate || request.startDate),
+      referenceId: request.id,
+      raw: request
+    }));
+    const holidayEvents = holidays.map((holiday) => ({
+      id: `holiday-${holiday.id}`,
+      title: `Holiday - ${holiday.name}`,
+      color: HOLIDAY_EVENT_COLOR,
+      subtitle: holiday.type,
+      startDate: toDateKey(holiday.date),
+      endDate: toDateKey(holiday.date),
+      referenceId: holiday.id,
+      raw: holiday
+    }));
+    return [...onLeaveEvents, ...holidayEvents];
+  }, [holidays, leaveRequests, toDateKey]);
+
   const isBootLoading = !isCurrentUserResolved || !isDirectoryResolved;
 
   if (isBootLoading) {
@@ -2145,7 +2707,46 @@ const App: React.FC<AppProps> = ({ sp }) => {
                         </div>
                       </div>
                     ) : (
-                      <LeaveRequestsTable requests={leaveOnlyRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Leave Request', 'Leave Request', requestId); }} />
+                      <>
+                        <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
+                          {!hrCalendarViewByTab['leaves-request'] && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-default"
+                              onClick={() => setOpenLeaveReportKey((prev) => prev + 1)}
+                            >
+                              Generate Report
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className={`btn btn-sm ${hrCalendarViewByTab['leaves-request'] ? 'btn-primary' : 'btn-default'}`}
+                            onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, 'leaves-request': !prev['leaves-request'] }))}
+                          >
+                            {hrCalendarViewByTab['leaves-request'] ? 'Table View' : 'Calendar View'}
+                          </button>
+                        </div>
+                        {hrCalendarViewByTab['leaves-request'] ? (
+                          <CalendarView
+                            heading="Leaves Request Calendar"
+                            events={hrLeavesCalendarEvents}
+                            showCreate
+                            showEdit
+                            showDelete
+                            onCreate={() => handleOpenLeaveModal(undefined, 'leave')}
+                            onEdit={(event) => {
+                              if (String(event.id).indexOf('holiday-') === 0) {
+                                handleOpenHolidayModal(event.raw as Holiday);
+                                return;
+                              }
+                              handleOpenLeaveModal(event.raw as LeaveRequest);
+                            }}
+                            onDelete={(event) => { void handleDeleteRequest(Number(event.referenceId)); }}
+                          />
+                        ) : (
+                          <LeaveRequestsTable requests={leaveOnlyRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} showGenerateReportButton={false} externalOpenReportKey={openLeaveReportKey} onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Leave Request', 'Leave Request', requestId); }} />
+                        )}
+                      </>
                     )
                   )}
                   {activeTab === 'wfh-request' && (
@@ -2156,7 +2757,46 @@ const App: React.FC<AppProps> = ({ sp }) => {
                         </div>
                       </div>
                     ) : (
-                      <LeaveRequestsTable requests={workFromHomeRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} title="Detailed Work From Home Applications" showLeaveBalance={false} onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Work From Home Request', 'Leave Request', requestId); }} />
+                      <>
+                        <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
+                          {!hrCalendarViewByTab['wfh-request'] && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-default"
+                              onClick={() => setOpenWfhReportKey((prev) => prev + 1)}
+                            >
+                              Generate Report
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className={`btn btn-sm ${hrCalendarViewByTab['wfh-request'] ? 'btn-primary' : 'btn-default'}`}
+                            onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, 'wfh-request': !prev['wfh-request'] }))}
+                          >
+                            {hrCalendarViewByTab['wfh-request'] ? 'Table View' : 'Calendar View'}
+                          </button>
+                        </div>
+                        {hrCalendarViewByTab['wfh-request'] ? (
+                          <CalendarView
+                            heading="WFH Request Calendar"
+                            events={hrWfhCalendarEvents}
+                            showCreate
+                            showEdit
+                            showDelete
+                            onCreate={() => handleOpenLeaveModal(undefined, 'workFromHome')}
+                            onEdit={(event) => {
+                              if (String(event.id).indexOf('holiday-') === 0) {
+                                handleOpenHolidayModal(event.raw as Holiday);
+                                return;
+                              }
+                              handleOpenLeaveModal(event.raw as LeaveRequest);
+                            }}
+                            onDelete={(event) => { void handleDeleteRequest(Number(event.referenceId)); }}
+                          />
+                        ) : (
+                          <LeaveRequestsTable requests={workFromHomeRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} title="Detailed Work From Home Applications" showLeaveBalance={false} showGenerateReportButton={false} externalOpenReportKey={openWfhReportKey} onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Work From Home Request', 'Leave Request', requestId); }} />
+                        )}
+                      </>
                     )
                   )}
                   {activeTab === 'global-directory' && (
@@ -2179,7 +2819,38 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       />
                     </div>
                   )}
-                  {activeTab === 'attendance' && <AttendanceTracker employees={directoryEmployees} leaveRequests={leaveRequests} attendanceRecords={attendanceRecords} onImport={handleImportAttendance} isImporting={isImportingAttendance} onViewBalance={handleViewBalance} leaveQuotas={leaveQuotas} onUpdateAttendanceRecord={handleUpdateAttendanceRecord} onDeleteAttendanceByDate={handleDeleteAttendanceByDate} onOpenAttendanceForm={(recordId) => { openOutOfBoxListItemForm(sp, 'AttendanceList', recordId).catch(() => undefined); }} onOpenAttendanceVersionHistory={(recordId) => { void handleOpenVersionHistory('Attendance', 'AttendanceList', recordId); }} />}
+                  {activeTab === 'attendance' && (
+                    <>
+                      <div className="d-flex justify-content-end mb-3">
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${hrCalendarViewByTab.attendance ? 'btn-primary' : 'btn-default'}`}
+                          onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, attendance: !prev.attendance }))}
+                        >
+                          {hrCalendarViewByTab.attendance ? 'Table View' : 'Calendar View'}
+                        </button>
+                      </div>
+                      {hrCalendarViewByTab.attendance ? (
+                        <CalendarView
+                          heading="Global Attendance Calendar"
+                          events={hrAttendanceCalendarEvents}
+                          showEdit
+                          showDelete
+                          onEdit={(event) => {
+                            if (String(event.id).indexOf('holiday-') === 0) {
+                              handleOpenHolidayModal(event.raw as Holiday);
+                              return;
+                            }
+                            setPendingAttendanceEditRecord(event.raw as AttendanceRecord);
+                            setHrCalendarViewByTab((prev) => ({ ...prev, attendance: false }));
+                          }}
+                          onDelete={(event) => { void handleDeleteAttendanceRecord(event.raw as AttendanceRecord); }}
+                        />
+                      ) : (
+                        <AttendanceTracker employees={directoryEmployees} leaveRequests={leaveRequests} attendanceRecords={attendanceRecords} onImport={handleImportAttendance} isImporting={isImportingAttendance} onViewBalance={handleViewBalance} leaveQuotas={leaveQuotas} onUpdateAttendanceRecord={handleUpdateAttendanceRecord} onDeleteAttendanceByDate={handleDeleteAttendanceByDate} onOpenAttendanceForm={(recordId) => { openOutOfBoxListItemForm(sp, 'AttendanceList', recordId).catch(() => undefined); }} onOpenAttendanceVersionHistory={(recordId) => { void handleOpenVersionHistory('Attendance', 'AttendanceList', recordId); }} initialEditRecord={pendingAttendanceEditRecord} onInitialEditConsumed={() => setPendingAttendanceEditRecord(null)} />
+                      )}
+                    </>
+                  )}
                   {activeTab === 'upload-salary-slip' && (
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white py-3">
@@ -2194,14 +2865,58 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     </div>
                   )}
                   {activeTab === 'onLeaveToday' && (
-                    <OnLeaveTodayTable
-                      requests={leaveRequests}
-                      onEdit={handleOpenLeaveModal}
-                      leaveQuotas={leaveQuotas}
-                      sp={sp}
-                      employees={directoryEmployees}
-                      onRefresh={loadLeaveRequests}
-                    />
+                    <>
+                      <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-default d-inline-flex align-items-center gap-1"
+                          onClick={() => {
+                            setSendReportPreset('Today');
+                            setSendReportStartDate(todayIST());
+                            setSendReportEndDate(todayIST());
+                            setSendReportPayload('');
+                            setSendReportSnapshot(null);
+                            setIsSendReportModalOpen(true);
+                          }}
+                        >
+                          <Send size={14} /> Send Report
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${hrCalendarViewByTab.onLeaveToday ? 'btn-primary' : 'btn-default'}`}
+                          onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, onLeaveToday: !prev.onLeaveToday }))}
+                        >
+                          {hrCalendarViewByTab.onLeaveToday ? 'Table View' : 'Calendar View'}
+                        </button>
+                      </div>
+                      {hrCalendarViewByTab.onLeaveToday ? (
+                        <CalendarView
+                          heading="On Leave / WFH Calendar"
+                          events={hrOnLeaveTodayCalendarEvents}
+                          showCreate
+                          showEdit
+                          showDelete
+                          onCreate={() => handleOpenLeaveModal(undefined, 'leave')}
+                          onEdit={(event) => {
+                            if (String(event.id).indexOf('holiday-') === 0) {
+                              handleOpenHolidayModal(event.raw as Holiday);
+                              return;
+                            }
+                            handleOpenLeaveModal(event.raw as LeaveRequest);
+                          }}
+                          onDelete={(event) => { void handleDeleteRequest(Number(event.referenceId)); }}
+                        />
+                      ) : (
+                        <OnLeaveTodayTable
+                          requests={leaveRequests}
+                          onEdit={handleOpenLeaveModal}
+                          leaveQuotas={leaveQuotas}
+                          sp={sp}
+                          employees={directoryEmployees}
+                          onRefresh={loadLeaveRequests}
+                        />
+                      )}
+                    </>
                   )}
                   {activeTab === 'policy-admin' && (
                     <div className="card border-0 shadow-sm">
@@ -2448,11 +3163,45 @@ const App: React.FC<AppProps> = ({ sp }) => {
         modifiedInfo={formatAuditInfo(editingRequest?.modifiedAt, editingRequest?.modifiedByName)}
         onVersionHistoryClick={() => { void handleOpenVersionHistory('Leave Request', 'Leave Request', editingRequest?.id); }}
         onOpenFormClick={() => { openOutOfBoxListItemForm(sp, 'Leave Request', editingRequest?.id).catch(() => undefined); }}
-        footer={<><button className="btn btn-link text-decoration-none" onClick={() => setIsLeaveModalOpen(false)}>Cancel</button><button type="submit" form="leave-application-form" className="btn btn-primary px-4">Submit</button></>}
+        footer={
+          <>
+            <button className="btn btn-default text-decoration-none" onClick={() => setIsLeaveModalOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" form="leave-application-form" className="btn btn-primary px-4">
+              Submit
+            </button>
+          </>
+        }
       >
         <form id="leave-application-form" onSubmit={saveLeaveRequest}>
           {leaveModalTab === 'leave' ? (
             <div className="row g-3">
+              {role === UserRole.HR && (
+                <div className="col-12">
+                  <label className="form-label fw-bold">Employee</label>
+                  <select
+                    className="form-select"
+                    value={selectedEmployeeForLeave?.id || ''}
+                    onChange={(e) => {
+                      const nextId = e.target.value;
+                      const picked = directoryEmployees.find((emp) => emp.id === nextId) || null;
+                      setSelectedEmployeeForLeave(picked);
+                    }}
+                    required
+                  >
+                    <option value="">Select Employee</option>
+                    {directoryEmployees
+                      .slice()
+                      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+                      .map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name} ({emp.id}) - {emp.department}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
               <div className="col-12"><label className="form-label fw-bold">Leave Type</label><select className="form-select" value={leaveFormData.leaveType} onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}>{Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))}</select></div>
               <div className="col-md-6"><label className="form-label fw-bold">Start</label><input type="date" className="form-control" value={leaveFormData.startDate} onChange={e => setLeaveFormData({ ...leaveFormData, startDate: e.target.value })} required /></div>
               <div className="col-md-6"><label className="form-label fw-bold">End</label><input type="date" className="form-control" value={leaveFormData.endDate} onChange={e => setLeaveFormData({ ...leaveFormData, endDate: e.target.value })} required disabled={leaveFormData.isHalfDay} /></div>
@@ -2667,6 +3416,31 @@ const App: React.FC<AppProps> = ({ sp }) => {
             </div>
           ) : (
             <div className="row g-3">
+              {role === UserRole.HR && (
+                <div className="col-12">
+                  <label className="form-label fw-bold">Employee</label>
+                  <select
+                    className="form-select"
+                    value={selectedEmployeeForLeave?.id || ''}
+                    onChange={(e) => {
+                      const nextId = e.target.value;
+                      const picked = directoryEmployees.find((emp) => emp.id === nextId) || null;
+                      setSelectedEmployeeForLeave(picked);
+                    }}
+                    required
+                  >
+                    <option value="">Select Employee</option>
+                    {directoryEmployees
+                      .slice()
+                      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+                      .map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name} ({emp.id}) - {emp.department}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
               <div className="col-12">
                 <label className="form-label fw-bold">Work From Home Type</label>
                 <select
@@ -3333,6 +4107,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     <option value="Product">Product</option>
                     <option value="Design">Design</option>
                     <option value="QA">QA</option>
+                    <option value="Trainee">Trainee</option>
                     <option value="Marketing">Marketing</option>
                     <option value="HR">HR</option>
                     <option value="Finance">Finance</option>
@@ -3590,6 +4365,90 @@ const App: React.FC<AppProps> = ({ sp }) => {
             )}
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={isSendReportModalOpen}
+        onClose={() => setIsSendReportModalOpen(false)}
+        title="Send Report Data"
+        size="lg"
+        footer={
+          <>
+            <button className="btn btn-default" onClick={() => setIsSendReportModalOpen(false)}>Close</button>
+            <button
+              className="btn btn-default"
+              onClick={() => {
+                if (!sendReportPayload) return;
+                void navigator.clipboard?.writeText(sendReportPayload);
+              }}
+            >
+              Copy JSON
+            </button>
+            <button
+              className="btn btn-default"
+              onClick={handleGenerateSendReportPdf}
+              disabled={!sendReportSnapshot}
+            >
+              Generate PDF
+            </button>
+            <button className="btn btn-primary" onClick={handleGenerateSendReportData}>Generate Data</button>
+          </>
+        }
+      >
+        <div className="row g-3">
+          <div className="col-12">
+            <label className="form-label fw-bold">Date</label>
+            <div className="d-flex flex-wrap gap-3">
+              {(['Custom', 'Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month', 'Last 3 Months', 'This Year', 'Last Year', 'All Time'] as SendReportDatePreset[]).map((preset) => (
+                <div key={`send-report-${preset}`} className="form-check">
+                  <input
+                    className="form-check-input"
+                    type="radio"
+                    id={`send-report-preset-${preset}`}
+                    checked={sendReportPreset === preset}
+                    onChange={() => setSendReportPreset(preset)}
+                  />
+                  <label className="form-check-label small" htmlFor={`send-report-preset-${preset}`}>{preset}</label>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="col-md-6">
+            <label className="form-label fw-bold">Start Date</label>
+            <input
+              type="date"
+              className="form-control"
+              value={sendReportStartDate}
+              onChange={(e) => {
+                setSendReportStartDate(e.target.value);
+                setSendReportPreset('Custom');
+              }}
+            />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label fw-bold">End Date</label>
+            <input
+              type="date"
+              className="form-control"
+              value={sendReportEndDate}
+              onChange={(e) => {
+                setSendReportEndDate(e.target.value);
+                setSendReportPreset('Custom');
+              }}
+            />
+          </div>
+          <div className="col-12">
+            <label className="form-label fw-bold">Power Automate Payload (JSON)</label>
+            <textarea
+              className="form-control"
+              rows={14}
+              readOnly
+              value={sendReportPayload}
+              placeholder="Click 'Generate Data' to prepare report payload."
+              style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace' }}
+            />
+          </div>
+        </div>
       </Modal>
 
       <VersionHistoryModal

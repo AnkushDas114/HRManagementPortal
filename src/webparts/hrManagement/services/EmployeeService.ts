@@ -35,6 +35,24 @@ const IMAGE_RETRY_BASE_DELAY_MS = 700;
 const IMAGE_RETRY_MAX_ATTEMPTS = 5;
 const IMAGE_CACHE_TTL_MS = 2 * 60 * 1000;
 let imageGalleryCache: { ts: number; data: ProfileGalleryImage[] } | null = null;
+const ALLOWED_DEPARTMENTS = [
+  'Engineering',
+  'Product',
+  'Design',
+  'QA',
+  'Trainee',
+  'Marketing',
+  'HR',
+  'Finance',
+  'Management'
+] as const;
+
+const normalizeDepartment = (value: unknown): string => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  const matched = ALLOWED_DEPARTMENTS.find((dept) => dept.toLowerCase() === raw.toLowerCase());
+  return matched || raw;
+};
 
 const sleep = async (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -89,11 +107,12 @@ export async function getAllEmployees(sp: SPFI): Promise<Employee[]> {
 
 export async function createEmployee(sp: SPFI, employee: Partial<Employee>): Promise<number> {
   try {
+    const department = normalizeDepartment(employee.department);
     const addResult = await sp.web.lists.getByTitle(EMPLOYEE_MASTER_LIST_TITLE).items.add({
       Title: employee.name,
       EmployeeID: employee.id,
       Email: employee.email,
-      Department: employee.department,
+      Department: department,
       Designation: employee.position,
       DOJ: employee.joiningDate,
       PAN: employee.pan,
@@ -126,7 +145,7 @@ export async function updateEmployee(sp: SPFI, itemId: number, employee: Partial
     if (employee.name !== undefined) payload.Title = employee.name;
     if (employee.id !== undefined) payload.EmployeeID = employee.id;
     if (employee.email !== undefined) payload.Email = employee.email;
-    if (employee.department !== undefined) payload.Department = employee.department;
+    if (employee.department !== undefined) payload.Department = normalizeDepartment(employee.department);
     if (employee.position !== undefined) payload.Designation = employee.position;
     if (employee.joiningDate !== undefined) payload.DOJ = employee.joiningDate;
     if (employee.pan !== undefined) payload.PAN = employee.pan;
