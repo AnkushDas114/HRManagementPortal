@@ -919,7 +919,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         const workedMinutes = Math.max(0, derivedDuration ?? 0);
         const shortageMinutes = Math.max(0, scheduledMinutes - workedMinutes);
 
-        return {
+        const exportRow: Record<string, string | number> = {
           'Employee Name': employee?.name || record.employeeName || 'Unknown',
           Department: employee?.department || record.department || 'N/A',
           Date: parsedDate
@@ -932,6 +932,14 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
           Shortage: formatMinutesAsHM(shortageMinutes),
           'Shortage (minutes)': shortageMinutes
         };
+
+        if (mode === 'short-hours') {
+          exportRow.Day = parsedDate
+            ? formatDateForDisplayIST(parsedDate, 'en-US', { weekday: 'long' })
+            : '';
+        }
+
+        return exportRow;
       })
       .filter((row) => row !== null);
 
@@ -952,7 +960,8 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       { wch: 10 }, // Clock Out
       { wch: 14 }, // Total Worked
       { wch: 12 }, // Shortage
-      { wch: 18 }  // Shortage (minutes)
+      { wch: 18 }, // Shortage (minutes)
+      { wch: 14 }  // Day
     ];
 
     // Highlight entire row for flagged entries.

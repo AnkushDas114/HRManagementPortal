@@ -51,7 +51,7 @@ interface AppProps {
 const OFFICIAL_LEAVES_LIST_ID = 'SmartMetadata';
 const LEAVE_MONTHLY_BALANCE_LIST_REF = 'LeaveMonthlyBalance';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const HR_ALLOWED_NAMES = ['Juli', 'Satendra Sakhya', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi'];
+const HR_ALLOWED_NAMES = ['Juli', "Tanu Jain", 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Satendra Sakhya', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi'];
 
 export const getUserId = async (email: string, sp: SPFI) => {
   const web = Web([sp.web, 'https://hhhhteams.sharepoint.com/sites/HHHH/SP']);
