@@ -159,29 +159,6 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
     return Object.entries(grouped).map(([name, value]) => ({ name, value }));
   }, [requests]);
 
-  const analytics = React.useMemo(() => {
-    const approved = requests.filter((request) => request.status === LeaveStatus.Approved).length;
-    const rejected = requests.filter((request) => request.status === LeaveStatus.Rejected).length;
-    const pending = requests.filter((request) => request.status === LeaveStatus.Pending).length;
-    const totalDaysRequested = requests.reduce((sum, request) => sum + (request.days || 0), 0);
-    const avgDaysPerRequest = requests.length > 0 ? Number((totalDaysRequested / requests.length).toFixed(1)) : 0;
-    const uniqueEmployees = new Set(requests.map((request) => request.employee?.id).filter(Boolean)).size;
-    const approvalRate = requests.length > 0 ? Math.round((approved / requests.length) * 100) : 0;
-    const rejectionRate = requests.length > 0 ? Math.round((rejected / requests.length) * 100) : 0;
-
-    return {
-      approved,
-      rejected,
-      pending,
-      totalDaysRequested,
-      avgDaysPerRequest,
-      uniqueEmployees,
-      approvalRate,
-      rejectionRate
-    };
-  }, [requests]);
-
-
   const chartColors = ['#1f7ae0', '#f5b323', '#14b8a6', '#8b5cf6', '#ef4444', '#06b6d4'];
 
   const weeklyInsights = React.useMemo(() => {
@@ -496,41 +473,6 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         </div>
         <div className="col-12 col-sm-6 col-lg-4 col-xl-2">
           <StatCard title="Total Requests" value={stats.total} icon={<XCircle className="text-white" />} isTotal />
-        </div>
-      </div>
-
-      <div className="row g-3 px-3 mt-1">
-        <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card border-0 shadow-sm h-100">
-            <div className="card-body py-3">
-              <div className="small text-muted">Approval Rate</div>
-              <div className="h4 mb-0 fw-bold text-success">{analytics.approvalRate}%</div>
-            </div>
-          </div>
-        </div>
-        <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card border-0 shadow-sm h-100">
-            <div className="card-body py-3">
-              <div className="small text-muted">Rejection Rate</div>
-              <div className="h4 mb-0 fw-bold text-danger">{analytics.rejectionRate}%</div>
-            </div>
-          </div>
-        </div>
-        <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card border-0 shadow-sm h-100">
-            <div className="card-body py-3">
-              <div className="small text-muted">Avg Days / Request</div>
-              <div className="h4 mb-0 fw-bold color-primary">{analytics.avgDaysPerRequest}</div>
-            </div>
-          </div>
-        </div>
-        <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card border-0 shadow-sm h-100">
-            <div className="card-body py-3">
-              <div className="small text-muted">Total Leave Days Requested</div>
-              <div className="h4 mb-0 fw-bold">{analytics.totalDaysRequested}</div>
-            </div>
-          </div>
         </div>
       </div>
 
