@@ -467,6 +467,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 <tr><td>Employee Code</td><td class="bold">${escapeHtml(user.id)}</td><td>Total Working Days</td><td colspan="2" class="bold">${escapeHtml(slip.workingDays || 30)}</td></tr>
                 <tr><td>Designation</td><td class="bold">${escapeHtml(user.position || 'Software developer')}</td><td>Paid days</td><td colspan="2" class="bold">${escapeHtml(slip.paidDays || 30)}</td></tr>
                 <tr><td>PAN</td><td class="bold">${escapeHtml(user.pan || '-')}</td><td></td><td colspan="2"></td></tr>
+                <tr><td>UAN</td><td class="bold">${escapeHtml(user.uan || '-')}</td><td></td><td colspan="2"></td></tr>
                 <tr><td>Bank Account Number</td><td class="bold">${escapeHtml(user.accountNumber || '-')}</td><td></td><td colspan="2"></td></tr>
                 <tr><td>Bank Name</td><td class="bold">${escapeHtml(user.bankName || '-')}</td><td></td><td colspan="2"></td></tr>
                 <tr><td>IFSC Code</td><td class="bold">${escapeHtml(user.ifscCode || '-')}</td><td></td><td colspan="2"></td></tr>

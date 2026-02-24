@@ -63,6 +63,7 @@ export interface Employee {
   reportingManager?: string;
   // Payroll & Bank Details
   pan?: string;
+  uan?: string;
   accountNumber?: string;
   bankName?: string;
   ifscCode?: string;

@@ -533,6 +533,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     accountNumber: '',
     ifscCode: '',
     pan: '',
+    uan: '',
     workingDays: 31,
     paidDays: 31,
     monthlyCtc: 0,
@@ -575,6 +576,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     position: '',
     joiningDate: todayIST(),
     pan: '',
+    uan: '',
     accountNumber: '',
     bankName: '',
     ifscCode: '',
@@ -1329,6 +1331,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       accountNumber: employee.accountNumber || '',
       ifscCode: employee.ifscCode || '',
       pan: employee.pan || '',
+      uan: employee.uan || '',
       workingDays,
       paidDays: workingDays,
       monthlyCtc: 0,
@@ -1384,7 +1387,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
           bankName: salaryFormData.bankName,
           accountNumber: salaryFormData.accountNumber,
           ifscCode: salaryFormData.ifscCode,
-          pan: salaryFormData.pan
+          pan: salaryFormData.pan,
+          uan: salaryFormData.uan
         });
 
         // Update local state
@@ -1399,7 +1403,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
               bankName: salaryFormData.bankName,
               accountNumber: salaryFormData.accountNumber,
               ifscCode: salaryFormData.ifscCode,
-              pan: salaryFormData.pan
+              pan: salaryFormData.pan,
+              uan: salaryFormData.uan
             }
             : emp
         ));
@@ -1464,6 +1469,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         position: '',
         joiningDate: todayIST(),
         pan: '',
+        uan: '',
         accountNumber: '',
         bankName: '',
         ifscCode: '',
@@ -3571,6 +3577,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       <div className="fw-semibold text-dark">{targetEmployee?.position || 'N/A'}</div>
                     )}
                   </div>
+                  <div className="col-md-3">
+                    <div className="small text-muted">UAN</div>
+                    <div className="fw-semibold text-dark">{salaryFormData.uan || targetEmployee?.uan || 'N/A'}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -4131,6 +4141,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 <div className="col-md-6">
                   <label className="form-label fw-bold">PAN Number</label>
                   <input type="text" className="form-control" value={employeeFormData.pan || ''} onChange={e => setEmployeeFormData({ ...employeeFormData, pan: e.target.value })} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">UAN Number</label>
+                  <input type="text" className="form-control" value={employeeFormData.uan || ''} onChange={e => setEmployeeFormData({ ...employeeFormData, uan: e.target.value })} />
                 </div>
                 <div className="col-md-6">
                   <label className="form-label fw-bold">Bank Name</label>

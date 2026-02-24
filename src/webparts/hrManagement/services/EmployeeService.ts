@@ -116,6 +116,7 @@ export async function createEmployee(sp: SPFI, employee: Partial<Employee>): Pro
       Designation: employee.position,
       DOJ: employee.joiningDate,
       PAN: employee.pan,
+      UAN: employee.uan,
       AccountNumber: employee.accountNumber,
       BankName: employee.bankName,
       IFSCCode: employee.ifscCode,
@@ -149,6 +150,7 @@ export async function updateEmployee(sp: SPFI, itemId: number, employee: Partial
     if (employee.position !== undefined) payload.Designation = employee.position;
     if (employee.joiningDate !== undefined) payload.DOJ = employee.joiningDate;
     if (employee.pan !== undefined) payload.PAN = employee.pan;
+    if (employee.uan !== undefined) payload.UAN = employee.uan;
     if (employee.accountNumber !== undefined) payload.AccountNumber = employee.accountNumber;
     if (employee.bankName !== undefined) payload.BankName = employee.bankName;
     if (employee.ifscCode !== undefined) payload.IFSCCode = employee.ifscCode;
@@ -417,6 +419,7 @@ async function mapItemToEmployee(sp: SPFI, item: any): Promise<Employee> {
     joiningDate: formatDateIST(item.DOJ),
     email: email,
     pan: item.PAN,
+    uan: item.UAN,
     accountNumber: item.AccountNumber,
     bankName: item.BankName,
     ifscCode: item.IFSCCode,

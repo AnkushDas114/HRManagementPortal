@@ -15,6 +15,7 @@ interface SalarySlipViewProps {
         accountNumber: string;
         ifscCode: string;
         pan: string;
+        uan: string;
         workingDays: number;
         paidDays: number;
         monthlyCtc: number;
@@ -98,6 +99,12 @@ export const SalarySlipView: React.FC<SalarySlipViewProps> = ({ employee, formDa
                     <tr>
                         <td>PAN</td>
                         <td>{formData.pan}</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>UAN</td>
+                        <td>{formData.uan}</td>
                         <td></td>
                         <td></td>
                     </tr>

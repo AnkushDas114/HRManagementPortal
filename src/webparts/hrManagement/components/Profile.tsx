@@ -27,6 +27,7 @@ interface ProfileFormData {
   location?: string;
   reportingManager?: string;
   pan?: string;
+  uan?: string;
   bankName?: string;
   accountNumber?: string;
   ifscCode?: string;
@@ -56,6 +57,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
     position: '',
     joiningDate: '',
     pan: '',
+    uan: '',
     bankName: '',
     accountNumber: '',
     ifscCode: ''
@@ -73,6 +75,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
       location: user.location || '',
       reportingManager: user.reportingManager || '',
       pan: user.pan || '',
+      uan: user.uan || '',
       bankName: user.bankName || '',
       accountNumber: user.accountNumber || '',
       ifscCode: user.ifscCode || ''
@@ -173,6 +176,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
         location: formData.location,
         reportingManager: formData.reportingManager,
         pan: formData.pan,
+        uan: formData.uan,
         bankName: formData.bankName,
         accountNumber: formData.accountNumber,
         ifscCode: formData.ifscCode
@@ -364,6 +368,12 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
               </div>
               <div className="col-md-6">
                 <div className="border rounded p-3 bg-light h-100">
+                  <label className="text-muted small fw-bold text-uppercase d-block mb-1">UAN Number</label>
+                  <span className="fw-medium">{maskedText(user.uan)}</span>
+                </div>
+              </div>
+              <div className="col-md-6">
+                <div className="border rounded p-3 bg-light h-100">
                   <label className="text-muted small fw-bold text-uppercase d-block mb-1">Bank Name</label>
                   <span className="fw-medium">{maskedText(user.bankName)}</span>
                 </div>
@@ -506,6 +516,10 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                 <div className="col-md-6">
                   <label className="form-label fw-bold">PAN Number</label>
                   <input type="text" className="form-control" value={formData.pan || ''} onChange={e => setFormData({ ...formData, pan: e.target.value })} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-bold">UAN Number</label>
+                  <input type="text" className="form-control" value={formData.uan || ''} onChange={e => setFormData({ ...formData, uan: e.target.value })} />
                 </div>
                 <div className="col-md-6">
                   <label className="form-label fw-bold">Bank Name</label>
