@@ -16,14 +16,14 @@ const Badge: React.FC<BadgeProps> = ({ status }) => {
     case 'accepted':
     case ConcernStatus.Resolved.toLowerCase():
     case 'present':
-      toneClass = 'btn-success';
+      toneClass = 'text-priamry';
       break;
     case LeaveStatus.Rejected.toLowerCase():
     case 'absent':
-      toneClass = 'status-chip--danger';
+      toneClass = 'text-priamry';
       break;
     case LeaveStatus.Pending.toLowerCase():
-      toneClass = 'status-chip--pending';
+      toneClass = 'text-priamry';
       // inlineStyle = {
       //   color: '#a16207',
       //   background: '#fef3c7',
@@ -32,14 +32,14 @@ const Badge: React.FC<BadgeProps> = ({ status }) => {
       break;
     case ConcernStatus.Open.toLowerCase():
     case 'unresolved':
-      toneClass = 'status-chip--warning';
+      toneClass = 'text-priamry';
       break;
     default:
-      toneClass = 'status-chip--neutral';
+      toneClass = 'text-priamry';
   }
 
   return (
-    <span className={`status-chip ${toneClass}`} style={inlineStyle}>
+    <span className={` ${toneClass}`} style={inlineStyle}>
       {status}
     </span>
   );

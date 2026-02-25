@@ -1041,7 +1041,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       accessor: ({ record }) => record.clockIn || '',
       render: ({ record }) => (
         <div className="d-flex align-items-center gap-1 small text-dark">
-          <Clock size={12} className="text-success" />
+          <Clock size={12}/>
           {record.clockIn || '--:--'}
         </div>
       )
@@ -1052,7 +1052,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       accessor: ({ record }) => record.clockOut || '',
       render: ({ record }) => (
         <div className="d-flex align-items-center gap-1 small text-dark">
-          <Clock size={12} className="text-danger" />
+          <Clock size={12} />
           {record.clockOut || '--:--'}
         </div>
       )
