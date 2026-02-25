@@ -36,15 +36,16 @@ const IMAGE_RETRY_MAX_ATTEMPTS = 5;
 const IMAGE_CACHE_TTL_MS = 2 * 60 * 1000;
 let imageGalleryCache: { ts: number; data: ProfileGalleryImage[] } | null = null;
 const ALLOWED_DEPARTMENTS = [
-  'Engineering',
-  'Product',
+  'SPFx',
   'Design',
   'QA',
-  'Trainee',
-  'Marketing',
   'HR',
   'Finance',
-  'Management'
+  'Smalsus Lead',
+  'Portfolio Lead',
+  'Management',
+  'Trainee',
+  'Project Management Trainee'
 ] as const;
 
 const normalizeDepartment = (value: unknown): string => {

@@ -18,6 +18,7 @@ interface AttendanceTrackerProps {
   onImport: (records: AttendanceRecord[]) => Promise<void> | void;
   onUpdateAttendanceRecord?: (record: AttendanceRecord) => Promise<void> | void;
   onDeleteAttendanceByDate?: (date: string, employeeId?: string) => Promise<number> | number;
+  onDeleteAttendanceRecord?: (record: AttendanceRecord) => Promise<void> | void;
   onOpenAttendanceForm?: (recordId: number) => void;
   onOpenAttendanceVersionHistory?: (recordId: number) => void;
   onViewBalance?: (employee: Employee) => void;
@@ -35,6 +36,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   onImport,
   onUpdateAttendanceRecord,
   onDeleteAttendanceByDate,
+  onDeleteAttendanceRecord,
   onOpenAttendanceForm,
   onOpenAttendanceVersionHistory,
   onViewBalance,
@@ -1238,13 +1240,24 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       filterable: false,
       align: 'end',
       render: (row) => (
-        <button
-          className="btn btn-sm btn-light border d-inline-flex align-items-center gap-1 fw-bold px-3 shadow-xs"
-          style={{ fontSize: '11px', borderRadius: '4px' }}
-          onClick={() => handleOpenEditAttendance(row)}
-        >
-          <Edit3 size={14} /> Edit
-        </button>
+        <div className="d-flex gap-2 justify-content-end">
+          <button
+            className="btn btn-sm btn-light border d-inline-flex align-items-center gap-1 fw-bold px-3 shadow-xs"
+            style={{ fontSize: '11px', borderRadius: '4px' }}
+            onClick={() => handleOpenEditAttendance(row)}
+          >
+            <Edit3 size={14} /> Edit
+          </button>
+          {onDeleteAttendanceRecord && (
+            <button
+              className="btn btn-sm btn-outline-danger border d-inline-flex align-items-center gap-1 fw-bold px-3 shadow-xs"
+              style={{ fontSize: '11px', borderRadius: '4px' }}
+              onClick={() => { void onDeleteAttendanceRecord(row.record); }}
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          )}
+        </div>
       )
     }
   ]), [formatLeaveNumber, getLeaveSummary, getMonthlyLeaveUsage, onViewBalance, handleOpenEditAttendance]);

@@ -433,7 +433,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
           className="btn btn-primary d-flex align-items-center shadow-sm"
         >
           {/* <Sparkle className="me-2" style={{ width: '20px', height: '20px' }} /> */}
-          {isLoadingSummary ? 'Generating...' : 'Generate AI Weekly Report'}
+          {isLoadingSummary ? 'Generating...' : 'Generate Weekly Report'}
         </button>
       </div>
 

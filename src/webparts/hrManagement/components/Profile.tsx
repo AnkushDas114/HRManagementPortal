@@ -488,15 +488,16 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                   <label className="form-label fw-bold">Department</label>
                   <select className="form-select" value={formData.department || ''} onChange={e => setFormData({ ...formData, department: e.target.value })} required>
                     <option value="">Select Department</option>
-                    <option value="Engineering">Engineering</option>
-                    <option value="Product">Product</option>
+                    <option value="SPFx">SPFx</option>
                     <option value="Design">Design</option>
                     <option value="QA">QA</option>
-                    <option value="Trainee">Trainee</option>
-                    <option value="Marketing">Marketing</option>
                     <option value="HR">HR</option>
                     <option value="Finance">Finance</option>
+                    <option value="Smalsus Lead">Smalsus Lead</option>
+                    <option value="Portfolio Lead">Portfolio Lead</option>
                     <option value="Management">Management</option>
+                    <option value="Trainee">Trainee</option>
+                    <option value="Project Management Trainee">Project Management Trainee</option>
                   </select>
                 </div>
                 <div className="col-md-6">

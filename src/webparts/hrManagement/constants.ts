@@ -6,7 +6,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
   {
     id: 'E001',
     name: 'Alice Johnson',
-    department: 'Engineering',
+    department: 'SPFx',
     avatar: 'https://i.pravatar.cc/150?u=E001',
     joiningDate: '2022-01-15',
     balance: { vacation: 12, sick: 5, personal: 3, totalEntitled: 25, wfh: 10, restrictedHoliday: 2 }
@@ -14,7 +14,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
   {
     id: 'E002',
     name: 'Bob Williams',
-    department: 'Product',
+    department: 'Portfolio Lead',
     avatar: 'https://i.pravatar.cc/150?u=E002',
     joiningDate: '2022-03-10',
     balance: { vacation: 8, sick: 4, personal: 2, totalEntitled: 25, wfh: 15, restrictedHoliday: 1 }
@@ -30,7 +30,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
   {
     id: 'E004',
     name: 'Diana Miller',
-    department: 'Engineering',
+    department: 'SPFx',
     avatar: 'https://i.pravatar.cc/150?u=E004',
     joiningDate: '2023-05-02',
     balance: { vacation: 5, sick: 2, personal: 1, totalEntitled: 25, wfh: 20, restrictedHoliday: 0 }
@@ -46,7 +46,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
   {
     id: 'E006',
     name: 'Fiona Garcia',
-    department: 'Marketing',
+    department: 'HR',
     avatar: 'https://i.pravatar.cc/150?u=E006',
     joiningDate: '2023-02-28',
     balance: { vacation: 14, sick: 5, personal: 4, totalEntitled: 30, wfh: 8, restrictedHoliday: 1 }

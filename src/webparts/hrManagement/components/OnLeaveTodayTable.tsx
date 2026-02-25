@@ -54,7 +54,8 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
     yearlyMonthThe: 'January',
     endDateOption: 'noEnd' as 'noEnd' | 'endBy' | 'endAfter',
     recurrenceEndDate: '',
-    recurrenceOccurrences: 1
+    recurrenceOccurrences: 1,
+    requestCategory: 'Leave' as 'Leave' | 'Work From Home'
   });
 
   const onLeaveToday = React.useMemo(() => {
@@ -102,8 +103,8 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       setIsAddLeaveModalOpen(false);
       resetForm();
     } catch (error) {
-      console.error("Failed to add leave:", error);
-      alert("Failed to add leave request.");
+      console.error("Failed to add leave/wfh:", error);
+      alert("Failed to add leave/wfh request.");
     } finally {
       setIsSubmitting(false);
     }
@@ -118,7 +119,8 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       startDate: today,
       endDate: today,
       reason: '',
-      isHalfDay: false
+      isHalfDay: false,
+      requestCategory: 'Leave'
     });
   };
 
@@ -299,7 +301,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
               className="btn btn-primary px-4 fw-bold shadow-sm"
               disabled={isSubmitting || !selectedEmployee}
             >
-              {isSubmitting ? 'Submitting...' : 'Submit Leave'}
+              {isSubmitting ? 'Submitting...' : (leaveFormData.requestCategory === 'Work From Home' ? 'Submit WFH' : 'Submit Leave')}
             </button>
           </>
         }
@@ -365,14 +367,19 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
 
             <div className="col-12">
               <label className="form-label fw-bold d-flex align-items-center gap-2 text-dark">
-                <Info size={16} className="text-primary" /> Leave Type
+                <Info size={16} className="text-primary" /> {leaveFormData.requestCategory === 'Work From Home' ? 'Work From Home Type' : 'Leave Type'}
               </label>
               <select
                 className="form-select shadow-xs"
                 value={leaveFormData.leaveType}
                 onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}
+                disabled={leaveFormData.requestCategory === 'Work From Home'}
               >
-                {Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))}
+                {leaveFormData.requestCategory === 'Work From Home' ? (
+                  <option value="Work From Home">Work From Home</option>
+                ) : (
+                  Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))
+                )}
               </select>
             </div>
 
@@ -403,7 +410,22 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
               />
             </div>
 
-            <div className="col-12">
+            <div className="col-12 d-flex gap-2">
+              <button
+                type="button"
+                className={`btn popup-option-toggle ${leaveFormData.requestCategory === 'Work From Home' ? 'popup-option-toggle--active' : ''}`}
+                onClick={() => {
+                  const isWFH = leaveFormData.requestCategory === 'Work From Home';
+                  setLeaveFormData({
+                    ...leaveFormData,
+                    requestCategory: isWFH ? 'Leave' : 'Work From Home',
+                    leaveType: isWFH ? (Object.keys(leaveQuotas)[0] || 'Sick') : 'Work From Home'
+                  });
+                }}
+                aria-pressed={leaveFormData.requestCategory === 'Work From Home'}
+              >
+                Work From Home
+              </button>
               <button
                 type="button"
                 className={`btn popup-option-toggle ${leaveFormData.isHalfDay ? 'popup-option-toggle--active' : ''}`}

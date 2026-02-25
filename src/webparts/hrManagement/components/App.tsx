@@ -2296,9 +2296,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
     setSendReportPayload(JSON.stringify(payload, null, 2));
 
-    const toEmployeeType = (department: string): 'Staff' | 'Trainee' => (
-      String(department || '').trim().toLowerCase() === 'trainee' ? 'Trainee' : 'Staff'
-    );
+    const toEmployeeType = (department: string): 'Staff' | 'Trainee' => {
+      const lower = String(department || '').trim().toLowerCase();
+      return (lower === 'trainee' || lower === 'project management trainee') ? 'Trainee' : 'Staff';
+    };
 
     const onLeaveEmployeeIds: Record<string, true> = {};
     filtered.forEach((request) => { onLeaveEmployeeIds[request.employee.id] = true; });
@@ -2740,7 +2741,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     }
 
     // Details Table
-    const detailHeaders = ['No', 'Name', 'Type', 'Attendance', 'Reason', 'Expected End', 'Team', 'Status', 'Total Leaves (YTD)'];
+    const detailHeaders = ['No', 'Name', 'Employee Type', 'Attendance', 'Reason', 'Expected End', 'Team', 'Status', 'Total Leaves (YTD)'];
     const detailHeaderRow = worksheet.addRow(detailHeaders);
     detailHeaderRow.eachCell(cell => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
@@ -3071,7 +3072,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                           onDelete={(event) => { void handleDeleteAttendanceRecord(event.raw as AttendanceRecord); }}
                         />
                       ) : (
-                        <AttendanceTracker employees={directoryEmployees} leaveRequests={leaveRequests} attendanceRecords={attendanceRecords} onImport={handleImportAttendance} isImporting={isImportingAttendance} onViewBalance={handleViewBalance} leaveQuotas={leaveQuotas} onUpdateAttendanceRecord={handleUpdateAttendanceRecord} onDeleteAttendanceByDate={handleDeleteAttendanceByDate} onOpenAttendanceForm={(recordId) => { openOutOfBoxListItemForm(sp, 'AttendanceList', recordId).catch(() => undefined); }} onOpenAttendanceVersionHistory={(recordId) => { void handleOpenVersionHistory('Attendance', 'AttendanceList', recordId); }} initialEditRecord={pendingAttendanceEditRecord} onInitialEditConsumed={() => setPendingAttendanceEditRecord(null)} />
+                        <AttendanceTracker employees={directoryEmployees} leaveRequests={leaveRequests} attendanceRecords={attendanceRecords} onImport={handleImportAttendance} isImporting={isImportingAttendance} onViewBalance={handleViewBalance} leaveQuotas={leaveQuotas} onUpdateAttendanceRecord={handleUpdateAttendanceRecord} onDeleteAttendanceByDate={handleDeleteAttendanceByDate} onDeleteAttendanceRecord={handleDeleteAttendanceRecord} onOpenAttendanceForm={(recordId) => { openOutOfBoxListItemForm(sp, 'AttendanceList', recordId).catch(() => undefined); }} onOpenAttendanceVersionHistory={(recordId) => { void handleOpenVersionHistory('Attendance', 'AttendanceList', recordId); }} initialEditRecord={pendingAttendanceEditRecord} onInitialEditConsumed={() => setPendingAttendanceEditRecord(null)} />
                       )}
                     </>
                   )}
@@ -4340,15 +4341,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   <label className="form-label fw-bold">Department</label>
                   <select className="form-select" value={employeeFormData.department} onChange={e => setEmployeeFormData({ ...employeeFormData, department: e.target.value })} required>
                     <option value="">Select Department</option>
-                    <option value="Engineering">Engineering</option>
-                    <option value="Product">Product</option>
+                    <option value="SPFx">SPFx</option>
                     <option value="Design">Design</option>
                     <option value="QA">QA</option>
-                    <option value="Trainee">Trainee</option>
-                    <option value="Marketing">Marketing</option>
                     <option value="HR">HR</option>
                     <option value="Finance">Finance</option>
+                    <option value="Smalsus Lead">Smalsus Lead</option>
+                    <option value="Portfolio Lead">Portfolio Lead</option>
                     <option value="Management">Management</option>
+                    <option value="Trainee">Trainee</option>
+                    <option value="Project Management Trainee">Project Management Trainee</option>
                   </select>
                 </div>
                 <div className="col-md-6">
