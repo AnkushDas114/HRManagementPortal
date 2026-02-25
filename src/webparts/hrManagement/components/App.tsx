@@ -3348,7 +3348,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   <button className="btn-default rounded-circle px-2" onClick={() => handleUpdateQuota(type, -1)} disabled={isLoadingQuotas}><Minus size={14} /></button>
                   <div className="fw-bold" style={{ width: '20px', textAlign: 'center' }}>{count}</div>
                   <button className="btn-primary rounded-circle" onClick={() => handleUpdateQuota(type, 1)} disabled={isLoadingQuotas}><Plus size={14} /></button>
-                  <button className="btn btn-link text-danger p-0 ms-2" onClick={() => handleDeleteQuotaType(type)} disabled={isLoadingQuotas}><X size={18} /></button>
+                  <button className="btn btn-link text-primary p-0 ms-2" onClick={() => handleDeleteQuotaType(type)} disabled={isLoadingQuotas}><X size={18} /></button>
                 </div>
               </div>
             ))}
@@ -4213,7 +4213,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             <div className="col-12 mt-4 pt-3 border-top">
               <div className="d-flex justify-content-between align-items-center">
                 <div className="fw-bold fs-4 text-dark">Total Net Pay</div>
-                <div className="text-success fw-bold fs-3">
+                <div className="text-primary fw-bold fs-3">
                   ₹{salaryNetPay.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </div>
               </div>
@@ -4240,7 +4240,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
               <div className="col-6">
                 <div className="p-2 border rounded bg-light text-center h-100">
                   <div className="small text-muted fw-semibold">Total Leaves Taken</div>
-                  <div className="h5 mb-0 text-danger fw-bold">{totalLeavesTaken}</div>
+                  <div className="h5 mb-0 text-primary fw-bold">{totalLeavesTaken}</div>
                 </div>
               </div>
             </div>

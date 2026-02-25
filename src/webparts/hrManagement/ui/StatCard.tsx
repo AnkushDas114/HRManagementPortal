@@ -13,7 +13,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, isTotal = false
     <div className={`card border-0 shadow-sm h-100 ${isTotal ? 'card-bg-primary text-white' : 'bg-white'}`}>
       <div className="card-body p-4 d-flex align-items-center justify-content-between">
         <div>
-          <h6 className={`card-subtitle mb-2 fw-bold text-uppercase small ${isTotal ? 'text-white-50' : 'text-muted'}`} style={{ letterSpacing: '0.5px' }}>
+          <h6 className={`card-subtitle mb-2 ${isTotal ? 'text-white' : 'text-muted'}`} style={{ letterSpacing: '0.5px' }}>
             {title}
           </h6>
           <h2 className="card-title mb-0 fw-bold">{value}</h2>

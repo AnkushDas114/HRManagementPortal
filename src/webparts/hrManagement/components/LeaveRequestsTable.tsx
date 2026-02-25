@@ -497,7 +497,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     <>
       <button className="btn btn-outline-secondary px-4 fw-medium" onClick={() => setIsCommentModalOpen(false)}>Cancel</button>
       <button
-        className={`btn px-4 fw-bold text-white ${actionType === LeaveStatus.Approved ? 'btn-success' : 'btn-danger'}`}
+        className={`btn px-4 fw-bold text-white ${actionType === LeaveStatus.Approved ? 'btn-primary' : 'btn-danger'}`}
         onClick={handleCommentSubmit}
       >
         Confirm {actionType}

@@ -118,11 +118,11 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
       }
 
       let icon = <Calendar size={16} className="text-secondary" />;
-      if (event.type === 'Birthday') icon = <Cake size={16} className="text-danger" />;
-      if (event.type === 'Work Anniversary') icon = <PartyPopper size={16} className="text-warning" />;
+      if (event.type === 'Birthday') icon = <Cake size={16} />;
+      if (event.type === 'Work Anniversary') icon = <PartyPopper size={16} />;
       if (event.type === 'Meeting') icon = <Users size={16} className="text-primary" />;
       if (['Festival', 'Holi', 'Diwali', 'Durga Puja', 'Christmas Day', 'New Year'].indexOf(event.type) !== -1) {
-        icon = <Sparkle size={16} className="text-info" />;
+        icon = <Sparkle size={16} />;
       }
 
       return {
@@ -439,7 +439,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
 
       <div className="row g-4 px-3">
         <div className="col-12 col-sm-6 col-lg-4 col-xl-2">
-          <StatCard title="Present Today" value={stats.presentToday} icon={<UserCheck className="text-info" />} />
+          <StatCard title="Present Today" value={stats.presentToday} icon={<UserCheck />} />
         </div>
         <div className="col-12 col-sm-6 col-lg-4 col-xl-2">
           <div
@@ -456,7 +456,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
             className="h-100 card-clickable-wrapper"
             style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
           >
-            <StatCard title="Leaves Request" value={stats.pending} icon={<Clock className="text-warning" />} />
+            <StatCard title="Leaves Request" value={stats.pending} icon={<Clock />} />
           </div>
         </div>
         <div className="col-12 col-sm-6 col-lg-4 col-xl-2">
@@ -465,11 +465,11 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
             className="h-100 card-clickable-wrapper"
             style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
           >
-            <StatCard title="Raised Concerns" value={concernsCount} icon={<MessageSquare className="text-danger" />} />
+            <StatCard title="Raised Concerns" value={concernsCount} icon={<MessageSquare />} />
           </div>
         </div>
         <div className="col-12 col-sm-6 col-lg-4 col-xl-2">
-          <StatCard title="Approved Requests" value={stats.approved} icon={<CheckCircle className="text-success" />} />
+          <StatCard title="Approved Requests" value={stats.approved} icon={<CheckCircle />} />
         </div>
         <div className="col-12 col-sm-6 col-lg-4 col-xl-2">
           <StatCard title="Total Requests" value={stats.total} icon={<XCircle className="text-white" />} isTotal />
@@ -480,7 +480,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         <div className="col-12 col-lg-8">
           <div className="card shadow-sm border-0 h-100 p-4">
             <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-              <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+              <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
                 <Flag size={18} color="#2F5596" /> Upcoming Holidays ({monthNameIST()})
               </h6>
               <span className="small text-muted">{currentMonthHolidays.length} Holidays this month</span>
@@ -494,7 +494,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                         <CalendarIcon size={16} className="text-white" />
                       </div>
                       <div className="overflow-hidden">
-                        <div className="small fw-bold text-dark text-truncate">{holiday.name}</div>
+                        <div className="text-dark text-truncate">{holiday.name}</div>
                         <div className="text-muted small" style={{ fontSize: '10px' }}>
                           {formatDateForDisplayIST(holiday.date, 'en-US', { day: 'numeric', month: 'short' })}
                         </div>
@@ -503,7 +503,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                   </div>
                 ))
               ) : (
-                <div className="col-12 text-center py-4 text-muted small">No more holidays left in this month.</div>
+                <div className="col-12 text-center py-4 text-muted">No more holidays left in this month.</div>
               )}
             </div>
           </div>
@@ -511,8 +511,8 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         <div className="col-12 col-lg-4">
           <div className="card shadow-sm border-0 h-100 p-4">
             <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-              <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-                <PartyPopper size={18} color="#E44D26" /> Team Celebrations
+              <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
+                <PartyPopper size={20} /> Team Celebrations
               </h6>
               <button
                 className="btn btn-sm border d-flex align-items-center gap-1 fw-bold px-2 py-1"
@@ -532,7 +532,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                 >
                   <div className="d-flex align-items-center gap-3">
                     <div>
-                      <div className="small fw-bold text-dark">{item.employee?.name || 'Team Event'}</div>
+                      <div className="fw-bold text-dark">{item.employee?.name || 'Team Event'}</div>
                       <div className="text-muted d-flex flex-column gap-0" style={{ fontSize: '10px' }}>
                         <div className="fw-medium mb-1" style={{ color: '#2f5596' }}>{item.name}</div>
                         <div className="d-flex align-items-center gap-1">
@@ -571,7 +571,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                 </div>
               ))}
               {formattedEvents.length === 0 && (
-                <div className="text-center py-4 text-muted small">No upcoming team events.</div>
+                <div className="text-center py-4 text-muted">No upcoming team events.</div>
               )}
             </div>
           </div>
@@ -582,7 +582,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         <div className="col-12 col-lg-6">
           <div className="card shadow-sm h-100">
             <div className="card-body">
-              <h3 className="h5 fw-semibold text-secondary mb-4">Approved Leave Days by Type</h3>
+              <h3 className="h5 fw-semibold text-dark mb-4">Approved Leave Days by Type</h3>
               {leaveTypeData.length === 0 ? (
                 <div className="text-muted small">No approved leave data yet.</div>
               ) : (
@@ -613,7 +613,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         <div className="col-12 col-lg-6">
           <div className="card shadow-sm h-100">
             <div className="card-body">
-              <h3 className="h5 fw-semibold text-secondary mb-4">Leave Requests by Department</h3>
+              <h3 className="h5 fw-semibold text-dark mb-4">Leave Requests by Department</h3>
               {departmentRequestData.length === 0 ? (
                 <div className="text-muted small">No requests yet.</div>
               ) : (
@@ -625,7 +625,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                       <RxYAxis allowDecimals={false} />
                       <Tooltip formatter={(value: number) => [value, 'Requests']} />
                       <Legend />
-                      <RxBar dataKey="value" name="Number of Requests" fill="#7dbc95" radius={[4, 4, 0, 0]} />
+                      <RxBar dataKey="value" name="Number of Requests" fill="#2f5596" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
