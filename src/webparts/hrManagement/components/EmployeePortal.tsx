@@ -550,11 +550,11 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       }
 
       let icon = <CalendarIcon size={16} className="text-secondary" />;
-      if (event.type === 'Birthday') icon = <Cake size={16} className="text-danger" />;
-      if (event.type === 'Work Anniversary') icon = <PartyPopper size={16} className="text-warning" />;
+      if (event.type === 'Birthday') icon = <Cake size={16} />;
+      if (event.type === 'Work Anniversary') icon = <PartyPopper size={16} />;
       if (event.type === 'Meeting') icon = <UserCheck size={16} className="text-primary" />;
       if (['Festival', 'Holi', 'Diwali', 'Durga Puja', 'Christmas Day', 'New Year'].indexOf(event.type) !== -1) {
-        icon = <Sparkle size={16} className="text-info" />;
+        icon = <Sparkle size={16}/>;
       }
 
       return {
@@ -626,9 +626,9 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       let icon = <FileText size={14} className="text-primary" />;
       const lowerType = type.toLowerCase();
 
-      if (lowerType.includes('sick')) icon = <FileText size={14} className="text-danger" />;
-      else if (lowerType.includes('earned') || lowerType.includes('vacation')) icon = <Sun size={14} className="text-warning" />;
-      else if (lowerType.includes('un-planned') || lowerType.includes('unplanned') || lowerType.includes('casual')) icon = <AlertCircle size={14} className="text-info" />;
+      if (lowerType.includes('sick')) icon = <FileText size={14} />;
+      else if (lowerType.includes('earned') || lowerType.includes('vacation')) icon = <Sun size={14} />;
+      else if (lowerType.includes('un-planned') || lowerType.includes('unplanned') || lowerType.includes('casual')) icon = <AlertCircle size={14} />;
 
       return {
         label: type,
@@ -738,7 +738,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       align: 'end',
       render: (rec) => (
         <button
-          className="btn btn-sm btn-light border color-primary fw-bold"
+          className="btn btn-sm btn-primary"
           style={{ fontSize: '10px' }}
           onClick={() => handleOpenConcern(ConcernType.Attendance, rec.date)}
         >
@@ -751,8 +751,8 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   const salaryColumns = React.useMemo<ColumnDef<SalarySlip>[]>(() => ([
     { key: 'period', header: 'Pay Period', accessor: (slip) => `${slip.month} ${slip.year}`, render: (slip) => <span className="fw-bold">{slip.month} {slip.year}</span> },
     { key: 'basic', header: 'Basic Salary', accessor: (slip) => slip.basic, render: (slip) => `₹${slip.basic.toLocaleString()}` },
-    { key: 'deductions', header: 'Total Deductions', accessor: (slip) => slip.deductions, render: (slip) => <span className="text-danger">₹{slip.deductions.toLocaleString()}</span> },
-    { key: 'netPay', header: 'Net Paid', accessor: (slip) => slip.netPay, render: (slip) => <span className="fw-bold text-success">₹{slip.netPay.toLocaleString()}</span> },
+    { key: 'deductions', header: 'Total Deductions', accessor: (slip) => slip.deductions, render: (slip) => <span className="text-primary">₹{slip.deductions.toLocaleString()}</span> },
+    { key: 'netPay', header: 'Net Paid', accessor: (slip) => slip.netPay, render: (slip) => <span className="fw-bold text-primary">₹{slip.netPay.toLocaleString()}</span> },
     {
       key: 'actions',
       header: 'Actions',
@@ -765,7 +765,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <Download size={14} /> Download Slip
           </button>
           <button
-            className="btn btn-sm btn-light border color-primary fw-bold"
+            className="btn btn-sm btn-primary"
             style={{ fontSize: '10px' }}
             onClick={() => handleOpenConcern(ConcernType.Salary, slip.id)}
           >
@@ -806,7 +806,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       align: 'end',
       render: (r) => (
         <button
-          className="btn btn-sm btn-light border color-primary fw-bold"
+          className="btn btn-sm btn-primary"
           style={{ fontSize: '10px' }}
           onClick={() => handleOpenConcern(r.requestCategory === 'Work From Home' ? ConcernType.WorkFromHome : ConcernType.Leave, r.id)}
         >
@@ -894,52 +894,52 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         <div className="mb-4 d-flex justify-content-between align-items-end p-4">
           <div>
             <h2 className="h2 fw-bold mb-1 color-primary">Welcome, {user.name.split(' ')[0]}!</h2>
-            <p className="text-muted small mb-0">Here is your summary for today.</p>
+            <p className="text-muted mb-0">Here is your summary for today.</p>
           </div>
           <div className="text-end d-none d-md-block">
-            <span className="small fw-bold text-muted d-block">Current Date</span>
+            <span className="fw-bold text-muted d-block">Current Date</span>
             <span className="fw-medium text-dark">{formatDateForDisplayIST(getNowIST(), 'en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
         </div>
 
         <div className="row g-4 mb-4 mx-2">
           <div className="col-lg-3">
-            <div className="card shadow-sm border-0 h-100 p-4 bg-white">
+            <div className="card shadow-sm border-0 h-100 p-3 bg-white">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
                   <UserCheck size={18} color="#2F5596" /> Low Working Hours (&lt; 9h)
                 </h6>
-                <span className="small fw-bold text-danger-emphasis">{lowWorkingHoursRecords.length} record(s)</span>
+                <span className="fw-medium text-dark">{lowWorkingHoursRecords.length} record(s)</span>
               </div>
               <div
-                className="d-flex flex-column gap-3 mt-2 pe-1"
+                className="d-flex flex-column gap-3 mt-2 pe-1 no-scrollabr"
                 style={{ maxHeight: lowWorkingHoursRecords.length > 5 ? '320px' : 'none', overflowY: lowWorkingHoursRecords.length > 5 ? 'auto' : 'visible' }}
               >
                 {lowWorkingHoursRecords.map((rec, i) => (
                   <div key={`${rec.employeeId}-${rec.date}-${i}`} className="d-flex align-items-center justify-content-between pb-2 border-bottom border-light last-border-none">
                     <div className="d-flex flex-column">
-                      <div className="small fw-bold text-dark">{formatDateForDisplayIST(rec.date, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                      <div className=" fw-bold text-dark">{formatDateForDisplayIST(rec.date, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
                       <div className="small text-muted">{rec.clockIn || '--:--'} - {rec.clockOut || '--:--'}</div>
                     </div>
-                    <span className="badge bg-danger-subtle text-danger border-0" style={{ fontSize: '10px' }}>
+                    <span className="badge bg-primary border-0" style={{ fontSize: '10px' }}>
                       {rec.workDuration || '--:--'} Low
                     </span>
                   </div>
                 ))}
                 {lowWorkingHoursRecords.length === 0 && (
-                  <div className="text-center py-4 text-muted small">No low working hour records found for this month.</div>
+                  <div className="text-center py-4 text-muted">No low working hour records found for this month.</div>
                 )}
               </div>
             </div>
           </div>
 
           <div className="col-lg-3">
-            <div className="card shadow-sm border-0 h-100 p-4 bg-white">
+            <div className="card shadow-sm border-0 h-100 p-3 bg-white">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
                   <Users size={18} color="#2F5596" /> On Leave / WFH Today
                 </h6>
-                <span className="small fw-bold text-primary-emphasis">{onLeaveWfhTodayRecords.length} record(s)</span>
+                <span className="fw-medium text-primary-emphasis">{onLeaveWfhTodayRecords.length} record(s)</span>
               </div>
               <div
                 className="d-flex flex-column gap-3 mt-2 pe-1"
@@ -947,14 +947,14 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               >
                 {onLeaveWfhTodayRecords.map((rec, i) => (
                   <div key={`${rec.id}-${i}`} className="d-flex align-items-center justify-content-between pb-2 border-bottom border-light last-border-none">
-                    <div className="small fw-bold text-dark">{rec.employee.name}</div>
-                    <span className="badge card-bg-primary-subtle text-primary border-0" style={{ fontSize: '10px' }}>
+                    <div className="fw-medium text-dark">{rec.employee.name}</div>
+                    <span className="text-primary border-0 fw-medium" style={{ fontSize: '14px' }}>
                       {rec.requestCategory === 'Work From Home' ? 'Work From Home' : rec.leaveType}
                     </span>
                   </div>
                 ))}
                 {onLeaveWfhTodayRecords.length === 0 && (
-                  <div className="text-center py-4 text-muted small">No on leave or WFH records for today.</div>
+                  <div className="text-center py-4 text-muted">No on leave or WFH records for today.</div>
                 )}
               </div>
             </div>
@@ -963,7 +963,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           <div className="col-lg-3">
             <div className="card shadow-sm border-0 h-100 p-4">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                <h6 className="fw-bold mb-0 text-dark">Leave Balance</h6>
+                <h6 className="mb-0 text-dark">Leave Balance</h6>
                 <button className="btn btn-link p-0 border-0" onClick={() => setIsBalanceModalOpen(true)}>
                   <Info size={14} className="text-muted" />
                 </button>
@@ -974,7 +974,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               >
                 {leaveStats.map((item, idx) => (
                   <div key={idx} className="d-flex justify-content-between align-items-center">
-                    <div className="d-flex align-items-center gap-2 small fw-medium text-dark">
+                    <div className="d-flex align-items-center gap-2 fw-medium text-dark">
                       {item.icon} {item.label}
                     </div>
                     <div className="small fw-bold">{item.val} </div>
@@ -996,8 +996,8 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           <div className="col-lg-3">
             <div className="card shadow-sm border-0 h-100 p-4">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-                  <PartyPopper size={18} color="#E44D26" /> Team Celebrations
+                <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
+                  <PartyPopper size={20}/> Team Celebrations
                 </h6>
               </div>
               <div
@@ -1017,26 +1017,26 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                     <div className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light transition-all border border-transparent hover-border-light">
                     <div className="d-flex align-items-center gap-3">
                       <div>
-                        <div className="small fw-bold" style={{ color: '#2f5596' }}>{item.name}</div>
-                        <div className="text-muted d-flex align-items-center gap-1" style={{ fontSize: '10px' }}>
+                        <div className=" fw-bold" style={{ color: '#2f5596' }}>{item.name}</div>
+                        <div className="text-muted d-flex align-items-center gap-1 small" >
                           {item.icon} {item.type}
                         </div>
                         {item.plainDescription && (
                           <div
-                            className="text-muted"
-                            style={{ fontSize: '10px', maxWidth: '180px', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                            className="text-muted small"
+                            style={{ maxWidth: '180px', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
                           >
                             {item.plainDescription}
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className="small badge bg-light text-dark border-0">{item.dateLabel}</div>
+                    <div className="small bg-light text-dark border-0">{item.dateLabel}</div>
                     </div>
                   </button>
                 ))}
                 {formattedCelebrations.length === 0 && (
-                  <div className="text-center py-4 text-muted small">No upcoming team events.</div>
+                  <div className="text-center py-4 text-muted">No upcoming team events.</div>
                 )}
               </div>
             </div>
@@ -1047,7 +1047,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           <div className="col-lg-7">
             <div className="card shadow-sm border-0 p-4 h-100">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
                   <Flag size={18} color="#2F5596" /> Upcoming Holidays ({monthNameIST()})
                 </h6>
                 <span className="small text-muted">{currentMonthHolidays.length} Holidays this month</span>
@@ -1061,7 +1061,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                           <CalendarIcon size={18} className="text-white" />
                         </div>
                         <div>
-                          <div className="small fw-bold text-dark">{holiday.name}</div>
+                          <div className="fw-medium text-dark">{holiday.name}</div>
                           <div className="text-muted d-flex align-items-center gap-1" style={{ fontSize: '11px' }}>
                             <Clock size={10} /> {formatDateForDisplayIST(holiday.date, 'en-US', { day: 'numeric', month: 'short' })} • {holiday.type}
                           </div>
@@ -1070,7 +1070,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                     </div>
                   ))
                 ) : (
-                  <div className="col-12 text-center py-4 text-muted small">No more holidays left in this month.</div>
+                  <div className="col-12 text-center py-4 text-muted">No more holidays left in this month.</div>
                 )}
               </div>
             </div>
@@ -1079,7 +1079,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           <div className="col-lg-5">
             <div className="card shadow-sm border-0 p-4 h-100">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                <h6 className="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
                   <UserCheck size={18} color="#2F5596" /> Recent Attendance
                 </h6>
                 <button className="btn btn-link btn-sm p-0 text-decoration-none small" style={{ color: '#2F5596' }} onClick={() => onTabChange && onTabChange('attendance')}>View History</button>
@@ -1088,14 +1088,14 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 {recentAttendanceRecords.map((rec, i) => (
                   <div key={i} className="d-flex align-items-center justify-content-between pb-2 border-bottom border-light last-border-none">
                     <div className="d-flex align-items-center gap-3">
-                      <div className="small fw-bold text-dark">{formatDateForDisplayIST(rec.date, 'en-US', { day: 'numeric', month: 'short' })}</div>
-                      <div className="small text-muted">{rec.clockIn ? `${rec.clockIn} - ${rec.clockOut || '...'}` : '-'}</div>
+                      <div className=" text-dark">{formatDateForDisplayIST(rec.date, 'en-US', { day: 'numeric', month: 'short' })}</div>
+                      <div className=" text-muted">{rec.clockIn ? `${rec.clockIn} - ${rec.clockOut || '...'}` : '-'}</div>
                     </div>
                     <Badge status={rec.status} />
                   </div>
                 ))}
                 {recentAttendanceRecords.length === 0 && (
-                  <div className="text-center py-4 text-muted small">No recent attendance records found.</div>
+                  <div className="text-center py-4 text-muted">No recent attendance records found.</div>
                 )}
               </div>
             </div>
@@ -1126,7 +1126,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <div className="col-6">
               <div className="p-2 border rounded bg-light text-center h-100">
                 <div className="small text-muted fw-semibold" style={{ fontSize: '11px' }}>Total Leaves Taken</div>
-                <div className="h6 mb-0 text-danger fw-bold">{totalLeavesTaken}</div>
+                <div className="h6 mb-0 text-primary fw-bold">{totalLeavesTaken}</div>
               </div>
             </div>
           </div>
@@ -1141,7 +1141,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <div key={idx} className="col-12">
                 <div className="card h-100 border p-2 text-center shadow-xs" style={{ borderRadius: '10px' }}>
                   <div className="fw-bold text-primary mb-1" style={{ fontSize: '2rem', lineHeight: 1 }}>{item.left}</div>
-                  <div className="small fw-bold text-dark mb-1" style={{ fontSize: '12px' }}>{item.label}</div>
+                  <div className="text-dark mb-1" style={{ fontSize: '12px' }}>{item.label}</div>
                   <div className="progress mb-1" style={{ height: '3px' }}>
                     <div
                       className="progress-bar bg-primary"
@@ -1262,7 +1262,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           <div className="card shadow-sm border-0 mb-4 py-3 px-3 d-flex flex-row justify-content-between align-items-center bg-white">
             <div>
               <h5 className="mb-0 fw-bold" style={{ color: '#2F5596' }}>Leave Request History</h5>
-              <p className="small text-muted mb-0">Manage your leave applications</p>
+              <p className="text-muted mb-0">Manage your leave applications</p>
             </div>
             <div className="d-flex align-items-center gap-2">
               <button
@@ -1351,7 +1351,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           <div className="card shadow-sm border-0 mb-4 py-3 px-3 d-flex flex-row justify-content-between align-items-center bg-white">
             <div>
               <h5 className="mb-0 fw-bold" style={{ color: '#2F5596' }}>Work From Home Requests</h5>
-              <p className="small text-muted mb-0">Manage your work from home applications</p>
+              <p className="text-muted mb-0">Manage your work from home applications</p>
             </div>
             <div className="d-flex align-items-center gap-2">
               <button
@@ -1403,7 +1403,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         }
       >
         <form id="raise-concern-form" onSubmit={handleSubmitConcern}>
-          <div className="alert alert-info py-2" style={{ fontSize: '12px' }}>
+          <div className="alert alert-secondary py-2" style={{ fontSize: '12px' }}>
             <Info size={14} className="me-1" /> Raising concern for <strong>{targetType}</strong> (Ref: {targetRefId}).
           </div>
           <div className="mb-3">

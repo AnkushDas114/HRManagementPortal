@@ -548,7 +548,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           </>
         }
       >
-        <div className="small text-muted mb-3">Date: {selectedDate}</div>
+        <div className="text-muted mb-3">Date: {selectedDate}</div>
         <div className="d-flex flex-wrap gap-2">
           {showCreate && onCreate && (
             <button className="btn btn-primary btn-sm" onClick={() => onCreate(selectedDate)}>New Request</button>
