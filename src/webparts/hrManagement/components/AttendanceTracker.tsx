@@ -231,7 +231,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       const matchesMember = !selectedMemberId || matchesMemberById || matchesMemberByName;
       if (!matchesMember) return false;
 
-      // 2. Date presets filtering
+      // 2. Date Filtering
       const recDate = parseRecordDate(record.date);
       if (!recDate) return false;
       const recTime = recDate.getTime();
@@ -243,70 +243,72 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         return res;
       };
 
-      if (selectedDateFilter === 'Today') {
-        return recDateKey === todayStr;
+      // Priority 1: Accordion Presets (if not All Time/Pre-set)
+      if (selectedDateFilter !== 'All Time' && selectedDateFilter !== 'Pre-set') {
+        if (selectedDateFilter === 'Today') {
+          return recDateKey === todayStr;
+        }
+
+        if (selectedDateFilter === 'Yesterday') {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          return recDateKey === formatDateIST(yesterday);
+        }
+
+        if (selectedDateFilter === 'This Week') {
+          const firstDayOfWeek = new Date();
+          firstDayOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+          return recTime >= startOfDay(firstDayOfWeek).getTime();
+        }
+
+        if (selectedDateFilter === 'Last Week') {
+          const lastWeekStart = new Date();
+          lastWeekStart.setDate(today.getDate() - today.getDay() - 7);
+          const lastWeekEnd = new Date();
+          lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
+          return recTime >= startOfDay(lastWeekStart).getTime() && recTime <= startOfDay(lastWeekEnd).getTime();
+        }
+
+        if (selectedDateFilter === 'This Month') {
+          return recDate.getMonth() === today.getMonth() && recDate.getFullYear() === today.getFullYear();
+        }
+
+        if (selectedDateFilter === 'Last Month') {
+          const lastMonth = new Date();
+          lastMonth.setMonth(today.getMonth() - 1);
+          return recDate.getMonth() === lastMonth.getMonth() && recDate.getFullYear() === lastMonth.getFullYear();
+        }
+
+        if (selectedDateFilter === 'Last 3 Months') {
+          const threeMonthsAgo = new Date();
+          threeMonthsAgo.setMonth(today.getMonth() - 3);
+          return recTime >= startOfDay(threeMonthsAgo).getTime();
+        }
+
+        if (selectedDateFilter === 'This Year') {
+          return recDate.getFullYear() === today.getFullYear();
+        }
+
+        if (selectedDateFilter === 'Last Year') {
+          return recDate.getFullYear() === today.getFullYear() - 1;
+        }
+
+        if (selectedDateFilter === 'Custom') {
+          if (!startDate || !endDate) return false;
+          const startParsed = parseRecordDate(startDate);
+          const endParsed = parseRecordDate(endDate);
+          if (!startParsed || !endParsed) return false;
+
+          const startKey = formatDateIST(startParsed);
+          const endKey = formatDateIST(endParsed);
+          const from = startKey <= endKey ? startKey : endKey;
+          const to = startKey <= endKey ? endKey : startKey;
+
+          return recDateKey >= from && recDateKey <= to;
+        }
       }
 
-      if (selectedDateFilter === 'Yesterday') {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        return recDateKey === formatDateIST(yesterday);
-      }
-
-      if (selectedDateFilter === 'This Week') {
-        const firstDayOfWeek = new Date();
-        firstDayOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
-        return recTime >= startOfDay(firstDayOfWeek).getTime();
-      }
-
-      if (selectedDateFilter === 'Last Week') {
-        const lastWeekStart = new Date();
-        lastWeekStart.setDate(today.getDate() - today.getDay() - 7);
-        const lastWeekEnd = new Date();
-        lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
-        return recTime >= startOfDay(lastWeekStart).getTime() && recTime <= startOfDay(lastWeekEnd).getTime();
-      }
-
-      if (selectedDateFilter === 'This Month') {
-        return recDate.getMonth() === today.getMonth() && recDate.getFullYear() === today.getFullYear();
-      }
-
-      if (selectedDateFilter === 'Last Month') {
-        const lastMonth = new Date();
-        lastMonth.setMonth(today.getMonth() - 1);
-        return recDate.getMonth() === lastMonth.getMonth() && recDate.getFullYear() === lastMonth.getFullYear();
-      }
-
-      if (selectedDateFilter === 'Last 3 Months') {
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setMonth(today.getMonth() - 3);
-        return recTime >= startOfDay(threeMonthsAgo).getTime();
-      }
-
-      if (selectedDateFilter === 'This Year') {
-        return recDate.getFullYear() === today.getFullYear();
-      }
-
-      if (selectedDateFilter === 'Last Year') {
-        return recDate.getFullYear() === today.getFullYear() - 1;
-      }
-
-      if (selectedDateFilter === 'Custom') {
-        if (!startDate || !endDate) return false;
-        const startParsed = parseRecordDate(startDate);
-        const endParsed = parseRecordDate(endDate);
-        if (!startParsed || !endParsed) return false;
-
-        const startKey = formatDateIST(startParsed);
-        const endKey = formatDateIST(endParsed);
-        const from = startKey <= endKey ? startKey : endKey;
-        const to = startKey <= endKey ? endKey : startKey;
-
-        // Compare canonical YYYY-MM-DD keys to avoid timezone and locale drift.
-        return recDateKey >= from && recDateKey <= to;
-      }
-
-      // 3. View mode filtering (Daily, Weekly, Monthly)
+      // Priority 2: Navigator / View Mode logic (used when "All Time" or "Pre-set" is selected)
       const refDateStr = formatDateIST(referenceDate);
 
       if (viewMode === 'Daily') {
@@ -314,26 +316,20 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       }
 
       if (viewMode === 'Weekly') {
-        const startOfWeek = new Date(referenceDate);
-        startOfWeek.setDate(referenceDate.getDate() - referenceDate.getDay());
-        startOfWeek.setHours(0, 0, 0, 0);
+        const startOfWeek = startOfDay(new Date(referenceDate));
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
 
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
         endOfWeek.setHours(23, 59, 59, 999);
 
-        const recStart = new Date(recDate.getTime());
-        recStart.setHours(0, 0, 0, 0);
+        const recStart = startOfDay(new Date(recDate.getTime()));
 
         return recStart >= startOfWeek && recStart <= endOfWeek;
       }
 
       if (viewMode === 'Monthly') {
         return recDate.getMonth() === referenceDate.getMonth() && recDate.getFullYear() === referenceDate.getFullYear();
-      }
-
-      if (selectedDateFilter === 'All Time') {
-        return true;
       }
 
       return true;
@@ -383,11 +379,12 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   const handleDateFilterChange = (filter: string) => {
     const now = getNowIST();
 
-    // Map Presets to View Modes
+    // Map Presets
+    setSelectedDateFilter(filter);
+
     if (filter === 'Today') {
       setReferenceDate(now);
       setViewMode('Daily');
-      setSelectedDateFilter('All Time'); // Treat as shortcut
       return;
     }
     if (filter === 'Yesterday') {
@@ -395,13 +392,11 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       d.setDate(d.getDate() - 1);
       setReferenceDate(d);
       setViewMode('Daily');
-      setSelectedDateFilter('All Time');
       return;
     }
     if (filter === 'This Week') {
       setReferenceDate(now);
       setViewMode('Weekly');
-      setSelectedDateFilter('All Time');
       return;
     }
     if (filter === 'Last Week') {
@@ -409,13 +404,11 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       d.setDate(d.getDate() - 7);
       setReferenceDate(d);
       setViewMode('Weekly');
-      setSelectedDateFilter('All Time');
       return;
     }
     if (filter === 'This Month') {
       setReferenceDate(now);
       setViewMode('Monthly');
-      setSelectedDateFilter('All Time');
       return;
     }
     if (filter === 'Last Month') {
@@ -423,12 +416,8 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       d.setMonth(d.getMonth() - 1);
       setReferenceDate(d);
       setViewMode('Monthly');
-      setSelectedDateFilter('All Time');
       return;
     }
-
-    // For other filters (Custom, Ranges), apply strict filtering
-    setSelectedDateFilter(filter);
   };
 
   const handleClearFilters = () => {
@@ -1174,7 +1163,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       accessor: ({ record }) => record.clockIn || '',
       render: ({ record }) => (
         <div className="d-flex align-items-center gap-1 small text-dark">
-          <Clock size={12}/>
+          <Clock size={12} />
           {record.clockIn || '--:--'}
         </div>
       )
@@ -1260,7 +1249,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         </div>
       )
     }
-  ]), [formatLeaveNumber, getLeaveSummary, getMonthlyLeaveUsage, onViewBalance, handleOpenEditAttendance]);
+  ]), [formatLeaveNumber, getLeaveSummary, getMonthlyLeaveUsage, onViewBalance, handleOpenEditAttendance, onDeleteAttendanceRecord]);
 
   return (
     <div className="card shadow-sm border-0 bg-white">
