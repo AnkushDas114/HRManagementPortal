@@ -7,6 +7,8 @@ import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import Modal from '../ui/Modal';
 import { todayIST } from '../utils/dateTime';
 import { SPFI } from '@pnp/sp';
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import { createLeaveRequest } from '../services/LeaveRequestsService';
 
 interface OnLeaveTodayTableProps {
@@ -120,28 +122,68 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
     });
   };
 
-  const exportToCSV = () => {
+  const handleDownloadExcel = async (): Promise<void> => {
     if (onLeaveToday.length === 0) return;
-    const headers = ['Employee Name', 'ID', 'Department', 'Leave Type', 'From', 'Until', 'Duration (Days)'];
-    const rows = onLeaveToday.map(request => [
-      request.employee.name,
-      request.employee.id,
-      request.employee.department,
-      request.leaveType,
-      request.startDate,
-      request.endDate,
-      request.days
-    ]);
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `on_leave_today_${today}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('On Leave Today');
+
+    // Title
+    const titleRow = worksheet.addRow(['Employees On Leave / WFH Today']);
+    worksheet.mergeCells('A1:G1');
+    titleRow.eachCell(cell => {
+      cell.font = { bold: true, size: 14, color: { argb: 'FF2F5596' } };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    });
+    worksheet.addRow([`Date: ${today}`]);
+    worksheet.addRow([]); // Gap
+
+    // Headers
+    const headers = ['Employee Name', 'ID', 'Department', 'Type', 'From', 'Until', 'Duration'];
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F5596' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    });
+
+    // Column widths
+    worksheet.columns = [
+      { key: 'name', width: 25 },
+      { key: 'id', width: 12 },
+      { key: 'dept', width: 20 },
+      { key: 'type', width: 15 },
+      { key: 'from', width: 15 },
+      { key: 'until', width: 15 },
+      { key: 'days', width: 12 }
+    ];
+
+    // Data
+    onLeaveToday.forEach(request => {
+      const row = worksheet.addRow([
+        request.employee.name,
+        request.employee.id,
+        request.employee.department,
+        request.leaveType,
+        request.startDate,
+        request.endDate,
+        `${request.days} Day(s)`
+      ]);
+
+      row.eachCell((cell, colNum) => {
+        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+        if (colNum === 4) { // Type column
+          const isWFH = request.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(request.leaveType || ''));
+          cell.font = { bold: true, color: { argb: isWFH ? 'FF2F5596' : 'FF6B7280' } };
+        }
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `on_leave_today_${today}.xlsx`);
   };
 
   const columns = React.useMemo<ColumnDef<LeaveRequest>[]>(() => ([
@@ -224,11 +266,11 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
             </button>
             <button
               className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
-              onClick={exportToCSV}
+              onClick={handleDownloadExcel}
               style={{ borderRadius: '4px' }}
               disabled={onLeaveToday.length === 0}
             >
-              <Download size={14} /> Export CSV
+              <Download size={14} /> Export Excel
             </button>
             <span className="badge rounded-pill px-3 py-2" style={{ backgroundColor: '#2F5596', color: 'white', fontWeight: 600, fontSize: '12px' }}>
               {onLeaveToday.length} Currently Away

@@ -1,6 +1,8 @@
 
 import * as React from 'react';
 import { useState, useMemo } from 'react';
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import type { SPFI } from '@pnp/sp';
 import '@pnp/sp/lists';
 import '@pnp/sp/fields';
@@ -40,7 +42,7 @@ import {
 import { deleteAttendanceRecordById, deleteAttendanceRecordsByDate, getAllAttendanceRecords, saveAttendanceRecords, updateAttendanceRecord } from '../services/AttendanceService';
 import { getAllSalarySlips, createSalarySlip } from '../services/SalarySlipService';
 import { getItemVersionHistory, type VersionHistoryEntry } from '../services/VersionHistoryService';
-import { Plus, Trash2, Edit, Minus, X, Send } from 'lucide-react';
+import { Plus, Trash2, Edit, Minus, X, Send, Download } from 'lucide-react';
 import { formatAuditInfo, formatDateForDisplayIST, formatDateIST, getNowIST, monthNameIST, todayIST } from '../utils/dateTime';
 import { openOutOfBoxListItemForm } from '../utils/sharePointForm';
 import { SalarySlipView } from './SalarySlipView';
@@ -2567,6 +2569,213 @@ const App: React.FC<AppProps> = ({ sp }) => {
     return [...attendanceEvents, ...holidayEvents];
   }, [attendanceRecords, holidays, toDateKey]);
 
+  const handleExportHolidays = React.useCallback(async () => {
+    if (holidays.length === 0) return;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Official Holidays');
+
+    // Title
+    const titleRow = worksheet.addRow(['Official Holidays List']);
+    worksheet.mergeCells('A1:C1');
+    titleRow.eachCell(cell => {
+      cell.font = { bold: true, size: 14, color: { argb: 'FF2F5596' } };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    });
+    worksheet.addRow([]); // Gap
+
+    // Headers
+    const headers = ['Holiday Name', 'Date', 'Type'];
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F5596' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    });
+
+    // Column widths
+    worksheet.columns = [
+      { key: 'name', width: 35 },
+      { key: 'date', width: 20 },
+      { key: 'type', width: 20 }
+    ];
+
+    // Data
+    sortedHolidays.forEach(holiday => {
+      const row = worksheet.addRow([
+        holiday.name,
+        holiday.date,
+        holiday.type
+      ]);
+      row.eachCell(cell => {
+        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `official_holidays_${todayIST()}.xlsx`);
+  }, [sortedHolidays]);
+
+  const handleExportGlobalDirectory = React.useCallback(async () => {
+    if (directoryEmployees.length === 0) return;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Employee Directory');
+
+    // Title
+    const titleRow = worksheet.addRow(['Employee Global Directory']);
+    worksheet.mergeCells('A1:F1');
+    titleRow.eachCell(cell => {
+      cell.font = { bold: true, size: 14, color: { argb: 'FF2F5596' } };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    });
+    worksheet.addRow([]); // Gap
+
+    // Headers
+    const headers = ['Name', 'Employee ID', 'Department', 'Position', 'Email', 'Active Status'];
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F5596' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    });
+
+    // Column widths
+    worksheet.columns = [
+      { key: 'name', width: 25 },
+      { key: 'id', width: 15 },
+      { key: 'dept', width: 20 },
+      { key: 'pos', width: 20 },
+      { key: 'email', width: 30 },
+      { key: 'status', width: 15 }
+    ];
+
+    // Data
+    directoryEmployees.forEach(emp => {
+      const row = worksheet.addRow([
+        emp.name,
+        emp.id,
+        emp.department,
+        emp.position,
+        emp.email,
+        'Active'
+      ]);
+      row.eachCell(cell => {
+        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `employee_directory_${todayIST()}.xlsx`);
+  }, [directoryEmployees]);
+
+  const handleGenerateSendReportExcel = React.useCallback(async () => {
+    if (!sendReportSnapshot) {
+      alert('Please click Generate Data first.');
+      return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('On Leave Report');
+
+    // Title
+    const titleRow = worksheet.addRow(['On Leave / WFH Report']);
+    worksheet.mergeCells('A1:G1');
+    titleRow.eachCell(cell => {
+      cell.font = { bold: true, size: 14, color: { argb: 'FF2F5596' } };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    });
+
+    worksheet.addRow([`Generated: ${formatDateForDisplayIST(sendReportSnapshot.generatedAt, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`]);
+    worksheet.addRow([`Time Frame: ${sendReportSnapshot.reportPreset}${sendReportSnapshot.rangeStartDate || sendReportSnapshot.rangeEndDate ? ` (${sendReportSnapshot.rangeStartDate || '-'} to ${sendReportSnapshot.rangeEndDate || '-'})` : ''}`]);
+    worksheet.addRow([]); // Gap
+
+    // Summary Box
+    const summaryHeader = worksheet.addRow([`Team (${sendReportSnapshot.totalTeamCount})`, `Available (${sendReportSnapshot.availableCount})`, `On Leave (${sendReportSnapshot.onLeaveCount})`]);
+    summaryHeader.eachCell((cell, colNum) => {
+      const colors = ['FF2F5596', 'FF11803F', 'FFB4232C'];
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors[colNum - 1] } };
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      cell.alignment = { horizontal: 'center' };
+    });
+
+    sendReportSnapshot.typeSummary.forEach(item => {
+      const row = worksheet.addRow([item.type, item.available, item.onLeave]);
+      row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F5596' } };
+      row.getCell(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      row.eachCell(cell => {
+        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        cell.alignment = { horizontal: 'center' };
+      });
+    });
+    worksheet.addRow([]); // Gap
+
+    // Matrix Table
+    const firstMatrixRow = sendReportSnapshot.teamMatrix[0];
+    if (firstMatrixRow) {
+      const matrixHeaders = ['Team', ...firstMatrixRow.cells.reduce((acc: string[], cell: SendReportTeamMatrixCell) => acc.concat([`${cell.team} (Avail)`, `${cell.team} (Leave)`]), [])];
+      const matrixHeaderRow = worksheet.addRow(matrixHeaders);
+      matrixHeaderRow.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F5596' } };
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
+        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      });
+
+      sendReportSnapshot.teamMatrix.forEach(row => {
+        const dataRow = worksheet.addRow([row.type, ...row.cells.reduce((acc: number[], c: SendReportTeamMatrixCell) => acc.concat([c.available, c.onLeave]), [])]);
+        dataRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F5596' } };
+        dataRow.getCell(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        dataRow.eachCell(cell => {
+          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+          cell.alignment = { horizontal: 'center' };
+        });
+      });
+      worksheet.addRow([]); // Gap
+    }
+
+    // Details Table
+    const detailHeaders = ['No', 'Name', 'Type', 'Attendance', 'Reason', 'Expected End', 'Team', 'Status', 'Total Leaves (YTD)'];
+    const detailHeaderRow = worksheet.addRow(detailHeaders);
+    detailHeaderRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+      cell.font = { bold: true };
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    });
+
+    sendReportSnapshot.details.forEach(item => {
+      const row = worksheet.addRow([
+        item.no,
+        item.name,
+        item.employeeType,
+        item.attendance,
+        item.reason,
+        item.expectedLeaveEnd,
+        item.team,
+        item.status,
+        item.totalLeaveThisYear
+      ]);
+      row.eachCell((cell, colNum) => {
+        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        if (colNum === 4) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5EFE3' } };
+      });
+    });
+
+    // Column Widths
+    worksheet.columns = [
+      { width: 5 }, { width: 25 }, { width: 12 }, { width: 25 }, { width: 30 }, { width: 15 }, { width: 20 }, { width: 12 }, { width: 15 }
+    ];
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `on_leave_wfh_report_${todayIST()}.xlsx`);
+  }, [sendReportSnapshot]);
+
   const hrOnLeaveTodayCalendarEvents = useMemo<CalendarViewEvent[]>(() => {
     const onLeaveEvents = leaveRequests.map((request) => ({
       id: request.id,
@@ -2809,9 +3018,18 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                         <h5 className="mb-0 fw-bold color-primary">Employee Global Directory</h5>
-                        <button className="btn btn-primary btn-sm d-flex align-items-center gap-2" onClick={() => handleOpenEmployeeModal()}>
-                          <Plus size={16} /> Add User
-                        </button>
+                        <div className="d-flex gap-2">
+                          <button
+                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 shadow-xs"
+                            onClick={handleExportGlobalDirectory}
+                            disabled={directoryEmployees.length === 0}
+                          >
+                            <Download size={16} /> Export Excel
+                          </button>
+                          <button className="btn btn-primary btn-sm d-flex align-items-center gap-2" onClick={() => handleOpenEmployeeModal()}>
+                            <Plus size={16} /> Add User
+                          </button>
+                        </div>
                       </div>
                       {directoryError && (
                         <div className="alert alert-warning m-3 mb-0">{directoryError}</div>
@@ -2958,9 +3176,18 @@ const App: React.FC<AppProps> = ({ sp }) => {
                         <div className="card border-0 shadow-sm h-100">
                           <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <h5 className="mb-0 fw-bold color-primary">Official Holidays</h5>
-                            <button className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1" onClick={() => handleOpenHolidayModal()} disabled={isLoadingHolidays}>
-                              <Plus size={14} /> Add Holiday
-                            </button>
+                            <div className="d-flex gap-2">
+                              <button
+                                className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
+                                onClick={handleExportHolidays}
+                                disabled={isLoadingHolidays || sortedHolidays.length === 0}
+                              >
+                                <Download size={14} /> Export Excel
+                              </button>
+                              <button className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1" onClick={() => handleOpenHolidayModal()} disabled={isLoadingHolidays}>
+                                <Plus size={14} /> Add Holiday
+                              </button>
+                            </div>
                           </div>
                           {isLoadingHolidays && (
                             <div className="text-center py-4">
@@ -4404,6 +4631,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
               disabled={!sendReportSnapshot}
             >
               Generate PDF
+            </button>
+            <button
+              className="btn btn-default"
+              onClick={handleGenerateSendReportExcel}
+              disabled={!sendReportSnapshot}
+            >
+              Generate Excel
             </button>
             <button className="btn btn-primary" onClick={handleGenerateSendReportData}>Generate Data</button>
           </>

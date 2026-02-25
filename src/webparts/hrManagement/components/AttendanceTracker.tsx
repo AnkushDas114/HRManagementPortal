@@ -1,6 +1,8 @@
 
 import * as React from 'react';
 import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import { LeaveStatus } from '../types';
 import type { Employee, LeaveRequest, AttendanceRecord, AttendanceStatus } from '../types';
 import Badge from '../ui/Badge';
@@ -456,236 +458,236 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             .toLowerCase()
             .replace(/[\s._-]+/g, '');
 
-      const resolveHeader = (keys: string[], aliases: string[]): string | undefined => {
-        return keys.find((key) => aliases.indexOf(normalizeHeader(key)) !== -1);
-      };
+        const resolveHeader = (keys: string[], aliases: string[]): string | undefined => {
+          return keys.find((key) => aliases.indexOf(normalizeHeader(key)) !== -1);
+        };
 
-      const normalizeDateCell = (value: unknown): string => {
-        if (value === null || value === undefined || value === '') return '';
-        if (typeof value === 'number') {
-          const parsed = XLSX.SSF.parse_date_code(value);
-          if (parsed) {
-            return formatDateIST(new Date(parsed.y, parsed.m - 1, parsed.d, 12, 0, 0));
+        const normalizeDateCell = (value: unknown): string => {
+          if (value === null || value === undefined || value === '') return '';
+          if (typeof value === 'number') {
+            const parsed = XLSX.SSF.parse_date_code(value);
+            if (parsed) {
+              return formatDateIST(new Date(parsed.y, parsed.m - 1, parsed.d, 12, 0, 0));
+            }
           }
-        }
 
-        const raw = String(value).trim();
-        if (!raw) return '';
-        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+          const raw = String(value).trim();
+          if (!raw) return '';
+          if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
 
-        const slashOrDash = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
-        if (slashOrDash) {
-          const day = Number(slashOrDash[1]);
-          const month = Number(slashOrDash[2]);
-          const yy = Number(slashOrDash[3]);
-          const year = yy < 100 ? 2000 + yy : yy;
-          if (!Number.isNaN(day) && !Number.isNaN(month) && !Number.isNaN(year)) {
-            return formatDateIST(new Date(year, month - 1, day, 12, 0, 0));
+          const slashOrDash = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+          if (slashOrDash) {
+            const day = Number(slashOrDash[1]);
+            const month = Number(slashOrDash[2]);
+            const yy = Number(slashOrDash[3]);
+            const year = yy < 100 ? 2000 + yy : yy;
+            if (!Number.isNaN(day) && !Number.isNaN(month) && !Number.isNaN(year)) {
+              return formatDateIST(new Date(year, month - 1, day, 12, 0, 0));
+            }
           }
-        }
 
-        const parsedDate = new Date(raw);
-        if (!Number.isNaN(parsedDate.getTime())) {
-          return formatDateIST(parsedDate);
-        }
+          const parsedDate = new Date(raw);
+          if (!Number.isNaN(parsedDate.getTime())) {
+            return formatDateIST(parsedDate);
+          }
 
-        return raw;
-      };
+          return raw;
+        };
 
-      const normalizeTimeCell = (value: unknown): string => {
-        if (value === null || value === undefined || value === '') return '';
-        if (typeof value === 'number') {
-          const excelTime = value >= 1 ? value % 1 : value;
-          return XLSX.SSF.format('hh:mm', excelTime || value);
-        }
-        const raw = String(value).trim();
-        if (!raw || raw === '--:--' || raw === '-:--' || raw === '-') return '';
-        return raw;
-      };
+        const normalizeTimeCell = (value: unknown): string => {
+          if (value === null || value === undefined || value === '') return '';
+          if (typeof value === 'number') {
+            const excelTime = value >= 1 ? value % 1 : value;
+            return XLSX.SSF.format('hh:mm', excelTime || value);
+          }
+          const raw = String(value).trim();
+          if (!raw || raw === '--:--' || raw === '-:--' || raw === '-') return '';
+          return raw;
+        };
 
-      const normalizeDurationCell = (value: unknown): string => {
-        if (value === null || value === undefined || value === '') return '';
-        if (typeof value === 'number') {
-          const excelTime = value >= 1 ? value % 1 : value;
-          return XLSX.SSF.format('h:mm', excelTime || value);
-        }
-        const raw = String(value).trim();
-        if (!raw || raw === '--:--' || raw === '-:--' || raw === '-') return '';
-        return raw;
-      };
+        const normalizeDurationCell = (value: unknown): string => {
+          if (value === null || value === undefined || value === '') return '';
+          if (typeof value === 'number') {
+            const excelTime = value >= 1 ? value % 1 : value;
+            return XLSX.SSF.format('h:mm', excelTime || value);
+          }
+          const raw = String(value).trim();
+          if (!raw || raw === '--:--' || raw === '-:--' || raw === '-') return '';
+          return raw;
+        };
 
-      const extractEmployeeId = (rawEmployee: string): string => {
-        const idMatch = rawEmployee.match(/id\s*[:#-]?\s*([a-zA-Z0-9]+)/i);
-        return idMatch?.[1]?.trim() || '';
-      };
+        const extractEmployeeId = (rawEmployee: string): string => {
+          const idMatch = rawEmployee.match(/id\s*[:#-]?\s*([a-zA-Z0-9]+)/i);
+          return idMatch?.[1]?.trim() || '';
+        };
 
-      const stripEmployeeId = (rawEmployee: string): string => {
-        return rawEmployee
-          .replace(/\(\s*id\s*[:#-]?\s*[a-zA-Z0-9]+\s*\)/gi, '')
-          .replace(/\bid\s*[:#-]?\s*[a-zA-Z0-9]+\b/gi, '')
-          .trim();
-      };
+        const stripEmployeeId = (rawEmployee: string): string => {
+          return rawEmployee
+            .replace(/\(\s*id\s*[:#-]?\s*[a-zA-Z0-9]+\s*\)/gi, '')
+            .replace(/\bid\s*[:#-]?\s*[a-zA-Z0-9]+\b/gi, '')
+            .trim();
+        };
 
-      const normalizeStatus = (value: string): AttendanceStatus => {
-        const normalized = value.trim().toLowerCase();
-        if (normalized === 'present') return 'Present' as AttendanceStatus;
-        if (normalized === 'absent') return 'Absent' as AttendanceStatus;
-        if (normalized === 'onleave' || normalized === 'on leave' || normalized === 'leave') return 'On Leave' as AttendanceStatus;
-        if (normalized === 'weekend') return 'Weekend' as AttendanceStatus;
-        if (normalized === 'upcoming') return 'Upcoming' as AttendanceStatus;
-        return value as AttendanceStatus;
-      };
+        const normalizeStatus = (value: string): AttendanceStatus => {
+          const normalized = value.trim().toLowerCase();
+          if (normalized === 'present') return 'Present' as AttendanceStatus;
+          if (normalized === 'absent') return 'Absent' as AttendanceStatus;
+          if (normalized === 'onleave' || normalized === 'on leave' || normalized === 'leave') return 'On Leave' as AttendanceStatus;
+          if (normalized === 'weekend') return 'Weekend' as AttendanceStatus;
+          if (normalized === 'upcoming') return 'Upcoming' as AttendanceStatus;
+          return value as AttendanceStatus;
+        };
 
         // Import files exported from this UI format.
         if (objectRows.length > 0) {
-        const headers = Object.keys(objectRows[0]);
-        const employeeHeader = resolveHeader(headers, ['employee', 'employeename', 'name']);
-        const idHeader = resolveHeader(headers, ['id', 'employeeid', 'empid', 'ecode', 'employeecode']);
-        const departmentHeader = resolveHeader(headers, ['department', 'dept']);
-        const dateHeader = resolveHeader(headers, ['date', 'attendancedate']);
-        const clockInHeader = resolveHeader(headers, ['clockin', 'intime', 'in']);
-        const clockOutHeader = resolveHeader(headers, ['clockout', 'outtime', 'out']);
-        const totalTimeHeader = resolveHeader(headers, ['totaltime', 'workduration', 'duration', 'workhours']);
-        const statusHeader = resolveHeader(headers, ['status']);
+          const headers = Object.keys(objectRows[0]);
+          const employeeHeader = resolveHeader(headers, ['employee', 'employeename', 'name']);
+          const idHeader = resolveHeader(headers, ['id', 'employeeid', 'empid', 'ecode', 'employeecode']);
+          const departmentHeader = resolveHeader(headers, ['department', 'dept']);
+          const dateHeader = resolveHeader(headers, ['date', 'attendancedate']);
+          const clockInHeader = resolveHeader(headers, ['clockin', 'intime', 'in']);
+          const clockOutHeader = resolveHeader(headers, ['clockout', 'outtime', 'out']);
+          const totalTimeHeader = resolveHeader(headers, ['totaltime', 'workduration', 'duration', 'workhours']);
+          const statusHeader = resolveHeader(headers, ['status']);
 
-        if ((employeeHeader || idHeader) && dateHeader && statusHeader) {
-          const uiParsedRecords: AttendanceRecord[] = objectRows
-            .map((row) => {
-              const employeeRaw = employeeHeader ? String(row[employeeHeader] ?? '').trim() : '';
-              const employeeIdRaw = idHeader ? String(row[idHeader] ?? '').trim() : '';
-              const employeeId = employeeIdRaw || extractEmployeeId(employeeRaw);
-              const employeeName = stripEmployeeId(employeeRaw);
-              const date = normalizeDateCell(row[dateHeader]);
-              const status = normalizeStatus(String(row[statusHeader] ?? '').trim() || 'Absent');
-              const department = departmentHeader ? String(row[departmentHeader] ?? '').trim() : '';
-              const clockIn = clockInHeader ? normalizeTimeCell(row[clockInHeader]) : '';
-              const clockOut = clockOutHeader ? normalizeTimeCell(row[clockOutHeader]) : '';
-              const workDuration = totalTimeHeader ? normalizeDurationCell(row[totalTimeHeader]) : '';
+          if ((employeeHeader || idHeader) && dateHeader && statusHeader) {
+            const uiParsedRecords: AttendanceRecord[] = objectRows
+              .map((row) => {
+                const employeeRaw = employeeHeader ? String(row[employeeHeader] ?? '').trim() : '';
+                const employeeIdRaw = idHeader ? String(row[idHeader] ?? '').trim() : '';
+                const employeeId = employeeIdRaw || extractEmployeeId(employeeRaw);
+                const employeeName = stripEmployeeId(employeeRaw);
+                const date = normalizeDateCell(row[dateHeader]);
+                const status = normalizeStatus(String(row[statusHeader] ?? '').trim() || 'Absent');
+                const department = departmentHeader ? String(row[departmentHeader] ?? '').trim() : '';
+                const clockIn = clockInHeader ? normalizeTimeCell(row[clockInHeader]) : '';
+                const clockOut = clockOutHeader ? normalizeTimeCell(row[clockOutHeader]) : '';
+                const workDuration = totalTimeHeader ? normalizeDurationCell(row[totalTimeHeader]) : '';
 
-              if (!employeeId || !date) return null;
+                if (!employeeId || !date) return null;
 
-              return {
-                employeeId,
-                employeeName,
-                department,
-                date,
-                clockIn,
-                clockOut,
-                workDuration,
-                status
-              } as AttendanceRecord;
-            })
-            .filter((record): record is AttendanceRecord => record !== null);
+                return {
+                  employeeId,
+                  employeeName,
+                  department,
+                  date,
+                  clockIn,
+                  clockOut,
+                  workDuration,
+                  status
+                } as AttendanceRecord;
+              })
+              .filter((record): record is AttendanceRecord => record !== null);
 
-          if (uiParsedRecords.length > 0) {
-            await Promise.resolve(onImport(uiParsedRecords));
-            e.target.value = '';
-            return;
-          }
-        }
-        }
-
-      let currentDept = '';
-      let attendanceDate = '';
-      let headerMap: {
-        sno: number;
-        employeeId: number;
-        name: number;
-        inTime: number;
-        outTime: number;
-        workDuration: number;
-        totalDuration: number;
-        status: number;
-        remarks: number;
-      } | null = null;
-
-      const getCell = (row: any[], index: number): string => {
-        if (index < 0) return '';
-        const value = row[index];
-        if (value === null || value === undefined) return '';
-        return String(value).trim();
-      };
-
-      const findHeaderIndex = (row: any[], aliases: string[]): number => {
-        return row.findIndex((cell) => aliases.indexOf(normalizeHeader(cell)) !== -1);
-      };
-
-      data.forEach((row) => {
-        const rowStr = row.join(' ');
-
-        // Extract Attendance Date
-        if (rowStr.toLowerCase().includes('attendance date')) {
-          const match = rowStr.match(/(\d{1,2})-([a-zA-Z]{3})-(\d{4})/);
-          if (match) {
-            const months: Record<string, number> = {
-              jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-              jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
-            };
-            const day = parseInt(match[1]);
-            const month = months[match[2].toLowerCase()];
-            const year = parseInt(match[3]);
-            if (month !== undefined) {
-              const d = new Date(year, month, day, 12, 0, 0);
-              attendanceDate = formatDateIST(d);
+            if (uiParsedRecords.length > 0) {
+              await Promise.resolve(onImport(uiParsedRecords));
+              e.target.value = '';
+              return;
             }
           }
         }
 
-        // Extract Department
-        if (rowStr.toLowerCase().includes('department')) {
-          currentDept = rowStr.replace(/department/i, '').trim();
-        }
+        let currentDept = '';
+        let attendanceDate = '';
+        let headerMap: {
+          sno: number;
+          employeeId: number;
+          name: number;
+          inTime: number;
+          outTime: number;
+          workDuration: number;
+          totalDuration: number;
+          status: number;
+          remarks: number;
+        } | null = null;
 
-        // Detect header row and map indices by column name to avoid shifted imports.
-        if (!headerMap) {
-          const snoIdx = findHeaderIndex(row, ['sno']);
-          const empIdIdx = findHeaderIndex(row, ['ecode', 'employeecode', 'employeeid', 'empcode', 'empid']);
-          const nameIdx = findHeaderIndex(row, ['name', 'employeename']);
+        const getCell = (row: any[], index: number): string => {
+          if (index < 0) return '';
+          const value = row[index];
+          if (value === null || value === undefined) return '';
+          return String(value).trim();
+        };
 
-          if (snoIdx !== -1 && empIdIdx !== -1 && nameIdx !== -1) {
-            headerMap = {
-              sno: snoIdx,
-              employeeId: empIdIdx,
-              name: nameIdx,
-              inTime: findHeaderIndex(row, ['intime', 'clockin', 'in']),
-              outTime: findHeaderIndex(row, ['outtime', 'clockout', 'out']),
-              workDuration: findHeaderIndex(row, ['workdur', 'workduration', 'workhrs', 'workhours']),
-              totalDuration: findHeaderIndex(row, ['totdur', 'totaldur', 'duration', 'totalduration']),
-              status: findHeaderIndex(row, ['status']),
-              remarks: findHeaderIndex(row, ['remarks', 'remark'])
-            };
-            return;
+        const findHeaderIndex = (row: any[], aliases: string[]): number => {
+          return row.findIndex((cell) => aliases.indexOf(normalizeHeader(cell)) !== -1);
+        };
+
+        data.forEach((row) => {
+          const rowStr = row.join(' ');
+
+          // Extract Attendance Date
+          if (rowStr.toLowerCase().includes('attendance date')) {
+            const match = rowStr.match(/(\d{1,2})-([a-zA-Z]{3})-(\d{4})/);
+            if (match) {
+              const months: Record<string, number> = {
+                jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+                jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+              };
+              const day = parseInt(match[1]);
+              const month = months[match[2].toLowerCase()];
+              const year = parseInt(match[3]);
+              if (month !== undefined) {
+                const d = new Date(year, month, day, 12, 0, 0);
+                attendanceDate = formatDateIST(d);
+              }
+            }
           }
-        }
 
-        // Parse data rows only after header is found.
-        if (headerMap && attendanceDate) {
-          const snoRaw = getCell(row, headerMap.sno);
-          if (!snoRaw || Number.isNaN(Number(snoRaw))) return;
-
-          const empId = getCell(row, headerMap.employeeId);
-          const name = getCell(row, headerMap.name);
-          const inTime = getCell(row, headerMap.inTime);
-          const outTime = getCell(row, headerMap.outTime);
-          const workDur = getCell(row, headerMap.workDuration) || getCell(row, headerMap.totalDuration);
-          const status = getCell(row, headerMap.status);
-          const remarks = getCell(row, headerMap.remarks);
-
-          if (empId) {
-            parsedRecords.push({
-              employeeId: empId,
-              employeeName: name,
-              department: currentDept,
-              date: attendanceDate,
-              clockIn: inTime,
-              clockOut: outTime,
-              workDuration: workDur,
-              status: normalizeStatus(status),
-              remarks
-            });
+          // Extract Department
+          if (rowStr.toLowerCase().includes('department')) {
+            currentDept = rowStr.replace(/department/i, '').trim();
           }
-        }
-      });
+
+          // Detect header row and map indices by column name to avoid shifted imports.
+          if (!headerMap) {
+            const snoIdx = findHeaderIndex(row, ['sno']);
+            const empIdIdx = findHeaderIndex(row, ['ecode', 'employeecode', 'employeeid', 'empcode', 'empid']);
+            const nameIdx = findHeaderIndex(row, ['name', 'employeename']);
+
+            if (snoIdx !== -1 && empIdIdx !== -1 && nameIdx !== -1) {
+              headerMap = {
+                sno: snoIdx,
+                employeeId: empIdIdx,
+                name: nameIdx,
+                inTime: findHeaderIndex(row, ['intime', 'clockin', 'in']),
+                outTime: findHeaderIndex(row, ['outtime', 'clockout', 'out']),
+                workDuration: findHeaderIndex(row, ['workdur', 'workduration', 'workhrs', 'workhours']),
+                totalDuration: findHeaderIndex(row, ['totdur', 'totaldur', 'duration', 'totalduration']),
+                status: findHeaderIndex(row, ['status']),
+                remarks: findHeaderIndex(row, ['remarks', 'remark'])
+              };
+              return;
+            }
+          }
+
+          // Parse data rows only after header is found.
+          if (headerMap && attendanceDate) {
+            const snoRaw = getCell(row, headerMap.sno);
+            if (!snoRaw || Number.isNaN(Number(snoRaw))) return;
+
+            const empId = getCell(row, headerMap.employeeId);
+            const name = getCell(row, headerMap.name);
+            const inTime = getCell(row, headerMap.inTime);
+            const outTime = getCell(row, headerMap.outTime);
+            const workDur = getCell(row, headerMap.workDuration) || getCell(row, headerMap.totalDuration);
+            const status = getCell(row, headerMap.status);
+            const remarks = getCell(row, headerMap.remarks);
+
+            if (empId) {
+              parsedRecords.push({
+                employeeId: empId,
+                employeeName: name,
+                department: currentDept,
+                date: attendanceDate,
+                clockIn: inTime,
+                clockOut: outTime,
+                workDuration: workDur,
+                status: normalizeStatus(status),
+                remarks
+              });
+            }
+          }
+        });
 
         if (parsedRecords.length > 0) {
           await Promise.resolve(onImport(parsedRecords));
@@ -808,49 +810,97 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     }
   }, [deleteDate, deleteEmployeeId, employeeIdsMatch, employees, onDeleteAttendanceByDate]);
 
-  const handleExportFilteredAttendance = (): void => {
+  const handleExportFilteredAttendance = async (): Promise<void> => {
     if (tableRows.length === 0) {
       alert('No attendance data available to export for current filters.');
       return;
     }
 
-    const exportRows = tableRows.map(({ record, employee }) => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Attendance');
+
+    // Define columns
+    worksheet.columns = [
+      { header: 'Employee', key: 'employee', width: 25 },
+      { header: 'Employee ID', key: 'employeeId', width: 15 },
+      { header: 'Department', key: 'department', width: 20 },
+      { header: 'Date', key: 'date', width: 15 },
+      { header: 'Clock In', key: 'clockIn', width: 12 },
+      { header: 'Clock Out', key: 'clockOut', width: 12 },
+      { header: 'Total Time', key: 'totalTime', width: 15 },
+      { header: 'Status', key: 'status', width: 15 },
+      { header: 'Total Leave Left', key: 'totalLeaveLeft', width: 25 },
+      { header: 'Leaves This Month', key: 'leavesThisMonth', width: 20 }
+    ];
+
+    // Add data
+    tableRows.forEach(({ record, employee }) => {
       const summary = getLeaveSummary(employee, record);
       const leaveUsedTotal = summary.total ? `${formatLeaveNumber(summary.used)}/${formatLeaveNumber(summary.total)} (${formatLeaveNumber(summary.left)} left)` : '--';
       const monthlyUsage = getMonthlyLeaveUsage(employee, record);
       const monthlyLeaveTaken = `${formatLeaveNumber(monthlyUsage.taken)}/${monthlyUsage.totalDaysInMonth}`;
 
-      return {
-        Employee: employee?.name || record.employeeName || 'Unknown',
-        'Employee ID': record.employeeId,
-        Department: employee?.department || record.department || 'N/A',
-        Date: record.date,
-        'Clock In': record.clockIn || '--:--',
-        'Clock Out': record.clockOut || '--:--',
-        'Total Time': record.workDuration || '--:--',
-        Status: record.status,
-        'Total Leave Left': leaveUsedTotal,
-        'Leaves This Month': monthlyLeaveTaken
+      const rowData = {
+        employee: employee?.name || record.employeeName || 'Unknown',
+        employeeId: record.employeeId,
+        department: employee?.department || record.department || 'N/A',
+        date: record.date,
+        clockIn: record.clockIn || '--:--',
+        clockOut: record.clockOut || '--:--',
+        totalTime: record.workDuration || '--:--',
+        status: record.status,
+        totalLeaveLeft: leaveUsedTotal,
+        leavesThisMonth: monthlyLeaveTaken
+      };
+
+      const row = worksheet.addRow(rowData);
+
+      // Status coloring (optional but good for UI friendly)
+      const statusCell = row.getCell('status');
+      if (record.status === 'Present') statusCell.font = { color: { argb: 'FF0D6EFD' }, bold: true };
+      else if (record.status === 'Absent') statusCell.font = { color: { argb: 'FFDC3545' }, bold: true };
+      else if (record.status === 'On Leave') statusCell.font = { color: { argb: 'FF198754' }, bold: true };
+    });
+
+    // Style the header
+    const headerRow = worksheet.getRow(1);
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2F5596' }
+      };
+      cell.font = {
+        bold: true,
+        color: { argb: 'FFFFFFFF' }
+      };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin' },
+        bottom: { style: 'thin' },
+        left: { style: 'thin' },
+        right: { style: 'thin' }
       };
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(exportRows);
-    worksheet['!cols'] = [
-      { wch: 24 }, // Employee
-      { wch: 14 }, // Employee ID
-      { wch: 16 }, // Department
-      { wch: 12 }, // Date
-      { wch: 10 }, // Clock In
-      { wch: 10 }, // Clock Out
-      { wch: 12 }, // Total Time
-      { wch: 12 }, // Status
-      { wch: 20 }, // Total Leave Left
-      { wch: 18 }  // Leaves This Month
-    ];
+    // Add borders to all data cells
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+          cell.alignment = { vertical: 'middle' };
+        });
+      }
+    });
 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance');
-    XLSX.writeFile(workbook, `attendance_export_${todayIST()}.xlsx`);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `attendance_export_${todayIST()}.xlsx`);
   };
 
   const parseTimeToMinutes = React.useCallback((value: string | undefined): number | null => {
@@ -898,7 +948,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     return null;
   }, []);
 
-  const exportDailyFlaggedAttendance = React.useCallback((mode: 'short-hours' | 'late-login'): void => {
+  const exportDailyFlaggedAttendance = React.useCallback(async (mode: 'short-hours' | 'late-login'): Promise<void> => {
     if (viewMode !== 'Daily') {
       alert('This export is available only in Daily view.');
       return;
@@ -917,94 +967,175 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       return `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
     };
 
-    const flaggedRows = tableRows
-      .map(({ record, employee }) => {
-        const clockInMinutes = parseTimeToMinutes(record.clockIn);
-        const clockOutMinutes = parseTimeToMinutes(record.clockOut);
-        const durationMinutes = parseDurationToMinutes(record.workDuration);
-        const derivedDuration = durationMinutes !== null
-          ? durationMinutes
-          : (clockInMinutes !== null && clockOutMinutes !== null && clockOutMinutes >= clockInMinutes
-            ? (clockOutMinutes - clockInMinutes)
-            : null);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(mode === 'short-hours' ? 'Short Hours' : 'Late Login');
 
-        const isShortHours = derivedDuration !== null && derivedDuration < (9 * 60);
-        const isLateLogin = clockInMinutes !== null && clockInMinutes > ((10 * 60) + 20);
-        const isMatch = mode === 'short-hours' ? isShortHours : isLateLogin;
-        if (!isMatch) return null;
+    const title = mode === 'short-hours' ? 'LOGIN HOURS SHORT' : 'LATE LOGIN REPORT';
+    const totalCols = mode === 'short-hours' ? 10 : 8;
 
-        const parsedDate = parseRecordDate(record.date);
-        const workedMinutes = Math.max(0, derivedDuration ?? 0);
-        const shortageMinutes = Math.max(0, scheduledMinutes - workedMinutes);
+    // Header Row 1 (Title)
+    const titleRow = worksheet.addRow([title]);
+    worksheet.mergeCells(`A1:${String.fromCharCode(64 + totalCols)}1`);
+    titleRow.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: mode === 'short-hours' ? 'FF5B9BD5' : 'FFF4B183' }
+      };
+      cell.font = { bold: true, size: 14, color: { argb: 'FF000000' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    titleRow.height = 30;
 
-        const exportRow: Record<string, string | number> = {
-          'Employee Name': employee?.name || record.employeeName || 'Unknown',
-          Department: employee?.department || record.department || 'N/A',
-          Date: parsedDate
+    // Header Row 2 (Column Names)
+    let headers: string[] = [];
+    if (mode === 'short-hours') {
+      headers = [
+        'Employee Name', 'Department', 'Date', 'Day', 'Scheduled',
+        'Clock In', 'Clock Out', 'Total Work', 'Shortage', 'Shortage (minutes)'
+      ];
+      worksheet.columns = [
+        { key: 'name', width: 25 },
+        { key: 'dept', width: 20 },
+        { key: 'date', width: 14 },
+        { key: 'day', width: 14 },
+        { key: 'sched', width: 12 },
+        { key: 'in', width: 10 },
+        { key: 'out', width: 10 },
+        { key: 'work', width: 12 },
+        { key: 'short', width: 12 },
+        { key: 'shortMin', width: 20 }
+      ];
+    } else {
+      headers = [
+        'Employee Name', 'Department', 'Date', 'Day',
+        'Clock In', 'Clock Out', 'Total Hours', 'Shortage (minutes)'
+      ];
+      worksheet.columns = [
+        { key: 'name', width: 25 },
+        { key: 'dept', width: 20 },
+        { key: 'date', width: 14 },
+        { key: 'day', width: 14 },
+        { key: 'in', width: 10 },
+        { key: 'out', width: 10 },
+        { key: 'total', width: 12 },
+        { key: 'shortMin', width: 18 }
+      ];
+    }
+
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE2EFDA' }
+      };
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin' },
+        bottom: { style: 'thin' },
+        left: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+
+    let hasMatch = false;
+    tableRows.forEach(({ record, employee }) => {
+      const clockInMinutes = parseTimeToMinutes(record.clockIn);
+      const clockOutMinutes = parseTimeToMinutes(record.clockOut);
+      const durationMinutes = parseDurationToMinutes(record.workDuration);
+      const derivedDuration = durationMinutes !== null
+        ? durationMinutes
+        : (clockInMinutes !== null && clockOutMinutes !== null && clockOutMinutes >= clockInMinutes
+          ? (clockOutMinutes - clockInMinutes)
+          : null);
+
+      const isShortHours = derivedDuration !== null && derivedDuration < (9 * 60);
+      const isLateLogin = clockInMinutes !== null && clockInMinutes > ((10 * 60) + 20);
+      const isMatch = mode === 'short-hours' ? isShortHours : isLateLogin;
+
+      if (!isMatch) return;
+      hasMatch = true;
+
+      const parsedDate = parseRecordDate(record.date);
+      const workedMinutes = Math.max(0, derivedDuration ?? 0);
+      const shortageMinutes = Math.max(0, scheduledMinutes - workedMinutes);
+
+      let dataRow: any[];
+      if (mode === 'short-hours') {
+        dataRow = [
+          employee?.name || record.employeeName || 'Unknown',
+          employee?.department || record.department || 'N/A',
+          parsedDate
             ? formatDateForDisplayIST(parsedDate, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
             : String(record.date || ''),
-          Day: parsedDate
-            ? formatDateForDisplayIST(parsedDate, 'en-US', { weekday: 'long' })
+          parsedDate
+            ? new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Kolkata' }).format(parsedDate)
             : '',
-          'Scheduled Hours': formatMinutesAsHM(scheduledMinutes),
-          'Clock In': record.clockIn || 'N/A',
-          'Clock Out': record.clockOut || 'N/A',
-          'Total Worked': formatMinutesAsHM(workedMinutes),
-          Shortage: formatMinutesAsHM(shortageMinutes),
-          'Shortage (minutes)': shortageMinutes
+          formatMinutesAsHM(scheduledMinutes),
+          record.clockIn || 'N/A',
+          record.clockOut || 'N/A',
+          formatMinutesAsHM(workedMinutes),
+          formatMinutesAsHM(shortageMinutes),
+          shortageMinutes
+        ];
+      } else {
+        dataRow = [
+          employee?.name || record.employeeName || 'Unknown',
+          employee?.department || record.department || 'N/A',
+          parsedDate
+            ? formatDateForDisplayIST(parsedDate, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+            : String(record.date || ''),
+          parsedDate
+            ? new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Kolkata' }).format(parsedDate)
+            : '',
+          record.clockIn || 'N/A',
+          record.clockOut || 'N/A',
+          formatMinutesAsHM(workedMinutes),
+          shortageMinutes
+        ];
+      }
+
+      const row = worksheet.addRow(dataRow);
+      row.eachCell((cell, colNumber) => {
+        cell.border = {
+          top: { style: 'thin' },
+          bottom: { style: 'thin' },
+          left: { style: 'thin' },
+          right: { style: 'thin' }
         };
+        cell.alignment = { vertical: 'middle' };
 
-        return exportRow;
-      })
-      .filter((row) => row !== null);
+        // Highlight clock in for late login (column 5 is 'Clock In' in late-login mode)
+        if (mode === 'late-login' && colNumber === 5) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8CBAD' }
+          };
+        }
+      });
+    });
 
-    if (flaggedRows.length === 0) {
+    if (!hasMatch) {
       alert(mode === 'short-hours'
         ? 'No employees found with working hours less than 9 hours for this day.'
         : 'No employees found with login after 10:20 for this day.');
       return;
     }
 
-    const worksheet = XLSX.utils.json_to_sheet(flaggedRows);
-    worksheet['!cols'] = [
-      { wch: 24 }, // Employee Name
-      { wch: 20 }, // Department
-      { wch: 14 }, // Date
-      { wch: 16 }, // Scheduled Hours
-      { wch: 10 }, // Clock In
-      { wch: 10 }, // Clock Out
-      { wch: 14 }, // Total Worked
-      { wch: 12 }, // Shortage
-      { wch: 18 }, // Shortage (minutes)
-      { wch: 14 }  // Day
-    ];
-
-    // Highlight entire row for flagged entries.
-    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
-    const highlightColor = mode === 'short-hours' ? 'FFFDE68A' : 'FFFCA5A5';
-    for (let row = 1; row <= range.e.r; row += 1) {
-      for (let col = range.s.c; col <= range.e.c; col += 1) {
-        const address = XLSX.utils.encode_cell({ r: row, c: col });
-        const cell = worksheet[address];
-        if (!cell) continue;
-        (cell as any).s = {
-          fill: { patternType: 'solid', fgColor: { rgb: highlightColor } }
-        };
-      }
-    }
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, mode === 'short-hours' ? 'Short Hours' : 'Late Login');
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const dateToken = formatDateIST(referenceDate);
-    XLSX.writeFile(workbook, `${mode.replace('-', '_')}_${dateToken}.xlsx`);
+    saveAs(blob, `${mode.replace('-', '_')}_${dateToken}.xlsx`);
   }, [
     viewMode,
     tableRows,
     parseTimeToMinutes,
     parseDurationToMinutes,
-    getLeaveSummary,
-    formatLeaveNumber,
-    referenceDate
+    referenceDate,
+    parseRecordDate
   ]);
 
   const columns = React.useMemo<ColumnDef<{ record: AttendanceRecord; employee: Employee }>[]>(() => ([

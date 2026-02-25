@@ -1,6 +1,7 @@
 
 import * as React from 'react';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import type { LeaveRequest, Employee } from '../types';
 import { LeaveStatus } from '../types';
 import Badge from '../ui/Badge';
@@ -367,50 +368,107 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     setIsReportGenerated(true);
   }, [reportDatePreset, reportEndDate, reportSelectedMemberIds, reportStartDate, requests]);
 
-  const handleDownloadReport = React.useCallback((): void => {
+  const handleDownloadReport = React.useCallback(async (): Promise<void> => {
     if (generatedReportRows.length === 0) return;
 
-    const summaryRows = generatedReportRows.map((row) => ({
-      Name: row.employee.name,
-      EmployeeID: row.employee.id,
-      Department: row.employee.department,
-      Planned: row.planned,
-      Unplanned: row.unplanned,
-      RestrictedHoliday: row.restrictedHoliday,
-      HalfDay: row.halfDay,
-      TotalLeave: row.totalLeave
-    }));
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Leave Report');
 
-    const detailRows: Array<Record<string, string | number>> = [];
+    // Title
+    const titleRow = worksheet.addRow(['Monthly Report of Leave']);
+    worksheet.mergeCells('A1:F1');
+    titleRow.eachCell(cell => {
+      cell.font = { bold: true, size: 14, color: { argb: 'FF2F5596' } };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    });
+    worksheet.addRow([]); // Gap
+
+    // Define main summary columns
+    const summaryHeaders = ['Name', 'Planned', 'Unplanned', 'Restricted Holiday', 'Half-Day', 'Total Leave'];
+    const summaryHeaderRow = worksheet.addRow(summaryHeaders);
+    summaryHeaderRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F5596' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    });
+
+    worksheet.columns = [
+      { key: 'col1', width: 30 },
+      { key: 'col2', width: 20 },
+      { key: 'col3', width: 20 },
+      { key: 'col4', width: 20 },
+      { key: 'col5', width: 20 },
+      { key: 'col6', width: 20 }
+    ];
+
     generatedReportRows.forEach((row) => {
-      row.details.forEach((group) => {
-        group.entries.forEach((entry) => {
-          detailRows.push({
-            RequestID: entry.requestId,
-            Name: entry.employeeName,
-            EmployeeID: entry.employeeId,
-            Department: entry.department,
-            RequestCategory: entry.requestCategory,
-            LeaveType: group.type,
-            EventStartDate: entry.startDate,
-            EventEndDate: entry.endDate,
-            Description: entry.description,
-            Status: entry.status,
-            Days: entry.days,
-            SubmittedAt: entry.submittedAt,
-            ApproverName: entry.approverName,
-            ApproverComment: entry.approverComment,
-            IsHalfDay: entry.isHalfDay ? 'Yes' : 'No',
-            HalfDayType: entry.halfDayType || '-'
+      // Employee Summary Row
+      const empRow = worksheet.addRow([
+        row.employee.name,
+        row.planned,
+        row.unplanned,
+        row.restrictedHoliday,
+        row.halfDay,
+        row.totalLeave
+      ]);
+      empRow.eachCell(cell => {
+        cell.font = { bold: true };
+        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        cell.alignment = { horizontal: 'left' };
+      });
+
+      // Nested Details
+      row.details.forEach(group => {
+        worksheet.addRow([]); // Small gap for grouping
+
+        // Group Header (e.g., RH: 3)
+        const groupHeader = worksheet.addRow([`${group.type}: ${group.entries.length}`]);
+        worksheet.mergeCells(`A${groupHeader.number}:B${groupHeader.number}`);
+        groupHeader.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F5596' } };
+        groupHeader.getCell(1).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+        groupHeader.getCell(1).alignment = { horizontal: 'center' };
+
+        // Detail Headers
+        const detailHeaders = ['Event Start Date', 'Event End Date', 'Description', 'Status'];
+        const detailHeaderRow = worksheet.addRow(['', ...detailHeaders]);
+        detailHeaderRow.eachCell((cell, colNum) => {
+          if (colNum > 1) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+            cell.font = { bold: true, size: 9 };
+            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+          }
+        });
+
+        // Detail Entries
+        group.entries.forEach(entry => {
+          const entryRow = worksheet.addRow([
+            '',
+            entry.startDate,
+            entry.endDate,
+            entry.description,
+            entry.status
+          ]);
+          entryRow.eachCell((cell, colNum) => {
+            if (colNum > 1) {
+              cell.font = { size: 9 };
+              cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+              if (colNum === 5) { // Status column
+                if (entry.status === LeaveStatus.Approved) cell.font = { color: { argb: 'FF198754' }, bold: true, size: 9 };
+                else if (entry.status === LeaveStatus.Rejected) cell.font = { color: { argb: 'FFDC3545' }, bold: true, size: 9 };
+              }
+            }
           });
         });
       });
+
+      worksheet.addRow([]); // Gap between employees
     });
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'Summary');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailRows), 'Details');
-    XLSX.writeFile(wb, 'leave-report.xlsx');
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `leave_report_${todayIST()}.xlsx`);
   }, [generatedReportRows]);
 
   const handleClearFilters = () => {

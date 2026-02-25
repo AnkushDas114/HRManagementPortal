@@ -410,15 +410,15 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
             <span
               key={particle.id}
               className="event-burst-particle"
-                style={{
-                  ['--x' as any]: `${particle.x}px`,
-                  ['--y' as any]: `${particle.y}px`,
-                  ['--rot' as any]: `${particle.rotate}deg`,
-                  ['--delay' as any]: `${particle.delay}ms`,
-                  ['--dur' as any]: `${particle.duration}ms`,
-                  ['--event-color' as any]: burstConfig.color,
-                  fontSize: `${particle.size}px`
-                }}
+              style={{
+                ['--x' as any]: `${particle.x}px`,
+                ['--y' as any]: `${particle.y}px`,
+                ['--rot' as any]: `${particle.rotate}deg`,
+                ['--delay' as any]: `${particle.delay}ms`,
+                ['--dur' as any]: `${particle.duration}ms`,
+                ['--event-color' as any]: burstConfig.color,
+                fontSize: `${particle.size}px`
+              }}
             >
               {burstConfig.symbols[index % burstConfig.symbols.length]}
             </span>
