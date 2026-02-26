@@ -43,7 +43,7 @@ import {
 import { deleteAttendanceRecordById, deleteAttendanceRecordsByDate, getAllAttendanceRecords, saveAttendanceRecords, updateAttendanceRecord } from '../services/AttendanceService';
 import { getAllSalarySlips, createSalarySlip } from '../services/SalarySlipService';
 import { getItemVersionHistory, type VersionHistoryEntry } from '../services/VersionHistoryService';
-import { Plus, Trash2, Edit, Minus, X, Send, Download } from 'lucide-react';
+import { Plus, Minus, X, Send, Download } from 'lucide-react';
 import { formatAuditInfo, formatDateForDisplayIST, formatDateIST, getNowIST, monthNameIST, todayIST } from '../utils/dateTime';
 import { openOutOfBoxListItemForm } from '../utils/sharePointForm';
 import { SalarySlipView } from './SalarySlipView';
@@ -1940,7 +1940,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       render: (emp) => (
         <div className="d-flex align-items-center gap-3">
           <img src={emp.avatar} width="32" height="32" className="rounded-circle border" />
-          <div className="fw-bold color-primary small">{emp.name}</div>
+          <div className="">{emp.name}</div>
         </div>
       )
     },
@@ -1957,8 +1957,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
       align: 'end',
       render: (emp) => (
         <div className="d-flex gap-2">
-          <button className="btn btn-sm btn-link p-0" style={{ color: '#2F5596' }} onClick={() => handleOpenEmployeeModal(emp)} title="Edit"><Edit size={18} /></button>
-          <button className="btn btn-sm btn-link p-0 text-danger" onClick={() => handleDeleteEmployee(emp.itemId)} title="Delete"><Trash2 size={18} /></button>
+          <button className="btn btn-sm btn-link p-0" style={{ color: '#2F5596' }} onClick={() => handleOpenEmployeeModal(emp)} title="Edit">
+            <span title="Edit" className="svg__iconbox svg__icon--edit hreflink"></span>
+          </button>
+          <button className="btn btn-sm btn-link p-0 text-primary" onClick={() => handleDeleteEmployee(emp.itemId)} title="Delete">
+            <span className="svg__icon--cross mini svg__iconbox"></span>
+          </button>
         </div>
       )
     }
@@ -1973,8 +1977,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
         <div className="d-flex align-items-center gap-3">
           <img src={emp.avatar} width="32" height="32" className="rounded-circle border" />
           <div>
-            <div className="fw-bold small">{emp.name}</div>
-            <div className="text-muted small">ID: {emp.id}</div>
+            <div className="">{emp.name}</div>
+            <div className="text-muted">ID: {emp.id}</div>
           </div>
         </div>
       )
@@ -2005,7 +2009,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       key: 'description',
       header: 'Description',
       accessor: (p) => p.content || '',
-      render: (p) => <div className="small text-truncate" style={{ maxWidth: '420px' }}>{p.content || '-'}</div>
+      render: (p) => <div className="text-truncate" style={{ maxWidth: '420px' }}>{p.content || '-'}</div>
     },
     { key: 'lastUpdated', header: 'Last Updated' },
     {
@@ -2016,8 +2020,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
       align: 'end',
       render: (p) => (
         <>
-          <button className="btn btn-sm btn-link" onClick={() => handleOpenPolicyModal(p)}><Edit size={14} /></button>
-          <button className="btn btn-sm btn-link text-danger" onClick={() => handleDeletePolicy(p.id)}><Trash2 size={14} /></button>
+          <button className="btn btn-sm btn-link" onClick={() => handleOpenPolicyModal(p)}>
+            <span title="Edit" className="svg__iconbox svg__icon--edit hreflink"></span>
+          </button>
+          <button className="btn btn-sm btn-link text-primary" onClick={() => handleDeletePolicy(p.id)}>
+            <span title="Remove Title" className="svg__icon--cross mini svg__iconbox"></span>
+          </button>
         </>
       )
     }
@@ -2026,7 +2034,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const holidayColumns = React.useMemo<ColumnDef<Holiday>[]>(() => ([
     { key: 'name', header: 'Holiday' },
     { key: 'date', header: 'Date' },
-    { key: 'type', header: 'Type', render: (h) => <span className={`badge ${h.type === 'Public' ? 'btn-primary' : 'text-bg-secondary'}`}>{h.type}</span> },
+    { key: 'type', header: 'Type', render: (h) => <span className={`${h.type === 'Public' ? 'text-primary' : 'text-primary'}`}>{h.type}</span> },
     {
       key: 'actions',
       header: 'Actions',
@@ -2035,8 +2043,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
       align: 'end',
       render: (h) => (
         <>
-          <button className="btn btn-sm btn-link" onClick={() => handleOpenHolidayModal(h)}><Edit size={14} /></button>
-          <button className="btn btn-sm btn-link text-danger" onClick={() => handleDeleteHoliday(h.id)}><Trash2 size={14} /></button>
+          <button className="btn btn-sm btn-link" onClick={() => handleOpenHolidayModal(h)}>
+            <span title="Edit" className="svg__iconbox svg__icon--edit hreflink"></span>
+            
+          </button>
+          <button className="btn btn-sm btn-link" onClick={() => handleDeleteHoliday(h.id)}>
+            <span className="svg__icon--cross mini svg__iconbox"></span>
+          </button>
         </>
       )
     }
@@ -2053,7 +2066,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
           <div className="d-flex align-items-center gap-2">
             <img src={emp?.avatar} width="32" height="32" className="rounded-circle border" />
             <div>
-              <div className="fw-bold small">{emp?.name}</div>
+              <div className="">{emp?.name}</div>
               <div className="text-muted small">{c.submittedAt}</div>
             </div>
           </div>
@@ -2061,7 +2074,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       }
     },
     { key: 'type', header: 'Type', render: (c) => <span className="status-chip status-chip--neutral">{c.type}</span> },
-    { key: 'description', header: 'Summary', render: (c) => <div className="small text-truncate" style={{ maxWidth: '300px' }}>{c.description}</div> },
+    { key: 'description', header: 'Summary', render: (c) => <div className="text-truncate" style={{ maxWidth: '300px' }}>{c.description}</div> },
     {
       key: 'status',
       header: 'Status',
@@ -2932,7 +2945,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
           <div className="spinner-border text-primary mb-3" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
-          <div className="text-muted small">Loading your dashboard...</div>
+          <div className="text-muted">Loading your dashboard...</div>
         </div>
       </div>
     );
@@ -2970,7 +2983,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
           />
         ) : (
           <>
-            <ul className="nav nav-pills mb-4 bg-white p-2 rounded shadow-sm d-inline-flex flex-wrap gap-2" role="tablist">
+            <ul className="nav nav-pills mb-4 bg-white p-2 rounded shadow-sm d-inline-flex flex-wrap gap-2 w-100" role="tablist">
               {role === UserRole.HR ? (
                 <>
                   <li className="nav-item">
@@ -3057,7 +3070,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                           )}
                           <button
                             type="button"
-                            className={`btn btn-sm ${hrCalendarViewByTab['leaves-request'] ? 'btn-primary' : 'btn-default'}`}
+                            className={`btn btn-sm ${hrCalendarViewByTab['leaves-request'] ? 'btn-primary' : 'btn-primary'}`}
                             onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, 'leaves-request': !prev['leaves-request'] }))}
                           >
                             {hrCalendarViewByTab['leaves-request'] ? 'Table View' : 'Calendar View'}
@@ -3107,7 +3120,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                           )}
                           <button
                             type="button"
-                            className={`btn btn-sm ${hrCalendarViewByTab['wfh-request'] ? 'btn-primary' : 'btn-default'}`}
+                            className={`btn btn-sm ${hrCalendarViewByTab['wfh-request'] ? 'btn-primary' : 'btn-primary'}`}
                             onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, 'wfh-request': !prev['wfh-request'] }))}
                           >
                             {hrCalendarViewByTab['wfh-request'] ? 'Table View' : 'Calendar View'}
@@ -3137,12 +3150,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     )
                   )}
                   {activeTab === 'global-directory' && (
-                    <div className="card border-0 shadow-sm">
+                    <div className="card border-0 shadow-sm px-4">
                       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                         <h5 className="mb-0 fw-bold color-primary">Employee Global Directory</h5>
                         <div className="d-flex gap-2">
                           <button
-                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 shadow-xs"
+                            className="btn btn-default btn-sm d-flex align-items-center gap-2"
                             onClick={handleExportGlobalDirectory}
                             disabled={directoryEmployees.length === 0}
                           >
@@ -3170,7 +3183,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       <div className="d-flex justify-content-end mb-3">
                         <button
                           type="button"
-                          className={`btn btn-sm ${hrCalendarViewByTab.attendance ? 'btn-primary' : 'btn-default'}`}
+                          className={`btn btn-sm ${hrCalendarViewByTab.attendance ? 'btn-primary' : 'btn-primary'}`}
                           onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, attendance: !prev.attendance }))}
                         >
                           {hrCalendarViewByTab.attendance ? 'Table View' : 'Calendar View'}
@@ -3198,7 +3211,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     </>
                   )}
                   {activeTab === 'upload-salary-slip' && (
-                    <div className="card border-0 shadow-sm">
+                    <div className="card border-0 shadow-sm px-4">
                       <div className="card-header bg-white py-3">
                         <h5 className="mb-0 fw-bold color-primary">Upload Salary Slip</h5>
                       </div>
@@ -3229,7 +3242,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                         </button>
                         <button
                           type="button"
-                          className={`btn btn-sm ${hrCalendarViewByTab.onLeaveToday ? 'btn-primary' : 'btn-default'}`}
+                          className={`btn btn-sm ${hrCalendarViewByTab.onLeaveToday ? 'btn-primary' : 'btn-primary'}`}
                           onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, onLeaveToday: !prev.onLeaveToday }))}
                         >
                           {hrCalendarViewByTab.onLeaveToday ? 'Table View' : 'Calendar View'}
@@ -3265,7 +3278,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     </>
                   )}
                   {activeTab === 'policy-admin' && (
-                    <div className="card border-0 shadow-sm">
+                    <div className="card border-0 shadow-sm px-4">
                       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                         <h5 className="mb-0 fw-bold color-primary">Leave Policies</h5>
                         <button className="btn btn-primary btn-sm" onClick={() => handleOpenPolicyModal()} disabled={isLoadingPolicies}><Plus size={16} /> Add Policy</button>
@@ -3295,12 +3308,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   {activeTab === 'holiday-admin' && (
                     <div className="row g-3">
                       <div className="col-lg-6">
-                        <div className="card border-0 shadow-sm h-100">
+                        <div className="card border-0 shadow-sm h-100 px-4">
                           <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <h5 className="mb-0 fw-bold color-primary">Official Holidays</h5>
                             <div className="d-flex gap-2">
                               <button
-                                className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
+                                className="btn btn-default btn-sm d-inline-flex align-items-center gap-1"
                                 onClick={handleExportHolidays}
                                 disabled={isLoadingHolidays || sortedHolidays.length === 0}
                               >
@@ -3334,7 +3347,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                         </div>
                       </div>
                       <div className="col-lg-6">
-                        <div className="card border-0 shadow-sm h-100">
+                        <div className="card border-0 shadow-sm h-100 px-4">
                           <div className="card-header color-primary bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <h5 className="mb-0 fw-bold">Unofficial Leave Quotas</h5>
                             <button
@@ -3363,8 +3376,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
                                   <ul className="list-group list-group-flush">
                                     {Object.entries(leaveQuotas).map(([type, quota]) => (
                                       <li key={type} className="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
-                                        <div className="small fw-medium">{type}</div>
-                                        <span className="badge text-bg-light border fw-bold">{quota}</span>
+                                        <div>{type}</div>
+                                        <span className="">{quota}</span>
                                       </li>
                                     ))}
                                   </ul>
@@ -3399,7 +3412,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     />
                   )}
                   {activeTab === 'concerns-admin' && (
-                    <div className="card border-0 shadow-sm">
+                    <div className="card border-0 shadow-sm px-4">
                       <div className="card-header bg-white py-3"><h5 className="mb-0 fw-bold color-primary">Employee Concerns</h5></div>
                       <CommonTable
                         data={concerns}
@@ -3424,13 +3437,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
         modifiedInfo={formatAuditInfo(editingPolicy?.modifiedAt, editingPolicy?.modifiedByName)}
         onVersionHistoryClick={() => { void handleOpenVersionHistory('Policy', OFFICIAL_LEAVES_LIST_ID, editingPolicyId || undefined); }}
         onOpenFormClick={() => { openOutOfBoxListItemForm(sp, OFFICIAL_LEAVES_LIST_ID, editingPolicyId ?? undefined).catch(() => undefined); }}
-        footer={<div className="d-flex justify-content-end gap-2 w-100"><button className="btn btn-outline-secondary" onClick={() => setIsPolicyModalOpen(false)}>Cancel</button><button type="submit" form="policy-form" className="btn btn-primary">{editingPolicyId ? "Update" : "Save"}</button></div>}
+        footer={<div className="d-flex justify-content-end gap-2 w-100"><button className="btn btn-default" onClick={() => setIsPolicyModalOpen(false)}>Cancel</button><button type="submit" form="policy-form" className="btn btn-primary">{editingPolicyId ? "Update" : "Save"}</button></div>}
       >
-        <form id="policy-form" onSubmit={handleSavePolicy}><div className="mb-3"><label className="form-label fw-bold">Title</label><input type="text" className="form-control" value={policyFormData.title} onChange={e => setPolicyFormData({ ...policyFormData, title: e.target.value })} required /></div><div className="mb-3"><label className="form-label fw-bold">Description</label><textarea className="form-control" rows={8} value={policyFormData.content} onChange={e => setPolicyFormData({ ...policyFormData, content: e.target.value })} required></textarea></div></form>
+        <form id="policy-form" onSubmit={handleSavePolicy}><div className="mb-3"><label className="form-label">Title</label><input type="text" className="form-control" value={policyFormData.title} onChange={e => setPolicyFormData({ ...policyFormData, title: e.target.value })} required /></div><div className="mb-3"><label className="form-label">Description</label><textarea className="form-control" rows={8} value={policyFormData.content} onChange={e => setPolicyFormData({ ...policyFormData, content: e.target.value })} required></textarea></div></form>
       </Modal>
 
       <Modal isOpen={isAddLeaveModalOpen} onClose={() => setIsAddLeaveModalOpen(false)} title="Manage Quotas" footer={<button className="btn btn-primary px-4" onClick={handleSaveQuotas} disabled={isLoadingQuotas}>{isLoadingQuotas ? 'Saving...' : 'Save'}</button>}>
-        <div className="mb-4"><label className="form-label small fw-bold text-muted">ADD NEW TYPE</label><div className="input-group input-group-sm gap-2"><input type="text" className="form-control" value={newLeaveTypeName} onChange={(e) => setNewLeaveTypeName(e.target.value)} placeholder="Enter leave type name" /><button className="btn btn-primary" onClick={handleAddNewLeaveType} disabled={isLoadingQuotas}>Add</button></div></div>
+        <div className="mb-4"><label className="">Add New Type</label><div className="input-group input-group-sm gap-2"><input type="text" className="form-control" value={newLeaveTypeName} onChange={(e) => setNewLeaveTypeName(e.target.value)} placeholder="Enter leave type name" /><button className="btn btn-primary" onClick={handleAddNewLeaveType} disabled={isLoadingQuotas}>Add</button></div></div>
         {Object.keys(leaveQuotas).length > 0 ? (
           <div className="list-group list-group-flush overflow-auto" style={{ maxHeight: '400px' }}>
             {Object.entries(leaveQuotas).map(([type, count]) => (
@@ -3455,7 +3468,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   />
                 ) : (
                   <div
-                    className="fw-bold"
+                    className=""
                     style={{ cursor: 'pointer' }}
                     onClick={() => {
                       setEditingLeaveType(type);
@@ -3468,9 +3481,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 )}
                 <div className="d-flex align-items-center gap-3">
                   <button className="btn-default rounded-circle px-2" onClick={() => handleUpdateQuota(type, -1)} disabled={isLoadingQuotas}><Minus size={14} /></button>
-                  <div className="fw-bold" style={{ width: '20px', textAlign: 'center' }}>{count}</div>
+                  <div className="" style={{ width: '20px', textAlign: 'center' }}>{count}</div>
                   <button className="btn-primary rounded-circle" onClick={() => handleUpdateQuota(type, 1)} disabled={isLoadingQuotas}><Plus size={14} /></button>
-                  <button className="btn btn-link text-primary p-0 ms-2" onClick={() => handleDeleteQuotaType(type)} disabled={isLoadingQuotas}><X size={18} /></button>
+                  <button className="btn btn-link text-primary p-0 ms-2" onClick={() => handleDeleteQuotaType(type)} disabled={isLoadingQuotas}><X size={18} color="#2F5596" /></button>
                 </div>
               </div>
             ))}
@@ -3492,7 +3505,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         onOpenFormClick={() => { openOutOfBoxListItemForm(sp, OFFICIAL_LEAVES_LIST_ID, editingHolidayId ?? undefined).catch(() => undefined); }}
         footer={<><button className="btn btn-default text-decoration-none" onClick={() => setIsHolidayModalOpen(false)}>Cancel</button><button type="submit" form="holiday-form" className="btn btn-primary">{editingHolidayId ? "Update" : "Save"}</button></>}
       >
-        <form id="holiday-form" onSubmit={handleSaveHoliday}><div className="mb-3"><label className="form-label fw-bold">Name</label><input type="text" className="form-control" value={holidayFormData.name} onChange={e => setHolidayFormData({ ...holidayFormData, name: e.target.value })} required /></div><div className="mb-3"><label className="form-label fw-bold">Date</label><input type="date" className="form-control" value={holidayFormData.date} onChange={e => setHolidayFormData({ ...holidayFormData, date: e.target.value })} required /></div><div className="mb-3"><label className="form-label fw-bold">Type</label><select className="form-select" value={holidayFormData.type} onChange={e => setHolidayFormData({ ...holidayFormData, type: e.target.value as any })}>{leaveCategories.length > 0 ? leaveCategories.map(cat => <option key={cat} value={cat}>{cat}</option>) : <><option value="Public">Public</option><option value="Restricted">Restricted</option></>}</select></div></form>
+        <form id="holiday-form" onSubmit={handleSaveHoliday}><div className="mb-3"><label className="form-label">Name</label><input type="text" className="form-control" value={holidayFormData.name} onChange={e => setHolidayFormData({ ...holidayFormData, name: e.target.value })} required /></div><div className="mb-3"><label className="form-label">Date</label><input type="date" className="form-control" value={holidayFormData.date} onChange={e => setHolidayFormData({ ...holidayFormData, date: e.target.value })} required /></div><div className="mb-3"><label className="form-label">Type</label><select className="form-select" value={holidayFormData.type} onChange={e => setHolidayFormData({ ...holidayFormData, type: e.target.value as any })}>{leaveCategories.length > 0 ? leaveCategories.map(cat => <option key={cat} value={cat}>{cat}</option>) : <><option value="Public">Public</option><option value="Restricted">Restricted</option></>}</select></div></form>
       </Modal>
 
       <Modal
@@ -3506,7 +3519,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         footer={<><button className="btn btn-link text-decoration-none" onClick={() => setIsConcernReplyModalOpen(false)}>Cancel</button><button type="submit" form="concern-reply-form" className="btn btn-primary px-4">Submit</button></>}
       >
         {selectedConcern && (
-          <form id="concern-reply-form" onSubmit={handleSaveConcernReply}><div className="mb-3 p-3 bg-light rounded border"><div className="small fw-bold text-muted text-uppercase">{selectedConcern.type}</div><div className="text-dark small mt-1">{selectedConcern.description}</div></div><div className="mb-3"><label className="form-label fw-bold">Resolution</label><textarea className="form-control" rows={5} value={concernReplyText} onChange={e => setConcernReplyText(e.target.value)} required placeholder="Resolution message..."></textarea></div></form>
+          <form id="concern-reply-form" onSubmit={handleSaveConcernReply}><div className="mb-3 p-3 bg-light rounded border"><div className="fw-bold text-muted text-uppercase">{selectedConcern.type}</div><div className="text-dark mt-1">{selectedConcern.description}</div></div><div className="mb-3"><label className="form-label">Resolution</label><textarea className="form-control" rows={5} value={concernReplyText} onChange={e => setConcernReplyText(e.target.value)} required placeholder="Resolution message..."></textarea></div></form>
         )}
       </Modal>
 
@@ -3539,7 +3552,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             <div className="row g-3">
               {role === UserRole.HR && (
                 <div className="col-12">
-                  <label className="form-label fw-bold">Employee</label>
+                  <label className="form-label">Employee</label>
                   <select
                     className="form-select"
                     value={selectedEmployeeForLeave?.id || ''}
@@ -3562,10 +3575,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   </select>
                 </div>
               )}
-              <div className="col-12"><label className="form-label fw-bold">Leave Type</label><select className="form-select" value={leaveFormData.leaveType} onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}>{Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))}</select></div>
-              <div className="col-md-6"><label className="form-label fw-bold">Start</label><input type="date" className="form-control" value={leaveFormData.startDate} onChange={e => setLeaveFormData({ ...leaveFormData, startDate: e.target.value })} required /></div>
+              <div className="col-12"><label className="form-label">Leave Type</label><select className="form-select" value={leaveFormData.leaveType} onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}>{Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))}</select></div>
+              <div className="col-md-6"><label className="form-label">Start</label><input type="date" className="form-control" value={leaveFormData.startDate} onChange={e => setLeaveFormData({ ...leaveFormData, startDate: e.target.value })} required /></div>
               <div className="col-md-6">
-                <label className="form-label fw-bold">End {isSpecialLeave && <span className="small text-primary">(Auto-calculated)</span>}</label>
+                <label className="form-label">End {isSpecialLeave && <span className="small text-primary">(Auto-calculated)</span>}</label>
                 <input
                   type="date"
                   className={`form-control ${isSpecialLeave ? 'bg-light border-primary border-dashed fw-bold text-primary' : ''}`}
@@ -3578,7 +3591,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
               <div className="col-12">
                 <button
                   type="button"
-                  className={`btn popup-option-toggle ${leaveFormData.isHalfDay ? 'popup-option-toggle--active' : ''}`}
+                  className={`btn popup-option-toggle ${leaveFormData.isHalfDay ? 'popup-option-toggle--active' : ' btn-default'}`}
                   onClick={() => setLeaveFormData({ ...leaveFormData, isHalfDay: !leaveFormData.isHalfDay })}
                   aria-pressed={leaveFormData.isHalfDay}
                 >
@@ -3587,11 +3600,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
               </div>
               {leaveFormData.isHalfDay && (
                 <div className="col-12">
-                  <label className="form-label fw-bold">Half Day Type</label>
+                  <label className="form-label">Half Day Type</label>
                   <div className="d-flex gap-3">
-                    <div className="form-check">
+                    <div className="SpfxCheckRadio">
                       <input
-                        className="form-check-input"
+                        className="radio"
                         type="radio"
                         name="halfDayType"
                         id="firstHalf"
@@ -3599,11 +3612,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
                         checked={leaveFormData.halfDayType === 'first'}
                         onChange={e => setLeaveFormData({ ...leaveFormData, halfDayType: e.target.value as 'first' | 'second' })}
                       />
-                      <label className="form-check-label" htmlFor="firstHalf">First Half</label>
+                      <label className="" htmlFor="firstHalf">First Half</label>
                     </div>
-                    <div className="form-check">
+                    <div className="SpfxCheckRadio">
                       <input
-                        className="form-check-input"
+                        className="radio"
                         type="radio"
                         name="halfDayType"
                         id="secondHalf"
@@ -3611,7 +3624,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                         checked={leaveFormData.halfDayType === 'second'}
                         onChange={e => setLeaveFormData({ ...leaveFormData, halfDayType: e.target.value as 'first' | 'second' })}
                       />
-                      <label className="form-check-label" htmlFor="secondHalf">Second Half</label>
+                      <label className="" htmlFor="secondHalf">Second Half</label>
                     </div>
                   </div>
                 </div>
@@ -3619,7 +3632,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
               <div className="col-12">
                 <button
                   type="button"
-                  className={`btn popup-option-toggle ${leaveFormData.isRecurring ? 'popup-option-toggle--active' : ''}`}
+                  className={`btn popup-option-toggle ${leaveFormData.isRecurring ? 'popup-option-toggle--active' : ' btn-default'}`}
                   onClick={() => setLeaveFormData({ ...leaveFormData, isRecurring: !leaveFormData.isRecurring })}
                   aria-pressed={leaveFormData.isRecurring}
                 >
@@ -3630,12 +3643,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 <>
                   {/* Recurrence Pattern Selection */}
                   <div className="col-12">
-                    <label className="form-label fw-bold small text-primary">RECURRENCE PATTERN</label>
+                    <label className="form-label">Recurrence Pattern</label>
                     <div className="d-flex gap-2">
                       {(['Daily', 'Weekly', 'Monthly', 'Yearly'] as const).map(freq => (
-                        <div key={freq} className="form-check">
+                        <div key={freq} className="SpfxCheckRadio">
                           <input
-                            className="form-check-input"
+                            className="radio"
                             type="radio"
                             name="recurringFrequency"
                             id={`freq${freq}`}
@@ -3643,7 +3656,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                             checked={leaveFormData.recurringFrequency === freq}
                             onChange={e => setLeaveFormData({ ...leaveFormData, recurringFrequency: e.target.value as typeof freq })}
                           />
-                          <label className="form-check-label small" htmlFor={`freq${freq}`}>{freq}</label>
+                          <label className="" htmlFor={`freq${freq}`}>{freq}</label>
                         </div>
                       ))}
                     </div>
@@ -3651,20 +3664,20 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
                   {/* Pattern-specific options */}
                   <div className="col-12">
-                    <label className="form-label fw-bold small text-primary">PATTERN</label>
+                    <label className="form-label text-primary">Pattern</label>
 
                     {/* Daily Pattern */}
                     {leaveFormData.recurringFrequency === 'Daily' && (
                       <div className="border rounded p-2">
-                        <div className="form-check mb-2">
-                          <input className="form-check-input" type="radio" name="dailyPattern" id="dailyEvery" checked={!leaveFormData.dailyWeekdaysOnly} onChange={() => setLeaveFormData({ ...leaveFormData, dailyWeekdaysOnly: false })} />
-                          <label className="form-check-label small" htmlFor="dailyEvery">
+                        <div className="SpfxCheckRadio mb-2">
+                          <input className="radio" type="radio" name="dailyPattern" id="dailyEvery" checked={!leaveFormData.dailyWeekdaysOnly} onChange={() => setLeaveFormData({ ...leaveFormData, dailyWeekdaysOnly: false })} />
+                          <label className="" htmlFor="dailyEvery">
                             every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.dailyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, dailyInterval: parseInt(e.target.value) || 1 })} /> days
                           </label>
                         </div>
-                        <div className="form-check">
-                          <input className="form-check-input" type="radio" name="dailyPattern" id="dailyWeekdays" checked={leaveFormData.dailyWeekdaysOnly} onChange={() => setLeaveFormData({ ...leaveFormData, dailyWeekdaysOnly: true })} />
-                          <label className="form-check-label small" htmlFor="dailyWeekdays">every weekdays</label>
+                        <div className="SpfxCheckRadio">
+                          <input className="radio" type="radio" name="dailyPattern" id="dailyWeekdays" checked={leaveFormData.dailyWeekdaysOnly} onChange={() => setLeaveFormData({ ...leaveFormData, dailyWeekdaysOnly: true })} />
+                          <label className="" htmlFor="dailyWeekdays">every weekdays</label>
                         </div>
                       </div>
                     )}
@@ -3672,7 +3685,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     {/* Weekly Pattern */}
                     {leaveFormData.recurringFrequency === 'Weekly' && (
                       <div className="border rounded p-2">
-                        <div className="mb-2 small">
+                        <div className="mb-2">
                           every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.weeklyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, weeklyInterval: parseInt(e.target.value) || 1 })} /> week(s) on
                         </div>
                         <div className="d-flex flex-wrap gap-1">
@@ -3690,7 +3703,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                                   setLeaveFormData({ ...leaveFormData, weeklyDays: days });
                                 }}
                               />
-                              <label className="form-check-label small" htmlFor={`day${day}`}>{day.slice(0, 3)}</label>
+                              <label className="form-check-label" htmlFor={`day${day}`}>{day.slice(0, 3)}</label>
                             </div>
                           ))}
                         </div>
@@ -3700,15 +3713,15 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     {/* Monthly Pattern */}
                     {leaveFormData.recurringFrequency === 'Monthly' && (
                       <div className="border rounded p-2">
-                        <div className="form-check mb-2">
-                          <input className="form-check-input" type="radio" name="monthlyPattern" id="monthlyDay" checked={leaveFormData.monthlyPattern === 'day'} onChange={() => setLeaveFormData({ ...leaveFormData, monthlyPattern: 'day' })} />
-                          <label className="form-check-label small" htmlFor="monthlyDay">
+                        <div className="SpfxCheckRadio mb-2">
+                          <input className="radio" type="radio" name="monthlyPattern" id="monthlyDay" checked={leaveFormData.monthlyPattern === 'day'} onChange={() => setLeaveFormData({ ...leaveFormData, monthlyPattern: 'day' })} />
+                          <label className="" htmlFor="monthlyDay">
                             Day <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" max="31" value={leaveFormData.monthlyDay} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyDay: parseInt(e.target.value) || 1 })} /> of every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.monthlyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyInterval: parseInt(e.target.value) || 1 })} /> month(s)
                           </label>
                         </div>
-                        <div className="form-check">
+                        <div className="SpfxCheckRadio">
                           <input className="form-check-input" type="radio" name="monthlyPattern" id="monthlyThe" checked={leaveFormData.monthlyPattern === 'the'} onChange={() => setLeaveFormData({ ...leaveFormData, monthlyPattern: 'the' })} />
-                          <label className="form-check-label small" htmlFor="monthlyThe">
+                          <label className="form-check-label" htmlFor="monthlyThe">
                             the <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.monthlyWeekNumber} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyWeekNumber: e.target.value as any })}>
                               <option value="first">first</option>
                               <option value="second">second</option>
@@ -3726,17 +3739,17 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     {/* Yearly Pattern */}
                     {leaveFormData.recurringFrequency === 'Yearly' && (
                       <div className="border rounded p-2">
-                        <div className="form-check mb-2">
-                          <input className="form-check-input" type="radio" name="yearlyPattern" id="yearlyEvery" checked={leaveFormData.yearlyPattern === 'every'} onChange={() => setLeaveFormData({ ...leaveFormData, yearlyPattern: 'every' })} />
-                          <label className="form-check-label small" htmlFor="yearlyEvery">
+                        <div className="SpfxCheckRadio mb-2">
+                          <input className="radio" type="radio" name="yearlyPattern" id="yearlyEvery" checked={leaveFormData.yearlyPattern === 'every'} onChange={() => setLeaveFormData({ ...leaveFormData, yearlyPattern: 'every' })} />
+                          <label className="" htmlFor="yearlyEvery">
                             every <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyMonth} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyMonth: e.target.value })}>
                               {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => <option key={m} value={m}>{m}</option>)}
                             </select> <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.yearlyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyInterval: parseInt(e.target.value) || 1 })} />
                           </label>
                         </div>
-                        <div className="form-check">
-                          <input className="form-check-input" type="radio" name="yearlyPattern" id="yearlyThe" checked={leaveFormData.yearlyPattern === 'the'} onChange={() => setLeaveFormData({ ...leaveFormData, yearlyPattern: 'the' })} />
-                          <label className="form-check-label small" htmlFor="yearlyThe">
+                        <div className="SpfxCheckRadio">
+                          <input className="radio" type="radio" name="yearlyPattern" id="yearlyThe" checked={leaveFormData.yearlyPattern === 'the'} onChange={() => setLeaveFormData({ ...leaveFormData, yearlyPattern: 'the' })} />
+                          <label className="" htmlFor="yearlyThe">
                             the <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyWeekNumber} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyWeekNumber: e.target.value as any })}>
                               <option value="first">first</option>
                               <option value="second">second</option>
@@ -3756,25 +3769,25 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
                   {/* Date Range */}
                   <div className="col-12">
-                    <label className="form-label fw-bold small text-primary">DATE RANGE</label>
+                    <label className="form-label">Date Range</label>
                     <div className="border rounded p-2">
                       <div className="mb-2">
-                        <label className="form-label small mb-1">Start Date</label>
+                        <label className="form-label mb-1">Start Date</label>
                         <input type="date" className="form-control form-control-sm" value={leaveFormData.startDate} onChange={e => setLeaveFormData({ ...leaveFormData, startDate: e.target.value })} required />
                       </div>
-                      <div className="form-check mb-2">
-                        <input className="form-check-input" type="radio" name="endDateOption" id="noEnd" checked={leaveFormData.endDateOption === 'noEnd'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'noEnd' })} />
-                        <label className="form-check-label small" htmlFor="noEnd">no end date</label>
+                      <div className="SpfxCheckRadio mb-2">
+                        <input className="radio" type="radio" name="endDateOption" id="noEnd" checked={leaveFormData.endDateOption === 'noEnd'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'noEnd' })} />
+                        <label className="" htmlFor="noEnd">no end date</label>
                       </div>
-                      <div className="form-check mb-2">
-                        <input className="form-check-input" type="radio" name="endDateOption" id="endBy" checked={leaveFormData.endDateOption === 'endBy'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endBy' })} />
-                        <label className="form-check-label small" htmlFor="endBy">
+                      <div className="SpfxCheckRadio mb-2">
+                        <input className="radio" type="radio" name="endDateOption" id="endBy" checked={leaveFormData.endDateOption === 'endBy'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endBy' })} />
+                        <label className="" htmlFor="endBy">
                           end by <input type="date" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '150px' }} value={leaveFormData.recurrenceEndDate} onChange={e => setLeaveFormData({ ...leaveFormData, recurrenceEndDate: e.target.value })} disabled={leaveFormData.endDateOption !== 'endBy'} />
                         </label>
                       </div>
-                      <div className="form-check">
-                        <input className="form-check-input" type="radio" name="endDateOption" id="endAfter" checked={leaveFormData.endDateOption === 'endAfter'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endAfter' })} />
-                        <label className="form-check-label small" htmlFor="endAfter">
+                      <div className="SpfxCheckRadio">
+                        <input className="radio" type="radio" name="endDateOption" id="endAfter" checked={leaveFormData.endDateOption === 'endAfter'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endAfter' })} />
+                        <label className="" htmlFor="endAfter">
                           end after <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.recurrenceOccurrences} onChange={e => setLeaveFormData({ ...leaveFormData, recurrenceOccurrences: parseInt(e.target.value) || 1 })} disabled={leaveFormData.endDateOption !== 'endAfter'} /> occurrences
                         </label>
                       </div>
@@ -3782,13 +3795,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   </div>
                 </>
               )}
-              <div className="col-12"><label className="form-label fw-bold">Reason</label><textarea className="form-control" rows={4} value={leaveFormData.reason} onChange={e => setLeaveFormData({ ...leaveFormData, reason: e.target.value })} required></textarea></div>
+              <div className="col-12"><label className="form-label">Reason</label><textarea className="form-control" rows={4} value={leaveFormData.reason} onChange={e => setLeaveFormData({ ...leaveFormData, reason: e.target.value })} required></textarea></div>
             </div>
           ) : (
             <div className="row g-3">
               {role === UserRole.HR && (
                 <div className="col-12">
-                  <label className="form-label fw-bold">Employee</label>
+                  <label className="form-label">Employee</label>
                   <select
                     className="form-select"
                     value={selectedEmployeeForLeave?.id || ''}
@@ -3812,7 +3825,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
               )}
               <div className="col-12">
-                <label className="form-label fw-bold">Work From Home Type</label>
+                <label className="form-label">Work From Home Type</label>
                 <select
                   className="form-select"
                   value={workFromHomeFormData.workFromHomeType}
@@ -3825,7 +3838,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </select>
               </div>
               <div className="col-md-6">
-                <label className="form-label fw-bold">Start Date</label>
+                <label className="form-label">Start Date</label>
                 <input
                   type="date"
                   className="form-control"
@@ -3835,7 +3848,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 />
               </div>
               <div className="col-md-6">
-                <label className="form-label fw-bold">End Date</label>
+                <label className="form-label">End Date</label>
                 <input
                   type="date"
                   className="form-control"
@@ -3845,7 +3858,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 />
               </div>
               <div className="col-12">
-                <label className="form-label fw-bold">Reason</label>
+                <label className="form-label">Reason</label>
                 <textarea
                   className="form-control"
                   rows={4}
@@ -3961,7 +3974,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
             {/* Date & Period Section */}
             <div className="col-md-3">
-              <label className="form-label fw-bold small text-muted text-uppercase mb-1">Month</label>
+              <label className="form-label small text-muted text-uppercase mb-1">Month</label>
               <select
                 className="form-select"
                 value={salaryFormData.month}
@@ -3992,7 +4005,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
               </select>
             </div>
             <div className="col-md-3">
-              <label className="form-label fw-bold small text-muted text-uppercase mb-1">Year</label>
+              <label className="form-label small text-muted text-uppercase mb-1">Year</label>
               <select
                 className="form-select"
                 value={salaryFormData.year}
@@ -4023,7 +4036,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
               </select>
             </div>
             <div className="col-md-3">
-              <label className="form-label fw-bold small text-muted text-uppercase mb-1">Working Days</label>
+              <label className="form-label small text-muted text-uppercase mb-1">Working Days</label>
               <input
                 type="number"
                 className="form-control"
@@ -4044,7 +4057,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
               />
             </div>
             <div className="col-md-3">
-              <label className="form-label fw-bold small text-muted text-uppercase mb-1">Paid Days</label>
+              <label className="form-label small text-muted text-uppercase mb-1">Paid Days</label>
               <input
                 type="number"
                 className="form-control"
@@ -4067,7 +4080,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
             {/* CTC & Manual Toggle Row */}
             <div className="col-md-8">
-              <label className="form-label fw-bold small text-muted text-uppercase mb-1">Yearly CTC (₹)</label>
+              <label className="form-label small text-muted text-uppercase mb-1">Yearly CTC (₹)</label>
               <input
                 type="number"
                 min="0"
@@ -4091,7 +4104,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             <div className="col-md-4 d-flex align-items-end pb-2">
               <button
                 type="button"
-                className={`btn popup-option-toggle ${isSalaryManualMode ? 'popup-option-toggle--active' : ''}`}
+                className={`btn popup-option-toggle ${isSalaryManualMode ? 'popup-option-toggle--active' : ' btn-default'}`}
                 onClick={() => setIsSalaryManualMode(!isSalaryManualMode)}
                 aria-pressed={isSalaryManualMode}
               >
@@ -4139,7 +4152,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
                 {/* HRA */}
                 <div className="col">
-                  <label className="form-label small fw-bold text-muted mb-1">HRA (₹)</label>
+                  <label className="form-label small text-muted mb-1">HRA (₹)</label>
                   <input
                     type="number"
                     className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
@@ -4158,7 +4171,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
                 {/* Allowances */}
                 <div className="col">
-                  <label className="form-label small fw-bold text-muted mb-1">Allowances (₹)</label>
+                  <label className="form-label small text-muted mb-1">Allowances (₹)</label>
                   <input
                     type="number"
                     className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
@@ -4177,7 +4190,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
                 {/* Deductions */}
                 <div className="col">
-                  <label className="form-label small fw-bold text-muted mb-1">Deductions (₹)</label>
+                  <label className="form-label small text-muted mb-1">Deductions (₹)</label>
                   <input
                     type="number"
                     className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
@@ -4195,7 +4208,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
                 {/* Gross */}
                 <div className="col">
-                  <label className="form-label small fw-bold text-muted mb-1">Gross (₹)</label>
+                  <label className="form-label small text-muted mb-1">Gross (₹)</label>
                   <input
                     type="number"
                     className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
@@ -4213,7 +4226,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
                 {/* Employer PF */}
                 <div className="col">
-                  <label className="form-label small fw-bold text-muted mb-1">Employer PF (₹)</label>
+                  <label className="form-label small text-muted mb-1">Employer PF (₹)</label>
                   <input
                     type="number"
                     className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
@@ -4239,7 +4252,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
                 {/* Employee PF */}
                 <div className="col">
-                  <label className="form-label small fw-bold text-muted mb-1">Employee PF (₹)</label>
+                  <label className="form-label small text-muted mb-1">Employee PF (₹)</label>
                   <input
                     type="number"
                     className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
@@ -4261,7 +4274,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
                 {/* Bonus */}
                 <div className="col">
-                  <label className="form-label small fw-bold text-muted mb-1">Bonus (₹)</label>
+                  <label className="form-label small text-muted mb-1">Bonus (₹)</label>
                   <input
                     type="number"
                     className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
@@ -4287,7 +4300,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
                 {/* ESI */}
                 <div className="col">
-                  <label className="form-label small fw-bold text-muted mb-1">ESI (₹)</label>
+                  <label className="form-label small text-muted mb-1">ESI (₹)</label>
                   <input
                     type="number"
                     className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
@@ -4309,7 +4322,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
                 {/* Employer ESI */}
                 <div className="col">
-                  <label className="form-label small fw-bold text-muted mb-1">Employer ESI (₹)</label>
+                  <label className="form-label small text-muted mb-1">Employer ESI (₹)</label>
                   <input
                     type="number"
                     className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
@@ -4320,7 +4333,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
                 {/* Insurance */}
                 <div className="col">
-                  <label className="form-label small fw-bold text-muted mb-1">Insurance (₹)</label>
+                  <label className="form-label small text-muted mb-1">Insurance (₹)</label>
                   <input
                     type="number"
                     className={`form-control ${!isSalaryManualMode ? 'bg-light border-light-subtle' : ''}`}
@@ -4364,19 +4377,19 @@ const App: React.FC<AppProps> = ({ sp }) => {
           <div>
             <div className="text-center mb-3">
               <div className="fw-bold text-primary">{balanceEmployee.name}</div>
-              <div className="small text-muted">Employee ID: {balanceEmployee.id}</div>
+              <div className="text-muted">Employee ID: {balanceEmployee.id}</div>
             </div>
 
             <div className="row g-2 mb-3">
               <div className="col-6">
                 <div className="p-2 border rounded bg-light text-center h-100">
-                  <div className="small text-muted fw-semibold">Total Leaves Left</div>
+                  <div className="text-muted fw-semibold">Total Leaves Left</div>
                   <div className="h5 mb-0 text-primary fw-bold">{totalLeavesLeft}</div>
                 </div>
               </div>
               <div className="col-6">
                 <div className="p-2 border rounded bg-light text-center h-100">
-                  <div className="small text-muted fw-semibold">Total Leaves Taken</div>
+                  <div className="text-muted fw-semibold">Total Leaves Taken</div>
                   <div className="h5 mb-0 text-primary fw-bold">{totalLeavesTaken}</div>
                 </div>
               </div>
@@ -4400,7 +4413,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       <div className="border rounded p-3">
                         <div className="d-flex justify-content-between align-items-center mb-2">
                           <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>Other Leaves</span>
-                          <span className="text-muted small">{otherItem.used}/{otherItem.quota} used</span>
+                          <span className="text-muted">{otherItem.used}/{otherItem.quota} used</span>
                         </div>
                         <div className="d-flex flex-column gap-1 ps-2 border-start border-2 mb-2">
                           {allLeaveTypes.map((type, idx) => {
@@ -4505,19 +4518,19 @@ const App: React.FC<AppProps> = ({ sp }) => {
               <>
                 <h6 className="fw-bold color-primary border-bottom pb-2">Professional Details</h6>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Full Name</label>
+                  <label className="form-label">Full Name</label>
                   <input type="text" className="form-control" value={employeeFormData.name} onChange={e => setEmployeeFormData({ ...employeeFormData, name: e.target.value })} required />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Employee ID</label>
+                  <label className="form-label">Employee ID</label>
                   <input type="text" className="form-control" value={employeeFormData.id} onChange={e => setEmployeeFormData({ ...employeeFormData, id: e.target.value })} required />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Email</label>
+                  <label className="form-label">Email</label>
                   <input type="email" className="form-control" value={employeeFormData.email} onChange={e => setEmployeeFormData({ ...employeeFormData, email: e.target.value })} required />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Department</label>
+                  <label className="form-label">Department</label>
                   <select className="form-select" value={employeeFormData.department} onChange={e => setEmployeeFormData({ ...employeeFormData, department: e.target.value })} required>
                     <option value="">Select Department</option>
                     <option value="SPFx">SPFx</option>
@@ -4533,11 +4546,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   </select>
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Designation</label>
+                  <label className="form-label">Designation</label>
                   <input type="text" className="form-control" value={employeeFormData.position} onChange={e => setEmployeeFormData({ ...employeeFormData, position: e.target.value })} required />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Joining Date (DOJ)</label>
+                  <label className="form-label">Joining Date (DOJ)</label>
                   <input type="date" className="form-control" value={employeeFormData.joiningDate} onChange={e => setEmployeeFormData({ ...employeeFormData, joiningDate: e.target.value })} required />
                 </div>
               </>
@@ -4547,23 +4560,23 @@ const App: React.FC<AppProps> = ({ sp }) => {
               <>
                 <h6 className="fw-bold color-primary border-bottom pb-2">Banking Details</h6>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">PAN Number</label>
+                  <label className="form-label">PAN Number</label>
                   <input type="text" className="form-control" value={employeeFormData.pan || ''} onChange={e => setEmployeeFormData({ ...employeeFormData, pan: e.target.value })} />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">UAN Number</label>
+                  <label className="form-label">UAN Number</label>
                   <input type="text" className="form-control" value={employeeFormData.uan || ''} onChange={e => setEmployeeFormData({ ...employeeFormData, uan: e.target.value })} />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Bank Name</label>
+                  <label className="form-label">Bank Name</label>
                   <input type="text" className="form-control" value={employeeFormData.bankName || ''} onChange={e => setEmployeeFormData({ ...employeeFormData, bankName: e.target.value })} />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Account Number</label>
+                  <label className="form-label">Account Number</label>
                   <input type="text" className="form-control" value={employeeFormData.accountNumber || ''} onChange={e => setEmployeeFormData({ ...employeeFormData, accountNumber: e.target.value })} />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">IFSC Code</label>
+                  <label className="form-label">IFSC Code</label>
                   <input type="text" className="form-control" value={employeeFormData.ifscCode || ''} onChange={e => setEmployeeFormData({ ...employeeFormData, ifscCode: e.target.value })} />
                 </div>
               </>
@@ -4573,7 +4586,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
               <>
                 <h6 className="fw-bold color-primary border-bottom pb-2">Salary Details</h6>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Yearly CTC (₹)</label>
+                  <label className="form-label">Yearly CTC (₹)</label>
                   <input
                     type="number"
                     min="0"
@@ -4596,7 +4609,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Insurance Opt</label>
+                  <label className="form-label">Insurance Opt</label>
                   <select
                     className="form-select"
                     value={employeeFormData.insuranceTaken ?? 'Yes'}
@@ -4620,7 +4633,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   </select>
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Salary Bonus (₹)</label>
+                  <label className="form-label">Salary Bonus (₹)</label>
                   <input
                     type="number"
                     min="0"
@@ -4630,7 +4643,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Salary Insurance (₹)</label>
+                  <label className="form-label">Salary Insurance (₹)</label>
                   <input
                     type="number"
                     min="0"
@@ -4640,7 +4653,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Employee ESI (₹)</label>
+                  <label className="form-label">Employee ESI (₹)</label>
                   <input
                     type="number"
                     min="0"
@@ -4650,7 +4663,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Employer ESI (₹)</label>
+                  <label className="form-label">Employer ESI (₹)</label>
                   <input
                     type="number"
                     min="0"
@@ -4674,10 +4687,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     style={{ objectFit: 'cover' }}
                   />
                   <div>
-                    <div className="small text-muted">Current profile image</div>
+                    <div className="text-muted">Current profile image</div>
                     <button
                       type="button"
-                      className="btn btn-sm btn-outline-danger mt-1"
+                      className="btn text-primary mt-1"
                       onClick={() => {
                         setRemoveProfileImage(true);
                         setProfileUploadFile(null);
@@ -4690,7 +4703,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   </div>
                 </div>
                 <div className="col-12">
-                  <label className="form-label fw-bold">Upload New Image</label>
+                  <label className="form-label">Upload New Image</label>
                   <input
                     type="file"
                     className="form-control"
@@ -4708,18 +4721,18 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 </div>
                 <div className="col-12">
                   <div className="d-flex justify-content-between align-items-center">
-                    <label className="form-label fw-bold mb-0">Choose from Gallery Folders</label>
+                    <label className="form-label">Choose from Gallery Folders</label>
                     <button type="button" className="btn btn-sm color-primary" onClick={() => void loadProfileImageFolders()}>Refresh</button>
                   </div>
                 </div>
-                {isLoadingProfileFolders && <div className="col-12 text-muted small">Loading image folders...</div>}
+                {isLoadingProfileFolders && <div className="col-12 text-muted">Loading image folders...</div>}
                 {!isLoadingProfileFolders && (
                   <div className="col-12">
                     <div className="row g-3">
                       <div className="col-md-4">
                         <div className="border rounded p-2" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                           {profileImageFolders.length === 0 && (
-                            <div className="text-muted small">No folders found in Images library.</div>
+                            <div className="text-muted">No folders found in Images library.</div>
                           )}
                           {profileImageFolders.map((folder) => {
                             const isActive = selectedProfileFolder?.ServerRelativeUrl === folder.ServerRelativeUrl;
@@ -4740,14 +4753,14 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       <div className="col-md-8">
                         <div className="border rounded p-2" style={{ minHeight: '300px' }}>
                           {selectedProfileFolder && (
-                            <div className="small fw-semibold mb-2">Images in "{selectedProfileFolder.Name}"</div>
+                            <div className="fw-semibold mb-2">Images in "{selectedProfileFolder.Name}"</div>
                           )}
                           {!selectedProfileFolder && (
-                            <div className="text-muted small">Select a folder to view images.</div>
+                            <div className="text-muted">Select a folder to view images.</div>
                           )}
-                          {isLoadingFolderImages && <div className="text-muted small">Loading folder images...</div>}
+                          {isLoadingFolderImages && <div className="text-muted">Loading folder images...</div>}
                           {!isLoadingFolderImages && selectedProfileFolder && profileFolderImages.length === 0 && (
-                            <div className="text-muted small">No images found in this folder.</div>
+                            <div className="text-muted">No images found in this folder.</div>
                           )}
                           {!isLoadingFolderImages && profileFolderImages.length > 0 && (
                             <div className="d-flex flex-wrap gap-2">
@@ -4826,7 +4839,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       >
         <div className="row g-3">
           <div className="col-12">
-            <label className="form-label fw-bold">Date</label>
+            <label className="form-label">Date</label>
             <div className="d-flex flex-wrap gap-3">
               {(['Custom', 'Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month', 'Last 3 Months', 'This Year', 'Last Year', 'All Time'] as SendReportDatePreset[]).map((preset) => (
                 <div key={`send-report-${preset}`} className="form-check">
@@ -4837,13 +4850,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     checked={sendReportPreset === preset}
                     onChange={() => setSendReportPreset(preset)}
                   />
-                  <label className="form-check-label small" htmlFor={`send-report-preset-${preset}`}>{preset}</label>
+                  <label className="form-check-label" htmlFor={`send-report-preset-${preset}`}>{preset}</label>
                 </div>
               ))}
             </div>
           </div>
           <div className="col-md-6">
-            <label className="form-label fw-bold">Start Date</label>
+            <label className="form-label">Start Date</label>
             <input
               type="date"
               className="form-control"
@@ -4855,7 +4868,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             />
           </div>
           <div className="col-md-6">
-            <label className="form-label fw-bold">End Date</label>
+            <label className="form-label">End Date</label>
             <input
               type="date"
               className="form-control"
@@ -4867,7 +4880,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             />
           </div>
           <div className="col-12">
-            <label className="form-label fw-bold">Power Automate Payload (JSON)</label>
+            <label className="form-label">Power Automate Payload (JSON)</label>
             <textarea
               className="form-control"
               rows={14}
