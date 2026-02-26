@@ -354,7 +354,6 @@ const CommonTable = <T,>({
           padding: 10px;
           border-bottom: 1px solid #e6edf5;
           color: #27384f;
-          font-size: 13px;
           background: #ffffff;
         }
         .common-table-upgrade .filter-input-group {
@@ -367,7 +366,6 @@ const CommonTable = <T,>({
           border: 1px solid #d1dceb;
           border-radius: 4px;
           background: #fff;
-          font-size: 12px;
           color: #27384f;
           padding: 0 22px 0 8px;
         }

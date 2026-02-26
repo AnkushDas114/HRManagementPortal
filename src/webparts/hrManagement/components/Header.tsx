@@ -20,7 +20,7 @@ const Header: React.FC<HeaderProps> = ({ role, onRoleToggle, canAccessHr = true,
           <div className="p-1 rounded card-bg-primary d-flex align-items-center justify-content-center shadow-xs">
             <Calendar size={18} color="white" />
           </div>
-          <span className="fw-bold fs-6">{portalTitle}</span>
+          <span className="fw-semibold siteColor">{portalTitle}</span>
         </div>
 
         <div className="d-flex align-items-center gap-4">

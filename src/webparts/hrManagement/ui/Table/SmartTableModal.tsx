@@ -128,7 +128,7 @@ const SmartTableModal: React.FC<SmartTableModalProps> = ({ isOpen, onClose, sett
                       id="check-showHeader"
                     />
                     <label className="form-check-label" htmlFor="check-showHeader">
-                      Show Header <i className="bi bi-info-circle small opacity-50 ms-1" style={{ fontSize: '12px' }}></i>
+                      Show Header <i className="bi bi-info-circle opacity-50 ms-1" style={{ fontSize: '12px' }}></i>
                     </label>
                   </div>
                   <div className="form-check d-flex align-items-center gap-1 mb-0">
@@ -200,7 +200,7 @@ const SmartTableModal: React.FC<SmartTableModalProps> = ({ isOpen, onClose, sett
                         borderColor: '#DDDDDD'
                       }}
                     >
-                      <i className={`bi ${item.icon}`} style={{ fontSize: '16px', color: localSettings.visibleIcons.indexOf(item.id) !== -1 ? '#2F5596' : '#918D8D' }}></i>
+                      <i className={`bi ${item.icon}`} style={{ fontSize: '16px', color: '#2F5596' }}></i>
                     </div>
                   ))}
                 </div>
@@ -217,13 +217,13 @@ const SmartTableModal: React.FC<SmartTableModalProps> = ({ isOpen, onClose, sett
               <thead style={{ backgroundColor: '#F4F4F4' }}>
                 <tr className="text-dark">
                   <th className="ps-3 py-2 fw-bold" style={{ width: '45%', fontSize: '14px' }}>
-                    Columns <i className="bi bi-info-circle small opacity-50 ms-1" style={{ fontSize: '12px' }}></i>
+                    Columns <i className="bi bi-info-circle opacity-50 ms-1" style={{ fontSize: '12px' }}></i>
                   </th>
                   <th className="text-center py-2 fw-bold" style={{ width: '27.5%', fontSize: '14px' }}>
-                    Column Width <i className="bi bi-info-circle small opacity-50 ms-1" style={{ fontSize: '12px' }}></i>
+                    Column Width <i className="bi bi-info-circle opacity-50 ms-1" style={{ fontSize: '12px' }}></i>
                   </th>
                   <th className="text-center py-2 fw-bold" style={{ width: '27.5%', fontSize: '14px' }}>
-                    Column Ordering <i className="bi bi-info-circle small opacity-50 ms-1" style={{ fontSize: '12px' }}></i>
+                    Column Ordering <i className="bi bi-info-circle opacity-50 ms-1" style={{ fontSize: '12px' }}></i>
                   </th>
                 </tr>
               </thead>
@@ -239,9 +239,9 @@ const SmartTableModal: React.FC<SmartTableModalProps> = ({ isOpen, onClose, sett
                           onChange={() => handleToggleColumn(col.id)}
                           id={`col-check-${col.id}`}
                         />
-                        <label htmlFor={`col-check-${col.id}`} className="small text-dark fw-medium mb-0" style={{ fontSize: '14px', cursor: 'pointer' }}>{col.label}</label>
+                        <label htmlFor={`col-check-${col.id}`} className="text-dark mb-0" style={{ fontSize: '14px', cursor: 'pointer' }}>{col.label}</label>
                         <i
-                          className="bi bi-pencil small cursor-pointer opacity-75 ms-1"
+                          className="bi bi-pencil cursor-pointer opacity-75 ms-1"
                           style={{ color: '#2F5596', fontSize: '12px' }}
                           onClick={() => handleOpenOrderType(col.id, col.label)}
                         ></i>
@@ -266,7 +266,7 @@ const SmartTableModal: React.FC<SmartTableModalProps> = ({ isOpen, onClose, sett
                     </td>
                     <td className="py-2 border-start">
                       <div className="d-flex justify-content-center gap-2 px-3 align-items-center">
-                        <span className="small text-muted" style={{ width: '30px', textAlign: 'center', fontSize: '14px' }}>{col.order}</span>
+                        <span className="text-muted" style={{ width: '30px', textAlign: 'center', fontSize: '14px' }}>{col.order}</span>
                         <div
                           className="d-flex align-items-center justify-content-center rounded text-dark fw-bold border"
                           style={{ width: '75px', height: '28px', backgroundColor: '#F4F4F4', borderColor: '#DDDDDD', fontSize: '14px' }}

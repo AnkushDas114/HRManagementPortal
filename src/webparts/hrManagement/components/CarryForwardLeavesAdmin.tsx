@@ -318,11 +318,11 @@ const CarryForwardLeavesAdmin: React.FC<CarryForwardLeavesAdminProps> = ({ sp, e
     { key: 'used', header: 'Used This Month', accessor: (row) => row.used, render: (row) => row.used.toFixed(2) },
     { key: 'adjusted', header: 'Manual Adj.', accessor: (row) => row.adjusted, render: (row) => row.adjusted.toFixed(2) },
     { key: 'closing', header: 'Month-End Balance', accessor: (row) => row.closing, render: (row) => row.closing.toFixed(2) },
-    { key: 'carryForward', header: 'Carry to Next Month', accessor: (row) => row.carryForward, render: (row) => <span className="fw-bold">{row.carryForward.toFixed(2)}</span> }
+    { key: 'carryForward', header: 'Carry to Next Month', accessor: (row) => row.carryForward, render: (row) => <span>{row.carryForward.toFixed(2)}</span> }
   ]), []);
 
   return (
-    <div className="card border-0 shadow-sm">
+    <div className="card border-0 shadow-sm px-4">
       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 className="mb-0 fw-bold color-primary">Carry Forward Leaves</h5>
         <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -348,7 +348,7 @@ const CarryForwardLeavesAdmin: React.FC<CarryForwardLeavesAdminProps> = ({ sp, e
             {isSaving ? 'Saving...' : 'Recalculate & Save'}
           </button>
           <button
-            className={`btn btn-sm ${manualEditMode ? 'btn-warning' : 'btn-outline-secondary'}`}
+            className={`btn btn-sm ${manualEditMode ? 'btn-primary' : 'btn-default'}`}
             onClick={() => setManualEditMode((prev) => !prev)}
             disabled={isSaving || isLoading}
           >
@@ -356,7 +356,7 @@ const CarryForwardLeavesAdmin: React.FC<CarryForwardLeavesAdminProps> = ({ sp, e
           </button>
           {manualEditMode && (
             <button
-              className="btn btn-sm btn-outline-dark"
+              className="btn btn-sm btn-default"
               onClick={resetManualChanges}
               disabled={isSaving || isLoading}
             >
@@ -366,7 +366,7 @@ const CarryForwardLeavesAdmin: React.FC<CarryForwardLeavesAdminProps> = ({ sp, e
         </div>
       </div>
       <div className="card-body">
-        <div className="small text-muted mb-3">
+        <div className="text-muted mb-3">
           Automatically tracks allocated, used, closing, and carry-forward leaves per employee for the selected month.
         </div>
         {error && <div className="alert alert-danger py-2">{error}</div>}

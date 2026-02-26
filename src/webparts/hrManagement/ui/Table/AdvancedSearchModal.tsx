@@ -32,7 +32,7 @@ const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({ isOpen, onClo
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Configure Advanced Search" size="md" footer={footer} zIndex={1150} showMeta={false}>
       <div className="p-2">
-        <p className="small text-muted mb-3">Select the fields to include in the global search functionality:</p>
+        <p className="text-muted mb-3">Select the fields to include in the global search functionality:</p>
         {fields.map(f => (
           <div key={f} className="form-check mb-2">
             <input className="form-check-input" type="checkbox" checked={localFields.indexOf(f) !== -1} onChange={() => handleToggle(f)} id={`adv-${f}`} />

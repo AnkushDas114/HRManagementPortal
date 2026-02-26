@@ -42,7 +42,7 @@ const Modal: React.FC<ModalProps> = ({
               {title}
             </div>
             <div className="d-flex align-items-center gap-3">
-              <i className="bi bi-list fs-5 cursor-pointer" style={{ color: '#333333' }}></i>
+              <i className="bi bi-list fs-5 cursor-pointer" style={{ color: '#2F5596' }}></i>
               <button 
                 type="button" 
                 className="btn-close shadow-none border-0 p-0" 
@@ -50,7 +50,7 @@ const Modal: React.FC<ModalProps> = ({
                 aria-label="Close"
                 style={{ background: 'none', fontSize: '20px' }}
               >
-                <i className="bi bi-x-lg" style={{ color: '#333333' }}></i>
+                <i className="bi bi-x-lg" style={{ color: '#2F5596' }}></i>
               </button>
             </div>
           </div>

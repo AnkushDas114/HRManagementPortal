@@ -5,7 +5,7 @@ import { LeaveStatus, AttendanceStatus } from '../types';
 import StatCard from '../ui/StatCard';
 import { generateLeaveSummaryReport } from '../services/geminiService';
 import Modal from '../ui/Modal';
-import { Sparkle, Users, CheckCircle, Clock, XCircle, UserCheck, Calendar as CalendarIcon, Flag, PartyPopper, Cake, MessageSquare, Plus, Calendar, Trash2, Edit3 } from 'lucide-react';
+import { Sparkle, Users, CheckCircle, Clock, XCircle, UserCheck, Calendar as CalendarIcon, Flag, PartyPopper, Cake, MessageSquare, Plus, Calendar } from 'lucide-react';
 import { formatAuditInfo, formatDateForDisplayIST, monthNameIST, todayIST, getNowIST } from '../utils/dateTime';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 
@@ -477,13 +477,13 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
       </div>
 
       <div className="row g-4 mt-4">
-        <div className="col-12 col-lg-8">
+        <div className="col-12 col-lg-7">
           <div className="card shadow-sm border-0 h-100 p-4">
             <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
               <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
                 <Flag size={18} color="#2F5596" /> Upcoming Holidays ({monthNameIST()})
               </h6>
-              <span className="small text-muted">{currentMonthHolidays.length} Holidays this month</span>
+              <span className="text-muted">{currentMonthHolidays.length} Holidays this month</span>
             </div>
             <div className="row g-3">
               {currentMonthHolidays.length > 0 ? (
@@ -508,15 +508,14 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
             </div>
           </div>
         </div>
-        <div className="col-12 col-lg-4">
+        <div className="col-12 col-lg-5">
           <div className="card shadow-sm border-0 h-100 p-4">
             <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
               <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
                 <PartyPopper size={20} /> Team Celebrations
               </h6>
               <button
-                className="btn btn-sm border d-flex align-items-center gap-1 fw-bold px-2 py-1"
-                style={{ fontSize: '10px', color: '#2F5596', borderColor: '#2F5596' }}
+                className="btn btn-primary"
                 onClick={handleOpenAddEventModal}
               >
                 <Plus size={14} /> Add Event
@@ -532,18 +531,18 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                 >
                   <div className="d-flex align-items-center gap-3">
                     <div>
-                      <div className="fw-bold text-dark">{item.employee?.name || 'Team Event'}</div>
-                      <div className="text-muted d-flex flex-column gap-0" style={{ fontSize: '10px' }}>
+                      <div className="fw-semibold text-dark">{item.employee?.name || 'Team Event'}</div>
+                      <div className="text-muted d-flex flex-column gap-0">
                         <div className="fw-medium mb-1" style={{ color: '#2f5596' }}>{item.name}</div>
-                        <div className="d-flex align-items-center gap-1">
+                        <div className="d-flex align-items-center gap-1 small">
                           {item.icon} {item.type}
                         </div>
                       </div>
                     </div>
                   </div>
                   <div className="d-flex align-items-center gap-2">
-                    <div className="small badge bg-light text-dark border-0">{item.dateLabel}</div>
-                    <button
+                    <div className="small bg-light text-dark border-0">{item.dateLabel}</div>
+                    {/* <button
                       type="button"
                       className="event-edit-btn"
                       onClick={(e) => {
@@ -553,9 +552,16 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                       aria-label={`Edit ${item.name}`}
                       title="Edit event"
                     >
-                      <Edit3 size={14} />
-                    </button>
-                    <button
+                      <span title="Edit" className="svg__iconbox svg__icon--edit hreflink"  onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEditEventModal(item);
+                      }}></span>
+                    </button> */}
+                    <span title="Edit" className="svg__iconbox svg__icon--edit hreflink" onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenEditEventModal(item);
+                    }}></span>
+                    {/* <button
                       type="button"
                       className="event-delete-btn"
                       onClick={(e) => {
@@ -565,8 +571,12 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                       aria-label={`Delete ${item.name}`}
                       title="Delete event"
                     >
-                      <Trash2 size={14} />
-                    </button>
+                      
+                    </button> */}
+                    <span className="svg__iconbox hreflink mini svg__icon--trash" onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteTeamEvent(item.id);
+                      }}> </span>
                   </div>
                 </div>
               ))}
@@ -643,7 +653,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
             </div>
           </div>
         ) : (
-          <div className="ai-weekly-modal-layout p-4">
+          <div className="ai-weekly-modal-layout">
             <div className="ai-week-insights">
               <div className="ai-week-insights__head">
                 <div>
@@ -757,17 +767,17 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         }}
         footer={
           <>
-            <button className="btn btn-outline-secondary" onClick={() => {
+            <button className="btn btn-default" onClick={() => {
               setIsEventModalOpen(false);
               resetEventForm();
             }}>Cancel</button>
-            <button type="submit" form="add-event-form" className="btn btn-primary fw-bold px-4">{editingEventId !== null ? 'Update Event' : 'Add Event'}</button>
+            <button type="submit" form="add-event-form" className="btn btn-primary">{editingEventId !== null ? 'Update Event' : 'Add Event'}</button>
           </>
         }
       >
         <form id="add-event-form" className="event-modal-form" onSubmit={handleAddEventSubmit}>
           <div className="event-modal-field">
-            <label className="form-label fw-bold">Event Title</label>
+            <label className="form-label">Event Title</label>
             <input
               type="text"
               className="form-control"
@@ -778,7 +788,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
             />
           </div>
           <div className="event-modal-field">
-            <label className="form-label fw-bold">Event Type</label>
+            <label className="form-label">Event Type</label>
             <select
               className="form-select"
               value={eventFormData.type}
@@ -797,7 +807,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
             </select>
           </div>
           <div className="event-modal-field">
-            <label className="form-label fw-bold">Description</label>
+            <label className="form-label">Description</label>
             <textarea
               className="form-control"
               rows={4}
@@ -807,7 +817,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
             />
           </div>
           <div className="event-modal-field event-modal-field--last">
-            <label className="form-label fw-bold">Date</label>
+            <label className="form-label">Date</label>
             <input
               type="date"
               className="form-control"
