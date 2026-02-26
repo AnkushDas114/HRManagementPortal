@@ -27,8 +27,11 @@
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "lucide-react": "^0.563.0",
+    "quill-table-better": "^1.2.3",
+    "quill1.3.7-table-module": "^1.4.2",
     "react": "17.0.1",
     "react-dom": "17.0.1",
+    "react-quill": "^2.0.0",
     "recharts": "^3.7.0",
     "tslib": "2.3.1",
     "xlsx": "^0.18.5"

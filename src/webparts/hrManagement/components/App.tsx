@@ -949,6 +949,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
     } else {
       emp = (empOrReq as Employee) || currentUser;
     }
+
+    if (emp?.department === 'Trainee' && !req) {
+      alert("Trainees are not eligible to submit new leave or WFH requests.");
+      return;
+    }
+
     setSelectedEmployeeForLeave(emp);
     if (req) {
       const isWorkFromHomeRequest = req.requestCategory === 'Work From Home';

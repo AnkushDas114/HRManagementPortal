@@ -58,6 +58,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   });
   // Attendance Navigation State
   const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
+  const isTrainee = user?.department === 'Trainee';
   const [referenceDate, setReferenceDate] = React.useState<Date>(getNowIST());
 
   const normalizeText = React.useCallback((value: unknown): string => {
@@ -554,7 +555,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       if (event.type === 'Work Anniversary') icon = <PartyPopper size={16} />;
       if (event.type === 'Meeting') icon = <UserCheck size={16} className="text-primary" />;
       if (['Festival', 'Holi', 'Diwali', 'Durga Puja', 'Christmas Day', 'New Year'].indexOf(event.type) !== -1) {
-        icon = <Sparkle size={16}/>;
+        icon = <Sparkle size={16} />;
       }
 
       return {
@@ -997,7 +998,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <div className="card shadow-sm border-0 h-100 p-4">
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                 <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
-                  <PartyPopper size={20}/> Team Celebrations
+                  <PartyPopper size={20} /> Team Celebrations
                 </h6>
               </div>
               <div
@@ -1015,23 +1016,23 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                     }}
                   >
                     <div className="d-flex align-items-center justify-content-between p-2 rounded hover-bg-light transition-all border border-transparent hover-border-light">
-                    <div className="d-flex align-items-center gap-3">
-                      <div>
-                        <div className=" fw-bold" style={{ color: '#2f5596' }}>{item.name}</div>
-                        <div className="text-muted d-flex align-items-center gap-1 small" >
-                          {item.icon} {item.type}
-                        </div>
-                        {item.plainDescription && (
-                          <div
-                            className="text-muted small"
-                            style={{ maxWidth: '180px', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                          >
-                            {item.plainDescription}
+                      <div className="d-flex align-items-center gap-3">
+                        <div>
+                          <div className=" fw-bold" style={{ color: '#2f5596' }}>{item.name}</div>
+                          <div className="text-muted d-flex align-items-center gap-1 small" >
+                            {item.icon} {item.type}
                           </div>
-                        )}
+                          {item.plainDescription && (
+                            <div
+                              className="text-muted small"
+                              style={{ maxWidth: '180px', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                            >
+                              {item.plainDescription}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="small bg-light text-dark border-0">{item.dateLabel}</div>
+                      <div className="small bg-light text-dark border-0">{item.dateLabel}</div>
                     </div>
                   </button>
                 ))}
@@ -1272,9 +1273,14 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               >
                 {calendarViewByTab.leave ? 'Table View' : 'Calendar View'}
               </button>
-              <button className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm" onClick={() => onSubmitLeave('leave')}>
-                <Plus size={18} /> New Request
-              </button>
+              {!isTrainee && (
+                <button
+                  className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm"
+                  onClick={() => onSubmitLeave('leave')}
+                >
+                  <Plus size={18} /> New Request
+                </button>
+              )}
             </div>
           </div>
 
@@ -1282,7 +1288,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <CalendarView
               heading="Leave Calendar"
               events={employeeLeaveCalendarEvents}
-              showCreate
+              showCreate={!isTrainee}
               showConcern
               onCreate={() => onSubmitLeave('leave')}
               onConcern={(event) => handleOpenConcern(ConcernType.Leave, event.referenceId || event.startDate)}
@@ -1361,9 +1367,14 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               >
                 {calendarViewByTab['work-from-home'] ? 'Table View' : 'Calendar View'}
               </button>
-              <button className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm" onClick={() => onSubmitLeave('workFromHome')}>
-                <Plus size={18} /> New Request
-              </button>
+              {!isTrainee && (
+                <button
+                  className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm"
+                  onClick={() => onSubmitLeave('workFromHome')}
+                >
+                  <Plus size={18} /> New Request
+                </button>
+              )}
             </div>
           </div>
 
@@ -1371,7 +1382,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <CalendarView
               heading="Work From Home Calendar"
               events={employeeWfhCalendarEvents}
-              showCreate
+              showCreate={!isTrainee}
               showConcern
               onCreate={() => onSubmitLeave('workFromHome')}
               onConcern={(event) => handleOpenConcern(ConcernType.WorkFromHome, event.referenceId || event.startDate)}
