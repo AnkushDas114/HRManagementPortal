@@ -648,6 +648,31 @@ const App: React.FC<AppProps> = ({ sp }) => {
     recurrenceEndDate: '',
     recurrenceOccurrences: 1
   });
+
+  const isSpecialLeave = React.useMemo(() => {
+    const lower = leaveFormData.leaveType.toLowerCase();
+    return lower.includes('maternity') || lower.includes('paternity');
+  }, [leaveFormData.leaveType]);
+
+  React.useEffect(() => {
+    if (isSpecialLeave && leaveFormData.startDate) {
+      const start = new Date(leaveFormData.startDate);
+      if (!isNaN(start.getTime())) {
+        const lowerType = leaveFormData.leaveType.toLowerCase();
+        // Dynamic quota from leaveQuotas or fallbacks (182 for maternity, 54 for paternity)
+        const quota = leaveQuotas[leaveFormData.leaveType] || (lowerType.includes('maternity') ? 182 : 54);
+
+        const end = new Date(start);
+        end.setDate(start.getDate() + quota - 1); // -1 because the start date counts as 1 day
+
+        const endStr = end.toISOString().split('T')[0];
+        if (leaveFormData.endDate !== endStr) {
+          setLeaveFormData(prev => ({ ...prev, endDate: endStr, isHalfDay: false }));
+        }
+      }
+    }
+  }, [isSpecialLeave, leaveFormData.leaveType, leaveFormData.startDate, leaveQuotas]);
+
   const [workFromHomeFormData, setWorkFromHomeFormData] = useState({
     workFromHomeType: 'Work From Home',
     startDate: todayIST(),
@@ -1165,20 +1190,54 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const balanceSummary = React.useMemo(() => {
     if (!balanceEmployee) return [];
     const leaveTypes = Object.keys(leaveQuotas);
-    return leaveTypes.map((type) => {
+
+    interface SummaryItem {
+      type: string;
+      quota: number;
+      used: number;
+      left: number;
+      isSpecial: boolean;
+    }
+
+    const allItems: SummaryItem[] = leaveTypes.map((type) => {
       const quota = getQuotaForLeaveType(type);
       const used = getUsedLeavesForEmployee(balanceEmployee.id, type);
       const left = Math.max(quota - used, 0);
-      return { type, quota, used, left };
+      const isSpecial = type.toLowerCase().includes('maternity') || type.toLowerCase().includes('paternity');
+      return { type, quota, used, left, isSpecial };
     });
+
+    const regulars = allItems.filter(i => !i.isSpecial);
+    const specials = allItems.filter(i => i.isSpecial);
+
+    const otherLeaves: SummaryItem = {
+      type: 'Other Leaves',
+      quota: regulars.reduce((sum, i) => sum + i.quota, 0),
+      used: regulars.reduce((sum, i) => sum + i.used, 0),
+      left: regulars.reduce((sum, i) => sum + i.left, 0),
+      isSpecial: false
+    };
+
+    const anySpecialUsed = specials.some(i => i.used > 0);
+    const finalSummary = [otherLeaves];
+    // If any special leave used, show ALL special leaves (so user can see remaining balance for both)
+    if (anySpecialUsed) {
+      specials.forEach(i => finalSummary.push(i));
+    }
+
+    return finalSummary;
   }, [balanceEmployee, leaveQuotas, getQuotaForLeaveType, getUsedLeavesForEmployee]);
 
   const totalLeavesTaken = React.useMemo(() => {
-    return balanceSummary.reduce((sum, item) => sum + (Number(item.used) || 0), 0);
+    // balanceSummary now only has 'Other Leaves' (regular) and optionally 'Special Leaves'
+    // We only want regular leaves in the total
+    const other = balanceSummary.find(s => s.type === 'Other Leaves');
+    return other ? other.used : 0;
   }, [balanceSummary]);
 
   const totalLeavesLeft = React.useMemo(() => {
-    return balanceSummary.reduce((sum, item) => sum + (Number(item.left) || 0), 0);
+    const other = balanceSummary.find(s => s.type === 'Other Leaves');
+    return other ? other.left : 0;
   }, [balanceSummary]);
 
   const handleRaiseConcern = async (type: ConcernType, referenceId: string | number, description: string) => {
@@ -3505,7 +3564,17 @@ const App: React.FC<AppProps> = ({ sp }) => {
               )}
               <div className="col-12"><label className="form-label fw-bold">Leave Type</label><select className="form-select" value={leaveFormData.leaveType} onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}>{Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))}</select></div>
               <div className="col-md-6"><label className="form-label fw-bold">Start</label><input type="date" className="form-control" value={leaveFormData.startDate} onChange={e => setLeaveFormData({ ...leaveFormData, startDate: e.target.value })} required /></div>
-              <div className="col-md-6"><label className="form-label fw-bold">End</label><input type="date" className="form-control" value={leaveFormData.endDate} onChange={e => setLeaveFormData({ ...leaveFormData, endDate: e.target.value })} required disabled={leaveFormData.isHalfDay} /></div>
+              <div className="col-md-6">
+                <label className="form-label fw-bold">End {isSpecialLeave && <span className="small text-primary">(Auto-calculated)</span>}</label>
+                <input
+                  type="date"
+                  className={`form-control ${isSpecialLeave ? 'bg-light border-primary border-dashed fw-bold text-primary' : ''}`}
+                  value={leaveFormData.endDate}
+                  onChange={e => setLeaveFormData({ ...leaveFormData, endDate: e.target.value })}
+                  required
+                  disabled={leaveFormData.isHalfDay || isSpecialLeave}
+                />
+              </div>
               <div className="col-12">
                 <button
                   type="button"
@@ -4290,7 +4359,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         </form>
       </Modal >
 
-      <Modal isOpen={isBalanceModalOpen} onClose={() => setIsBalanceModalOpen(false)} title="Balance Summary" size="sm">
+      <Modal isOpen={isBalanceModalOpen} onClose={() => setIsBalanceModalOpen(false)} title="Balance Summary" size="sm" scrollable={true}>
         {balanceEmployee && (
           <div>
             <div className="text-center mb-3">
@@ -4313,26 +4382,69 @@ const App: React.FC<AppProps> = ({ sp }) => {
               </div>
             </div>
 
-            <div className="row g-3">
-              {balanceSummary.length === 0 && (
-                <div className="col-12">
-                  <div className="text-muted small">No unofficial leave quota configured.</div>
-                </div>
-              )}
-              {balanceSummary.map((item) => (
-                <div key={item.type} className="col-12">
-                  <div className="p-3 bg-white border rounded text-center shadow-sm h-100">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div className="small fw-semibold text-truncate text-start" title={item.type}>{item.type}</div>
-                      <div className="small text-muted">{item.used}/{item.quota} used</div>
-                    </div>
-                    <div className="d-flex justify-content-between align-items-center mt-2">
-                      <div className="small text-muted">Leaves Left</div>
-                      <div className="h6 mb-0 fw-bold text-primary">{item.left}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            {balanceSummary.length === 0 && (
+              <div className="text-muted small text-center">No unofficial leave quota configured.</div>
+            )}
+
+            <div className="d-flex flex-column gap-2">
+              {(() => {
+                const otherItem = balanceSummary.find(i => i.type === 'Other Leaves');
+                const specialItems = balanceSummary.filter(i => i.isSpecial);
+                const allLeaveTypes = Object.keys(leaveQuotas)
+                  .filter(t => !t.toLowerCase().includes('maternity') && !t.toLowerCase().includes('paternity'));
+
+                return (
+                  <>
+                    {/* Grouped Other Leaves with per-type breakdown */}
+                    {otherItem && (
+                      <div className="border rounded p-3">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>Other Leaves</span>
+                          <span className="text-muted small">{otherItem.used}/{otherItem.quota} used</span>
+                        </div>
+                        <div className="d-flex flex-column gap-1 ps-2 border-start border-2 mb-2">
+                          {allLeaveTypes.map((type, idx) => {
+                            const quota = getQuotaForLeaveType(type);
+                            const used = balanceEmployee ? getUsedLeavesForEmployee(balanceEmployee.id, type) : 0;
+                            return (
+                              <div key={idx} className="d-flex justify-content-between align-items-center py-1">
+                                <span className="text-muted" style={{ fontSize: '12px' }}>↳ {type}</span>
+                                <span className="fw-medium text-dark" style={{ fontSize: '12px' }}>{used}/{quota} Days</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="d-flex justify-content-between align-items-center border-top pt-2">
+                          <span className="text-muted small fw-semibold">Leaves Left</span>
+                          <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>{otherItem.left}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Special Leaves — only if taken */}
+                    {specialItems.length > 0 && (
+                      <>
+                        <div className="small text-muted fw-bold text-uppercase px-1 mt-1" style={{ fontSize: '10px' }}>Special Leaves</div>
+                        {specialItems.map((item, idx) => (
+                          <div key={`special-${idx}`} className="border rounded p-3 bg-light">
+                            <div className="d-flex justify-content-between align-items-center mb-1">
+                              <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>{item.type}</span>
+                              <span className="text-muted small">{item.used}/{item.quota} used</span>
+                            </div>
+                            <div className="progress mb-2" style={{ height: '3px' }}>
+                              <div className="progress-bar bg-primary" role="progressbar" style={{ width: `${(item.used / (item.quota || 1)) * 100}%` }} />
+                            </div>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <span className="text-muted small fw-semibold">Leaves Left</span>
+                              <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>{item.left}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}

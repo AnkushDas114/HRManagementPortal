@@ -41,6 +41,7 @@ export interface LeaveBalance {
   wfh: number;
   restrictedHoliday: number;
   paternity?: number;
+  maternity?: number;
 }
 
 export interface Employee {
@@ -197,16 +198,16 @@ export interface TeamEvent {
   id: number;
   name: string;
   type:
-    | 'Birthday'
-    | 'Work Anniversary'
-    | 'Meeting'
-    | 'Festival'
-    | 'Holi'
-    | 'Diwali'
-    | 'Durga Puja'
-    | 'Christmas Day'
-    | 'New Year'
-    | 'Other';
+  | 'Birthday'
+  | 'Work Anniversary'
+  | 'Meeting'
+  | 'Festival'
+  | 'Holi'
+  | 'Diwali'
+  | 'Durga Puja'
+  | 'Christmas Day'
+  | 'New Year'
+  | 'Other';
   date: string;
   description?: string;
   employee?: Employee;

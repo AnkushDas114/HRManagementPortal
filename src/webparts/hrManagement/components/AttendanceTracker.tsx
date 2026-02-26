@@ -108,7 +108,9 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   }, []);
 
   const configuredTotalLeaves = React.useMemo(() => {
-    return Object.values(leaveQuotas || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
+    return Object.entries(leaveQuotas || {})
+      .filter(([type]) => !type.toLowerCase().includes('maternity') && !type.toLowerCase().includes('paternity'))
+      .reduce((sum, [, value]) => sum + (Number(value) || 0), 0);
   }, [leaveQuotas]);
 
   const formatLeaveNumber = React.useCallback((value: number): string => {
@@ -124,8 +126,14 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     const used = leaveRequests
       .filter((request) => {
         if (request.status !== LeaveStatus.Approved) return false;
-        const isWorkFromHomeRequest = request.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(request.leaveType || ''));
+        const lowerType = String(request.leaveType || '').toLowerCase();
+        const isWorkFromHomeRequest = request.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(lowerType);
         if (isWorkFromHomeRequest) return false;
+
+        // Also exclude special leaves from the general leave summary tally
+        const isSpecialLeave = lowerType.includes('maternity') || lowerType.includes('paternity');
+        if (isSpecialLeave) return false;
+
         const requestEmployee = request.employee;
         if (!requestEmployee) return false;
 
@@ -164,8 +172,12 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
     leaveRequests.forEach((request) => {
       if (request.status !== LeaveStatus.Approved) return;
-      const isWorkFromHomeRequest = request.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(request.leaveType || ''));
+      const lowerType = String(request.leaveType || '').toLowerCase();
+      const isWorkFromHomeRequest = request.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(lowerType);
       if (isWorkFromHomeRequest) return;
+
+      const isSpecialLeave = lowerType.includes('maternity') || lowerType.includes('paternity');
+      if (isSpecialLeave) return;
       const requestEmployee = request.employee;
       if (!requestEmployee) return;
 

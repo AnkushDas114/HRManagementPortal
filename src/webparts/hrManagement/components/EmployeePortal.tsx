@@ -7,7 +7,7 @@ import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import CalendarView, { CalendarViewEvent } from './CalendarView';
 import {
-  Plus, Download, FileText, Sun, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, AlertCircle, MessageSquare, ChevronLeft, ChevronRight, Calendar, Users, Sparkle
+  Plus, Download, FileText, AlertCircle, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, MessageSquare, Baby, ChevronLeft, ChevronRight, Calendar, Users, Sparkle
 } from 'lucide-react';
 import { formatDateForDisplayIST, getNowIST, monthNameIST, formatDateIST, todayIST } from '../utils/dateTime';
 import { numberToWords } from '../utils/numberToWords';
@@ -611,45 +611,71 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   }, [eventBurst]);
 
   // Dynamic leave balance calculations
-  const leaveStats = React.useMemo(() => {
+  const { regularLeaveStats, specialLeaveStats } = React.useMemo(() => {
     // Only count APPROVED leaves for usage
     const approved = myLeaveRequests.filter(r => r.status === LeaveStatus.Approved);
 
-    // Iterate over ALL defined quotas to show them dynamically
-    return Object.keys(leaveQuotas).map(type => {
-      const used = approved
-        .filter(r => r.leaveType === type)
-        .reduce((sum, r) => sum + r.days, 0);
+    const allStats = Object.keys(leaveQuotas).map(type => {
+      const typeRequests = approved.filter(r => r.leaveType === type);
+      const used = typeRequests.reduce((sum, r) => sum + r.days, 0);
 
       const total = leaveQuotas[type];
-
-      // Determine icon based on type name (case insensitive checks)
-      let icon = <FileText size={14} className="text-primary" />;
       const lowerType = type.toLowerCase();
+      const isSpecial = lowerType.includes('maternity') || lowerType.includes('paternity');
 
-      if (lowerType.includes('sick')) icon = <FileText size={14} />;
-      else if (lowerType.includes('earned') || lowerType.includes('vacation')) icon = <Sun size={14} />;
-      else if (lowerType.includes('un-planned') || lowerType.includes('unplanned') || lowerType.includes('casual')) icon = <AlertCircle size={14} />;
+      // Track half-day sub-types taken for this leave type
+      const firstHalfCount = typeRequests.filter(r => r.isHalfDay && r.halfDayType === 'first').reduce((sum, r) => sum + r.days, 0);
+      const secondHalfCount = typeRequests.filter(r => r.isHalfDay && r.halfDayType === 'second').reduce((sum, r) => sum + r.days, 0);
+
+      const halfDays: { label: string; days: number }[] = [];
+      if (firstHalfCount > 0) halfDays.push({ label: 'First Half', days: firstHalfCount });
+      if (secondHalfCount > 0) halfDays.push({ label: 'Second Half', days: secondHalfCount });
 
       return {
         label: type,
-        icon: icon,
-        val: `${used}/${total} Days`,
         used,
         total,
-        left: Math.max(0, total - used)
+        left: Math.max(0, total - used),
+        isSpecial,
+        halfDays
       };
     });
+
+    const regulars = allStats.filter(s => !s.isSpecial);
+    const specials = allStats.filter(s => s.isSpecial);
+    const anySpecialUsed = specials.some(s => s.used > 0);
+
+    return {
+      // Show ALL regular leaves individually (always)
+      regularLeaveStats: regulars.map(s => ({
+        label: s.label,
+        used: s.used,
+        total: s.total,
+        left: s.left,
+        halfDays: s.halfDays
+      })),
+      // Only show special leaves if any has been taken
+      specialLeaveStats: anySpecialUsed
+        ? specials.map(s => ({
+          label: s.label,
+          used: s.used,
+          total: s.total,
+          left: s.left
+        }))
+        : []
+    };
   }, [myLeaveRequests, leaveQuotas]);
 
+  const leaveStats = React.useMemo(() => [...regularLeaveStats, ...specialLeaveStats], [regularLeaveStats, specialLeaveStats]);
+
   const totalLeavesTaken = React.useMemo(
-    () => leaveStats.reduce((sum, item) => sum + (Number(item.used) || 0), 0),
-    [leaveStats]
+    () => regularLeaveStats.reduce((sum, item) => sum + (Number(item.used) || 0), 0),
+    [regularLeaveStats]
   );
 
   const totalLeavesLeft = React.useMemo(
-    () => leaveStats.reduce((sum, item) => sum + (Number(item.left) || 0), 0),
-    [leaveStats]
+    () => regularLeaveStats.reduce((sum, item) => sum + (Number(item.left) || 0), 0),
+    [regularLeaveStats]
   );
 
   const ConcernSection = ({ type }: { type: ConcernType }) => {
@@ -973,14 +999,28 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 className="d-flex flex-column gap-3 pe-1"
                 style={{ maxHeight: leaveStats.length > 5 ? '320px' : 'none', overflowY: leaveStats.length > 5 ? 'auto' : 'visible' }}
               >
-                {leaveStats.map((item, idx) => (
+                {regularLeaveStats.map((item, idx) => (
                   <div key={idx} className="d-flex justify-content-between align-items-center">
-                    <div className="d-flex align-items-center gap-2 fw-medium text-dark">
-                      {item.icon} {item.label}
+                    <div className="d-flex align-items-center gap-2 text-dark" style={{ fontSize: '13px' }}>
+                      <FileText size={13} className="text-muted" /> {item.label}
                     </div>
-                    <div className="small fw-bold">{item.val} </div>
+                    <div className="small fw-bold" style={{ color: '#2F5596' }}>{item.used}/{item.total} Days</div>
                   </div>
                 ))}
+
+                {specialLeaveStats.length > 0 && (
+                  <>
+                    <div className="small text-muted fw-bold text-uppercase mt-2 border-top pt-2" style={{ fontSize: '10px' }}>Special Leaves</div>
+                    {specialLeaveStats.map((item, idx) => (
+                      <div key={`special-${idx}`} className="d-flex justify-content-between align-items-center">
+                        <div className="d-flex align-items-center gap-2 text-dark" style={{ fontSize: '13px' }}>
+                          <Baby size={13} className="text-muted" /> {item.label}
+                        </div>
+                        <div className="small fw-bold" style={{ color: '#2F5596' }}>{item.used}/{item.total} Days</div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
               <div className="mt-auto pt-3 border-top">
                 <button
@@ -1110,7 +1150,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           onClose={() => setIsBalanceModalOpen(false)}
           title="Balance Summary"
           size="sm"
-          scrollable={false}
+          scrollable={true}
         >
           <div className="text-center mb-2">
             <h5 className="fw-bold text-primary mb-1">{user.name}</h5>
@@ -1132,31 +1172,57 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             </div>
           </div>
 
-          <div className="row g-2">
-            {leaveStats.length === 0 && (
-              <div className="col-12">
-                <div className="text-muted small text-center">No leave quota data found.</div>
+          <div className="d-flex flex-column gap-2">
+            {/* Grouped Other Leaves Card */}
+            <div className="border rounded p-3">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>Other Leaves</span>
+                <span className="text-muted small">
+                  {regularLeaveStats.reduce((s, i) => s + i.used, 0)}/{regularLeaveStats.reduce((s, i) => s + i.total, 0)} used
+                </span>
               </div>
+
+              {/* Per-type breakdown */}
+              <div className="d-flex flex-column gap-1 ps-2 border-start border-2 mb-2">
+                {regularLeaveStats.map((item, idx) => (
+                  <div key={idx} className="d-flex justify-content-between align-items-center py-1">
+                    <span className="text-muted" style={{ fontSize: '12px' }}>↳ {item.label}</span>
+                    <span className="fw-medium text-dark" style={{ fontSize: '12px' }}>{item.used}/{item.total} Days</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="d-flex justify-content-between align-items-center border-top pt-2">
+                <span className="text-muted small fw-semibold">Leaves Left</span>
+                <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>
+                  {regularLeaveStats.reduce((s, i) => s + i.left, 0)}
+                </span>
+              </div>
+            </div>
+
+            {/* Maternity / Paternity — only if any taken */}
+            {specialLeaveStats.length > 0 && (
+              <>
+                <div className="small text-muted fw-bold text-uppercase px-1 mt-1" style={{ fontSize: '10px' }}>Special Leaves</div>
+                {specialLeaveStats.map((item, idx) => (
+                  <div key={`special-modal-${idx}`} className="border rounded p-3 bg-light">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>{item.label}</span>
+                      <span className="text-muted small">{item.used}/{item.total} used</span>
+                    </div>
+                    <div className="progress mb-2" style={{ height: '3px' }}>
+                      <div className="progress-bar bg-primary" role="progressbar" style={{ width: `${(item.used / (item.total || 1)) * 100}%` }} />
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span className="text-muted small fw-semibold">Leaves Left</span>
+                      <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>{item.left}</span>
+                    </div>
+                  </div>
+                ))}
+              </>
             )}
-            {leaveStats.map((item, idx) => (
-              <div key={idx} className="col-12">
-                <div className="card h-100 border p-2 text-center shadow-xs" style={{ borderRadius: '10px' }}>
-                  <div className="fw-bold text-primary mb-1" style={{ fontSize: '2rem', lineHeight: 1 }}>{item.left}</div>
-                  <div className="text-dark mb-1" style={{ fontSize: '12px' }}>{item.label}</div>
-                  <div className="progress mb-1" style={{ height: '3px' }}>
-                    <div
-                      className="progress-bar bg-primary"
-                      role="progressbar"
-                      style={{ width: `${(item.used / (item.total || 1)) * 100}%` }}
-                    ></div>
-                  </div>
-                  <div className="text-muted" style={{ fontSize: '10px' }}>
-                    Used {item.used} / {item.total}
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
+
           <div className="mt-3 pt-2 border-top text-center">
             <button className="btn btn-light border fw-bold px-4" onClick={() => setIsBalanceModalOpen(false)}>Close</button>
           </div>

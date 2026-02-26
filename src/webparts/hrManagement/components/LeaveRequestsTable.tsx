@@ -526,12 +526,32 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       searchable: false,
       filterable: false,
       render: (request: LeaveRequest) => {
-        const used = calculateUsedLeaves(request.employee.id, request.leaveType);
-        const quota = leaveQuotas[request.leaveType] || 0;
+        const lowerType = String(request.leaveType || '').toLowerCase();
+        const isSpecial = lowerType.includes('maternity') || lowerType.includes('paternity');
+
+        let used = 0;
+        let quota = 0;
+        let label = '';
+
+        if (isSpecial) {
+          used = calculateUsedLeaves(request.employee.id, request.leaveType);
+          quota = leaveQuotas[request.leaveType] || 0;
+          label = request.leaveType;
+        } else {
+          // Grouped Other Leaves
+          const otherTypes = Object.keys(leaveQuotas).filter(t => !t.toLowerCase().includes('maternity') && !t.toLowerCase().includes('paternity'));
+          used = otherTypes.reduce((sum, t) => sum + calculateUsedLeaves(request.employee.id, t), 0);
+          quota = otherTypes.reduce((sum, t) => sum + (leaveQuotas[t] || 0), 0);
+          label = 'Other Leaves';
+        }
+
         return (
-          <div className="d-flex align-items-center gap-2">
-            <span className="fw-bold small" style={{ color: '#2F5596' }}>{used} / {quota}</span>
-            <Info size={14} className="text-muted cursor-pointer" onClick={() => onViewBalance?.(request.employee)} />
+          <div className="d-flex flex-column">
+            <div className="d-flex align-items-center gap-2">
+              <span className="fw-bold small" style={{ color: '#2F5596' }}>{used} / {quota}</span>
+              <Info size={14} className="text-muted cursor-pointer" onClick={() => onViewBalance?.(request.employee)} />
+            </div>
+            <div className="text-muted" style={{ fontSize: '9px' }}>{label}</div>
           </div>
         );
       }
@@ -546,7 +566,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
           {request.isHalfDay && (
             <span className="badge bg-info-subtle text-info border border-info-subtle d-inline-block" style={{ fontSize: '8px', width: 'fit-content' }}>
               <Clock size={8} className="me-1" />
-              {request.halfDayType === 'first' ? '1st Half' : '2nd Half'}
+              {request.halfDayType === 'first' ? 'First Half' : 'Second Half'}
             </span>
           )}
         </div>
