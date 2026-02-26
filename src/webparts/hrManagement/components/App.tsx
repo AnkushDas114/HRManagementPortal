@@ -25,7 +25,7 @@ import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import Badge from '../ui/Badge';
 import type { LeaveRequest, AttendanceRecord, Employee, SalarySlip, Policy, Concern, Holiday, TeamEvent } from '../types';
 import { LeaveStatus, UserRole, ConcernStatus, ConcernType } from '../types';
-import { getAllLeaveRequests, createLeaveRequest, updateLeaveRequestStatus, deleteLeaveRequest } from '../services/LeaveRequestsService';
+import { getAllLeaveRequests, createLeaveRequest, updateLeaveRequestStatus, deleteLeaveRequest, updateLeaveRequest } from '../services/LeaveRequestsService';
 import { getAllEvents, createEvent, updateEvent, deleteEvent } from '../services/EventsService';
 import { getAllConcerns, createConcern, updateConcernReply } from '../services/ConcernsService';
 import {
@@ -610,6 +610,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   // Leave Form Modal State
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [isSavingLeave, setIsSavingLeave] = useState(false);
   const [leaveModalTab, setLeaveModalTab] = useState<'leave' | 'workFromHome'>('leave');
   const [selectedEmployeeForLeave, setSelectedEmployeeForLeave] = useState<Employee | null>(null);
   const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
@@ -1041,12 +1042,36 @@ const App: React.FC<AppProps> = ({ sp }) => {
       return;
     }
 
+    setIsSavingLeave(true);
     try {
       if (editingRequest) {
-        // Edit logic not yet implemented in service, for now just update local state
-        // TODO: Implement updateLeaveRequest in service if needed
-        console.warn('Edit functionality not fully implemented on backend');
-        alert('Edit functionality is currently limited.');
+        if (leaveModalTab === 'workFromHome') {
+          const start = new Date(workFromHomeFormData.startDate);
+          const end = new Date(workFromHomeFormData.endDate || workFromHomeFormData.startDate);
+          const diffTime = Math.abs(end.getTime() - start.getTime());
+          const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+          await updateLeaveRequest(sp, editingRequest.id, {
+            leaveType: workFromHomeFormData.workFromHomeType || 'Work From Home',
+            startDate: workFromHomeFormData.startDate,
+            endDate: workFromHomeFormData.endDate || workFromHomeFormData.startDate,
+            reason: workFromHomeFormData.reason,
+            isHalfDay: false,
+            isRecurring: false,
+            requestCategory: 'Work From Home'
+          }, days);
+        } else {
+          const start = new Date(leaveFormData.startDate);
+          const end = leaveFormData.isHalfDay ? start : new Date(leaveFormData.endDate);
+          let days = 1;
+          if (leaveFormData.isHalfDay) {
+            days = 0.5;
+          } else {
+            const diffTime = Math.abs(end.getTime() - start.getTime());
+            days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          }
+          await updateLeaveRequest(sp, editingRequest.id, { ...leaveFormData, requestCategory: 'Leave' }, days);
+        }
       } else {
         if (leaveModalTab === 'workFromHome') {
           const start = new Date(workFromHomeFormData.startDate);
@@ -1097,13 +1122,15 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
           await createLeaveRequest(sp, selectedEmployeeForLeave, { ...leaveFormData, requestCategory: 'Leave' }, days);
         }
-
-        await loadLeaveRequests(); // Reload data
-        setIsLeaveModalOpen(false);
       }
+
+      await loadLeaveRequests(); // Reload data
+      setIsLeaveModalOpen(false);
     } catch (error) {
       console.error('Failed to save leave request:', error);
       alert('Failed to save leave request. Please try again.');
+    } finally {
+      setIsSavingLeave(false);
     }
   };
 
@@ -3431,8 +3458,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
             <button className="btn btn-default text-decoration-none" onClick={() => setIsLeaveModalOpen(false)}>
               Cancel
             </button>
-            <button type="submit" form="leave-application-form" className="btn btn-primary px-4">
-              Submit
+            <button type="submit" form="leave-application-form" className="btn btn-primary px-4" disabled={isSavingLeave}>
+              {isSavingLeave ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Submitting...
+                </>
+              ) : 'Submit'}
             </button>
           </>
         }

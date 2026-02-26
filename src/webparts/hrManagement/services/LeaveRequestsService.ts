@@ -146,6 +146,54 @@ export async function updateLeaveRequestStatus(
 }
 
 /**
+ * PUT: Update an existing leave request with new form data
+ */
+export async function updateLeaveRequest(
+    sp: SPFI,
+    requestId: number,
+    formData: any,
+    days: number
+): Promise<void> {
+    try {
+        // Prepare LeaveData JSON
+        const leaveData: any = {
+            isHalfDay: formData.isHalfDay || false,
+            halfDayType: formData.halfDayType || null,
+            isRecurring: formData.isRecurring || false,
+            requestCategory: formData.requestCategory || 'Leave'
+        };
+
+        // Add recurrence data if recurring
+        if (formData.isRecurring) {
+            leaveData.recurrence = {
+                frequency: formData.recurringFrequency,
+                pattern: buildRecurrencePattern(formData),
+                range: buildRecurrenceRange(formData)
+            };
+        }
+
+        // Update item in SharePoint
+        await sp.web.lists
+            .getByTitle('Leave Request')
+            .items.getById(requestId)
+            .update({
+                Title: `${formData.leaveType} - ${formData.startDate}`,
+                LeaveType: formData.leaveType,
+                Startdate: formData.startDate,
+                Enddate: formData.isHalfDay ? formData.startDate : formData.endDate,
+                Days: days,
+                Reason: formData.reason,
+                LeaveData: JSON.stringify(leaveData)
+            });
+
+        console.log('Leave request updated successfully');
+    } catch (error) {
+        console.error('Error updating leave request:', error);
+        throw error;
+    }
+}
+
+/**
  * DELETE: Delete a leave request
  */
 export async function deleteLeaveRequest(sp: SPFI, requestId: number): Promise<void> {

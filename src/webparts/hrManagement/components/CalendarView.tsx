@@ -89,6 +89,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectedEvent, setSelectedEvent] = React.useState<CalendarViewEvent | null>(null);
   const [expandedDate, setExpandedDate] = React.useState<string>('');
   const [expandedEvents, setExpandedEvents] = React.useState<CalendarViewEvent[]>([]);
+  const todayKey = React.useMemo(() => formatKey(new Date()), []);
 
   const normalizedEvents = React.useMemo(() => {
     return events.map((event) => {
@@ -311,7 +312,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       key={`day-${day.key}`}
                       className="p-1"
                       style={{
-                        background: day.isOtherMonth ? '#ececec' : '#fff',
+                        background: day.key === todayKey ? '#daedff' : (day.isOtherMonth ? '#ececec' : '#fff'),
                         cursor: 'pointer',
                         borderRight: dayIndex === 6 ? 'none' : '1px solid #d8dee6',
                         borderBottom: '1px solid #d8dee6',
@@ -400,7 +401,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   <div
                     key={`${dateKey}-${mode}`}
                     className={`${mode === 'day' ? 'col-12' : 'col'} border-end border-bottom p-1`}
-                    style={{ minHeight: mode === 'day' ? 280 : 120, background: '#fff', cursor: 'pointer' }}
+                    style={{
+                      minHeight: mode === 'day' ? 280 : 120,
+                      background: dateKey === todayKey ? '#daedff' : '#fff',
+                      cursor: 'pointer'
+                    }}
                     onClick={() => handleDayAction(dateKey)}
                   >
                     <div className="small text-muted text-end mb-1">{date.getDate()}</div>
