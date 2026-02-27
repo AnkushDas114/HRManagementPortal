@@ -62,7 +62,7 @@ export const TableToolbar: React.FC<ToolbarProps> = ({
     <div className="toolbar">
       <ToolbarIcon id="sidebar" icon="bi-layout-sidebar-inset" title="Toggle Sidebar" />
 
-      <span className="small-text fw-medium text-dark ms-1" style={{ minWidth: 'max-content' }}>
+      <span className="fw-medium text-dark ms-1" style={{ minWidth: 'max-content' }}>
         Showing {showingCount} of {totalCount}
       </span>
 
@@ -70,18 +70,18 @@ export const TableToolbar: React.FC<ToolbarProps> = ({
         <input
           type="text"
           placeholder="Search all"
-          className="small flex-grow-1"
+          className="flex-grow-1"
           style={{ outline: 'none' }}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
         />
-        <i className="bi bi-search small"></i>
+        <i className="bi bi-search" style={{ color: '#2F5596' }}></i>
       </div>
 
       {showAdvancedSearch && (
         <>
           <button className="icon-btn-outline" onClick={onAdvancedSearchClick} title="Search Settings">
-            <i className="bi bi-gear-fill"></i>
+            <i className="bi bi-gear-fill" style={{ color: '#2F5596' }}></i>
           </button>
 
           <div className="custom-dropdown-container" ref={dropdownRef} style={{ position: 'relative' }}>
@@ -128,7 +128,7 @@ export const TableToolbar: React.FC<ToolbarProps> = ({
         </div>
 
         <button className="icon-btn-outline ms-1" onClick={onSettingsClick} title="SmartTable Settings">
-          <i className="bi bi-gear-fill"></i>
+          <i className="bi bi-gear-fill" style={{ color: '#2F5596' }}></i>
         </button>
       </div>
 

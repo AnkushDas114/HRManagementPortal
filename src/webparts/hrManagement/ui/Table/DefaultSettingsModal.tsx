@@ -103,7 +103,7 @@ const DefaultSettingsModal: React.FC<DefaultSettingsModalProps> = ({ isOpen, onC
             <div className="col-7 d-flex gap-5 ps-3 border-end py-3">
               <div className="form-check d-flex align-items-center gap-1 mb-0">
                 <input className="form-check-input mt-0 shadow-none" type="checkbox" checked={localSettings.showHeader} onChange={() => setLocalSettings({ ...localSettings, showHeader: !localSettings.showHeader })} id="showHeaderD" />
-                <label className="form-check-label" htmlFor="showHeaderD">Show Header <i className="bi bi-info-circle small opacity-50"></i></label>
+                <label className="form-check-label" htmlFor="showHeaderD">Show Header <i className="bi bi-info-circle" style={{ color: '#2F5596' }}></i></label>
               </div>
               <div className="form-check d-flex align-items-center gap-1 mb-0">
                 <input className="form-check-input mt-0 shadow-none" type="checkbox" checked={localSettings.showColumnFilter} onChange={() => setLocalSettings({ ...localSettings, showColumnFilter: !localSettings.showColumnFilter })} id="showFilterD" />
@@ -148,13 +148,13 @@ const DefaultSettingsModal: React.FC<DefaultSettingsModalProps> = ({ isOpen, onC
             <thead style={{ backgroundColor: '#F4F4F4' }}>
               <tr className="text-dark">
                 <th className="ps-3 py-2 fw-bold" style={{ width: '40%' }}>
-                  Columns <i className="bi bi-info-circle small opacity-50 ms-1"></i>
+                  Columns <i className="bi bi-info-circle ms-1" style={{ color: '#2F5596' }}></i>
                 </th>
                 <th className="text-center py-2 fw-bold" style={{ width: '30%' }}>
-                  Column Width <i className="bi bi-info-circle small opacity-50 ms-1"></i>
+                  Column Width <i className="bi bi-info-circle ms-1" style={{ color: '#2F5596' }}></i>
                 </th>
                 <th className="text-center py-2 fw-bold" style={{ width: '30%' }}>
-                  Column Ordering <i className="bi bi-info-circle small opacity-50 ms-1"></i>
+                  Column Ordering <i className="bi bi-info-circle ms-1" style={{ color: '#2F5596' }}></i>
                 </th>
               </tr>
             </thead>
@@ -164,7 +164,7 @@ const DefaultSettingsModal: React.FC<DefaultSettingsModalProps> = ({ isOpen, onC
                   <td className="ps-3 py-2">
                     <div className="d-flex align-items-center gap-2">
                       <input className="form-check-input" type="checkbox" checked={col.visible} onChange={() => handleToggleColumn(col.id)} />
-                      <span className="small text-dark fw-medium">{col.label} <i className="bi bi-pencil small ms-2 cursor-pointer opacity-75" style={{ color: '#2F5596' }}></i></span>
+                      <span className="text-dark">{col.label} <i className="bi bi-pencil ms-2 cursor-pointer opacity-75" style={{ color: '#2F5596' }}></i></span>
                     </div>
                   </td>
                   <td className="py-2 border-start">
@@ -179,7 +179,7 @@ const DefaultSettingsModal: React.FC<DefaultSettingsModalProps> = ({ isOpen, onC
                     </div>
                   </td>
                   <td className="py-2 border-start text-center">
-                    <span className="small text-muted">{col.order}</span>
+                    <span className="text-muted">{col.order}</span>
                   </td>
                 </tr>
               ))}
