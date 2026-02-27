@@ -322,7 +322,7 @@ const CarryForwardLeavesAdmin: React.FC<CarryForwardLeavesAdminProps> = ({ sp, e
   ]), []);
 
   return (
-    <div className="card border-0 shadow-sm">
+    <div className="card border-0 shadow-sm px-4">
       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 className="mb-0 fw-bold color-primary">Carry Forward Leaves</h5>
         <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -348,7 +348,7 @@ const CarryForwardLeavesAdmin: React.FC<CarryForwardLeavesAdminProps> = ({ sp, e
             {isSaving ? 'Saving...' : 'Recalculate & Save'}
           </button>
           <button
-            className={`btn btn-sm ${manualEditMode ? 'btn-warning' : 'btn-outline-secondary'}`}
+            className={`btn btn-sm ${manualEditMode ? 'btn-primary' : 'btn-default'}`}
             onClick={() => setManualEditMode((prev) => !prev)}
             disabled={isSaving || isLoading}
           >
@@ -356,7 +356,7 @@ const CarryForwardLeavesAdmin: React.FC<CarryForwardLeavesAdminProps> = ({ sp, e
           </button>
           {manualEditMode && (
             <button
-              className="btn btn-sm btn-outline-dark"
+              className="btn btn-sm btn-default"
               onClick={resetManualChanges}
               disabled={isSaving || isLoading}
             >
@@ -366,7 +366,7 @@ const CarryForwardLeavesAdmin: React.FC<CarryForwardLeavesAdminProps> = ({ sp, e
         </div>
       </div>
       <div className="card-body">
-        <div className="small text-muted mb-3">
+        <div className="text-muted mb-3">
           Automatically tracks allocated, used, closing, and carry-forward leaves per employee for the selected month.
         </div>
         {error && <div className="alert alert-danger py-2">{error}</div>}

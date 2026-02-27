@@ -16,14 +16,14 @@ const Badge: React.FC<BadgeProps> = ({ status }) => {
     case 'accepted':
     case ConcernStatus.Resolved.toLowerCase():
     case 'present':
-      toneClass = 'text-priamry';
+      toneClass = 'text-primary';
       break;
     case LeaveStatus.Rejected.toLowerCase():
     case 'absent':
-      toneClass = 'text-priamry';
+      toneClass = 'text-primary';
       break;
     case LeaveStatus.Pending.toLowerCase():
-      toneClass = 'text-priamry';
+      toneClass = 'text-primary ';
       // inlineStyle = {
       //   color: '#a16207',
       //   background: '#fef3c7',
@@ -32,10 +32,10 @@ const Badge: React.FC<BadgeProps> = ({ status }) => {
       break;
     case ConcernStatus.Open.toLowerCase():
     case 'unresolved':
-      toneClass = 'text-priamry';
+      toneClass = 'text-primary';
       break;
     default:
-      toneClass = 'text-priamry';
+      toneClass = 'text-primary';
   }
 
   return (
