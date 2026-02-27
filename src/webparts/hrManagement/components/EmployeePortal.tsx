@@ -1004,7 +1004,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                     <div className="d-flex align-items-center gap-2 text-dark" style={{ fontSize: '13px' }}>
                       <FileText size={13} className="text-muted" /> {item.label}
                     </div>
-                    <div></div>{item.used}/{item.total} Days</div>
+                    <div>{item.used}/{item.total} Days</div>
                   </div>
                 ))}
 

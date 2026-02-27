@@ -548,7 +548,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         return (
           <div className="d-flex flex-column">
             <div className="d-flex align-items-center gap-2">
-              <span className=""></span>{used} / {quota}</span>
+              <span className="">{used} / {quota}</span>
               <Info size={14} className="text-muted cursor-pointer" onClick={() => onViewBalance?.(request.employee)} />
             </div>
             <div className="text-muted" style={{ fontSize: '9px' }}>{label}</div>
