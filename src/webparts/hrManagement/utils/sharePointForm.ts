@@ -1,4 +1,5 @@
 import type { SPFI } from '@pnp/sp';
+import { showAlert } from '../ui/CustomAlert';
 
 type FormType = 'edit' | 'display';
 
@@ -38,7 +39,7 @@ export const openOutOfBoxListItemForm = async (
     window.open(url, '_blank', 'noopener,noreferrer');
   } catch (error) {
     console.error(`Unable to open out-of-the-box form for list "${listTitle}" and item "${itemId}".`, error);
-    alert('Unable to open the out-of-the-box form for this item.');
+    showAlert('Unable to open the out-of-the-box form for this item.');
   }
 };
 

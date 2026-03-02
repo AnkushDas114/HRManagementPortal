@@ -26,7 +26,8 @@ const getErrorMessage = (error: unknown): string => {
   );
 };
 
-const isFormatError = (error: unknown): boolean => /format/i.test(getErrorMessage(error));
+const isFormatError = (error: unknown): boolean => /(format|convert)/i.test(getErrorMessage(error));
+const isStringError = (error: unknown): boolean => /(Edm\.String|primitive value)/i.test(getErrorMessage(error));
 
 const getSalarySlipList = (sp: SPFI) => {
   const ref = String(LIST_REF || '').trim();
@@ -54,8 +55,8 @@ const buildPayload = (slip: SalarySlip, employee?: Employee): Record<string, unk
     Bonus: toNumber(slip.bonus),
     Insurance: toNumber(slip.insurance),
     ESI: toNumber(slip.esi),
-    EmployerESI: String(slip.employerEsi ?? ''),
-    GeneratedDate: new Date().toISOString(),
+    EmployerESI: toNumber(slip.employerEsi),
+    GeneratedDate: slip.generatedDate || todayIST(),
     PayrollKey: buildPayrollKey(slip, employee),
     WorkingDays: toNumber(slip.workingDays),
     PaidDays: toNumber(slip.paidDays)
@@ -136,16 +137,36 @@ const updateItemOneByOne = async (
     try {
       await updateFn({ [key]: value });
     } catch (error) {
-      if (value !== null && typeof value !== 'string' && /Edm\.String/i.test(getErrorMessage(error))) {
+      const msg = getErrorMessage(error);
+      const isStrErr = isStringError(error);
+      const isFmtErr = isFormatError(error);
+
+      // Retry as String if it expects Edm.String
+      if (value !== null && typeof value !== 'string' && isStrErr) {
         try {
           await updateFn({ [key]: String(value) });
           continue;
         } catch (stringRetryError) {
-          failed.push(`${key}: ${getErrorMessage(stringRetryError)}`);
+          failed.push(`${key} (as string): ${getErrorMessage(stringRetryError)}`);
           continue;
         }
       }
-      failed.push(`${key}: ${getErrorMessage(error)}`);
+
+      // Retry as Number if it expects a number/format
+      if (typeof value === 'string' && isFmtErr) {
+        const num = Number(value);
+        if (!isNaN(num)) {
+          try {
+            await updateFn({ [key]: num });
+            continue;
+          } catch (numRetryError) {
+            failed.push(`${key} (as number): ${getErrorMessage(numRetryError)}`);
+            continue;
+          }
+        }
+      }
+
+      failed.push(`${key}: ${msg}`);
     }
   }
   if (failed.length) {
@@ -214,6 +235,7 @@ export async function getAllSalarySlips(sp: SPFI): Promise<SalarySlip[]> {
       )
       .expand('EmployeeID', 'Employee', 'Author', 'Editor')
       .top(5000)();
+    console.log(items);
     return items.map(mapItemToSalarySlip);
   } catch (error) {
     console.error('Failed to load salary slips:', error);
@@ -250,7 +272,7 @@ export async function createSalarySlip(sp: SPFI, slip: SalarySlip, employee?: Em
       const created = await salaryList.items.add(payload);
       targetId = Number(created?.data?.Id);
     } catch (error) {
-      if (!isFormatError(error) && !/Edm\.String/i.test(getErrorMessage(error))) throw error;
+      if (!isFormatError(error) && !isStringError(error)) throw error;
       const createdMinimal = await salaryList.items.add({
         Title: String(payload.Title || `SalarySlip_${Date.now()}`),
         Month: String(payload.Month || ''),
@@ -300,8 +322,8 @@ export async function updateSalarySlip(sp: SPFI, id: number, slip: Partial<Salar
     Bonus: slip.bonus,
     Insurance: slip.insurance,
     ESI: slip.esi,
-    EmployerESI: slip.employerEsi !== undefined ? String(slip.employerEsi) : undefined,
-    GeneratedDate: slip.generatedDate || new Date().toISOString(),
+    EmployerESI: slip.employerEsi !== undefined ? toNumber(slip.employerEsi) : undefined,
+    GeneratedDate: slip.generatedDate || todayIST(),
     PayrollKey: slip.payrollKey,
     WorkingDays: slip.workingDays,
     PaidDays: slip.paidDays

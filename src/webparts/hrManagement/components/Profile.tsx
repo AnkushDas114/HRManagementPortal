@@ -6,6 +6,7 @@ import { SPFI } from '@pnp/sp';
 import { clearEmployeeProfileImage, getImageLibraryFolders, getImagesByFolder, ProfileGalleryImage, replaceEmployeeProfileImage, SPFolder, updateEmployee } from '../services/EmployeeService';
 import Modal from '../ui/Modal';
 import { openOutOfBoxListItemForm } from '../utils/sharePointForm';
+import { showAlert } from '../ui/CustomAlert';
 
 interface ProfileProps {
   user: Employee;
@@ -196,7 +197,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
       setIsEditModalOpen(false);
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Failed to update profile. Please try again.');
+      showAlert('Failed to update profile. Please try again.');
     } finally {
       setIsSaving(false);
     }

@@ -1036,9 +1036,11 @@ input[type='date']::-webkit-clear-button {
 .hr-main-content .bg-primary {
   background-color: var(--hr-primary) !important;
 }
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .text-priamry {
-    color: var(--hr-primary);
+  color: var(--hr-primary);
 }

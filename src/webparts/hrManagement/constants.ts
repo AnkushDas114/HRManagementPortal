@@ -1,5 +1,5 @@
-import type { Employee, LeaveRequest, AttendanceRecord, SalarySlip, Holiday, Policy } from './types';
-import { LeaveStatus, AttendanceStatus } from './types';
+import type { Employee, LeaveRequest, AttendanceRecord, SalarySlip, Holiday, Policy, Concern, TeamEvent } from './types';
+import { LeaveStatus, AttendanceStatus, ConcernStatus, ConcernType } from './types';
 import { formatDateIST, getNowIST } from './utils/dateTime';
 
 export const MOCK_EMPLOYEES: Employee[] = [
@@ -9,6 +9,16 @@ export const MOCK_EMPLOYEES: Employee[] = [
     department: 'SPFx',
     avatar: 'https://i.pravatar.cc/150?u=E001',
     joiningDate: '2022-01-15',
+    email: 'alice.j@example.com',
+    role: 'Senior Developer',
+    location: 'Bangalore',
+    reportingManager: 'E007',
+    pan: 'ABCDE1234F',
+    bankName: 'HDFC Bank',
+    accountNumber: '1234567890',
+    basicSalary: 60000,
+    hra: 24000,
+    yearlyCTC: 1200000,
     balance: { vacation: 12, sick: 5, personal: 3, totalEntitled: 25, wfh: 10, restrictedHoliday: 2 }
   },
   {
@@ -17,6 +27,16 @@ export const MOCK_EMPLOYEES: Employee[] = [
     department: 'Portfolio Lead',
     avatar: 'https://i.pravatar.cc/150?u=E002',
     joiningDate: '2022-03-10',
+    email: 'bob.w@example.com',
+    role: 'Lead',
+    location: 'Mumbai',
+    reportingManager: 'E007',
+    pan: 'BCDEF2345G',
+    bankName: 'ICICI Bank',
+    accountNumber: '0987654321',
+    basicSalary: 80000,
+    hra: 32000,
+    yearlyCTC: 1800000,
     balance: { vacation: 8, sick: 4, personal: 2, totalEntitled: 25, wfh: 15, restrictedHoliday: 1 }
   },
   {
@@ -25,6 +45,16 @@ export const MOCK_EMPLOYEES: Employee[] = [
     department: 'Design',
     avatar: 'https://i.pravatar.cc/150?u=E003',
     joiningDate: '2021-11-20',
+    email: 'charlie.b@example.com',
+    role: 'UX Designer',
+    location: 'Hyderabad',
+    reportingManager: 'E002',
+    pan: 'CDEFG3456H',
+    bankName: 'Axis Bank',
+    accountNumber: '1122334455',
+    basicSalary: 55000,
+    hra: 22000,
+    yearlyCTC: 1000000,
     balance: { vacation: 15, sick: 6, personal: 5, totalEntitled: 30, wfh: 5, restrictedHoliday: 3 }
   },
   {
@@ -33,23 +63,17 @@ export const MOCK_EMPLOYEES: Employee[] = [
     department: 'SPFx',
     avatar: 'https://i.pravatar.cc/150?u=E004',
     joiningDate: '2023-05-02',
+    email: 'diana.m@example.com',
+    role: 'Frontend Developer',
+    location: 'Bangalore',
+    reportingManager: 'E001',
+    pan: 'DEFGH4567I',
+    bankName: 'SBI',
+    accountNumber: '5566778899',
+    basicSalary: 45000,
+    hra: 18000,
+    yearlyCTC: 800000,
     balance: { vacation: 5, sick: 2, personal: 1, totalEntitled: 25, wfh: 20, restrictedHoliday: 0 }
-  },
-  {
-    id: 'E005',
-    name: 'Ethan Davis',
-    department: 'QA',
-    avatar: 'https://i.pravatar.cc/150?u=E005',
-    joiningDate: '2022-08-14',
-    balance: { vacation: 10, sick: 3, personal: 3, totalEntitled: 25, wfh: 12, restrictedHoliday: 2 }
-  },
-  {
-    id: 'E006',
-    name: 'Fiona Garcia',
-    department: 'HR',
-    avatar: 'https://i.pravatar.cc/150?u=E006',
-    joiningDate: '2023-02-28',
-    balance: { vacation: 14, sick: 5, personal: 4, totalEntitled: 30, wfh: 8, restrictedHoliday: 1 }
   },
   {
     id: 'E007',
@@ -57,6 +81,16 @@ export const MOCK_EMPLOYEES: Employee[] = [
     department: 'Management',
     avatar: 'https://i.pravatar.cc/150?u=E007',
     joiningDate: '2020-05-15',
+    email: 'george.m@example.com',
+    role: 'Director',
+    location: 'Bangalore',
+    reportingManager: 'Self',
+    pan: 'GHJKL6789M',
+    bankName: 'HDFC Bank',
+    accountNumber: '9988776655',
+    basicSalary: 150000,
+    hra: 60000,
+    yearlyCTC: 3500000,
     balance: { vacation: 20, sick: 10, personal: 5, totalEntitled: 35, wfh: 0, restrictedHoliday: 4 }
   },
 ];
@@ -188,5 +222,28 @@ export const MOCK_POLICIES: Policy[] = [
     title: "Quarterly Leave Policy",
     content: "Employees are entitled to 4 paid leaves per quarter.",
     lastUpdated: "2025-01-01"
+  }
+];
+
+export const MOCK_CONCERNS: Concern[] = [
+  {
+    id: 1,
+    employeeId: 'E001',
+    type: ConcernType.Salary,
+    referenceId: 'January 2025',
+    description: 'My HRA component seems to be incorrect in the January payslip. Can you please check?',
+    status: ConcernStatus.Open,
+    submittedAt: '2025-02-05'
+  }
+];
+
+export const MOCK_TEAM_EVENTS: TeamEvent[] = [
+  {
+    id: 1,
+    name: 'Alice Johnson',
+    type: 'Birthday',
+    date: '2025-03-12',
+    description: 'Wishing Alice a very Happy Birthday!',
+    employee: MOCK_EMPLOYEES[0]
   }
 ];

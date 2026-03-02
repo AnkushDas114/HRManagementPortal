@@ -179,7 +179,9 @@ const CarryForwardLeavesAdmin: React.FC<CarryForwardLeavesAdminProps> = ({ sp, e
     const approvedPaidRequests = leaveRequests.filter((request) => {
       const isApproved = request.status === LeaveStatus.Approved;
       const isWfh = request.requestCategory === 'Work From Home' || /work\s*from\s*home|wfh/i.test(String(request.leaveType || ''));
-      return isApproved && !isWfh;
+      // return isApproved && !isWfh;
+      const isSpecial = /maternity|paternity/i.test(String(request.leaveType || ''));
+      return isApproved && !isWfh && !isSpecial;
     });
 
     const computedRows = [...employees]

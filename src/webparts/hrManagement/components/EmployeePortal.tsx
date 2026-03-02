@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { formatDateForDisplayIST, getNowIST, monthNameIST, formatDateIST, todayIST } from '../utils/dateTime';
 import { numberToWords } from '../utils/numberToWords';
+import { showAlert } from '../ui/CustomAlert';
 
 interface EmployeePortalProps {
   user: Employee;
@@ -396,7 +397,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
 
     const popup = window.open('', '_blank', 'width=980,height=800');
     if (!popup) {
-      alert('Please allow popups to download salary PDF.');
+      showAlert('Please allow popups to download salary PDF.');
       return;
     }
 
@@ -1279,7 +1280,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                     <button className="btn btn-sm btn-link text-dark p-1 rounded-circle" onClick={handlePrev}>
                       <ChevronLeft size={20} />
                     </button>
-                    <div className="fw-bold px-3 text-center" style={{ minWidth: '180px', color: '#2F5596', fontSize: '13px' }}>
+                    <div className="fw-bold px-3 text-center" style={{ minWidth: '240px', color: '#2F5596', fontSize: '13px' }}>
                       {getDateDisplay()}
                     </div>
                     <button className="btn btn-sm btn-link text-dark p-1 rounded-circle" onClick={handleNext}>

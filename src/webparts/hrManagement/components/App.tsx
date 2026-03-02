@@ -8,8 +8,9 @@ import '@pnp/sp/lists';
 import '@pnp/sp/fields';
 import '@pnp/sp/site-users/web';
 import '@pnp/sp/site-groups/web';
-import { Web } from '@pnp/sp/webs';
+// import { Web } from '@pnp/sp/webs';
 import './App.bootstrap.css';
+import { CustomAlertProvider, showAlert } from '../ui/CustomAlert';
 import Header from './Header';
 import Dashboard from './Dashboard';
 import LeaveRequestsTable from './LeaveRequestsTable';
@@ -55,8 +56,10 @@ interface AppProps {
 const OFFICIAL_LEAVES_LIST_ID = 'SmartMetadata';
 const LEAVE_MONTHLY_BALANCE_LIST_REF = 'LeaveMonthlyBalance';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-// const HR_ALLOWED_NAMES = ['Juli', 'Satendra Shakya', 'Tanu Jain', 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi', 'Vikas Kumar Yadav'];
-// const HR_ALLOWED_EMAILS = ['skshakya@hochhuth-consulting.de'];
+
+const HR_ALLOWED_NAMES = ['Juli', 'Laxmi Prashanti', 'Satendra Shakya', 'Tanu Jain', 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi', 'Vikas Kumar Yadav', 'Vikas Yadav'];
+const HR_ALLOWED_EMAILS = ['laxmip@smalsus.com', 'skshakya@hochhuth-consulting.de'];
+
 const LEAVE_EVENT_COLORS = ['#5f8fbd', '#8b6fc8', '#4d7ac7', '#6c63c7', '#557bd6', '#7a6cd6', '#4f70b8', '#7b5fc1', '#6680d2', '#6a57b0'];
 const HOLIDAY_EVENT_COLOR = '#1f8f3a';
 type SendReportDatePreset =
@@ -184,7 +187,9 @@ const getLeaveEventColor = (value: string): string => {
 };
 
 export const getUserId = async (email: string, sp: SPFI) => {
-  const web = Web([sp.web, 'https://hhhhteams.sharepoint.com/sites/HHHH/SP']);
+  // const web = Web([sp.web, 'https://smalsusinfolabs.sharepoint.com/sites/Smalsus/HR']);
+  const web = sp.web;
+  console.log(web)
   const ensureUser = await web.ensureUser(email);
   return ensureUser.data.Id;
 };
@@ -269,6 +274,7 @@ const calculateSalary = (monthlyCTC: number, insuranceOptIn = true): {
 };
 
 const App: React.FC<AppProps> = ({ sp }) => {
+  /*
   //get user groups
   React.useEffect(() => {
     if (!sp) return;
@@ -279,6 +285,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       console.error("Error fetching HR Management group users:", err);
     });
   }, [sp]);
+  */
 
   React.useEffect(() => {
     const bootstrapLinkId = 'hr-bootstrap-css';
@@ -361,7 +368,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [sendReportEndDate, setSendReportEndDate] = useState(todayIST());
   const [sendReportPayload, setSendReportPayload] = useState('');
   const [sendReportSnapshot, setSendReportSnapshot] = useState<SendReportSnapshot | null>(null);
-  const [hrGroupUsers, setHrGroupUsers] = useState<any[]>([]);
+  // const [hrGroupUsers, setHrGroupUsers] = useState<any[]>([]);
 
   // Add Leave Modal State
   const [isAddLeaveModalOpen, setIsAddLeaveModalOpen] = useState(false);
@@ -402,7 +409,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const handleAddNewLeaveType = () => {
     if (!newLeaveTypeName.trim()) return;
     if (leaveQuotas[newLeaveTypeName]) {
-      alert("This leave type already exists.");
+      showAlert("This leave type already exists.");
       return;
     }
     setLeaveQuotas(prev => ({
@@ -426,7 +433,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       return;
     }
     if (leaveQuotas[newName]) {
-      alert("A leave type with this name already exists.");
+      showAlert("A leave type with this name already exists.");
       return;
     }
     setLeaveQuotas(prev => {
@@ -478,7 +485,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadEvents();
     } catch (error) {
       console.error("Error adding event:", error);
-      alert("Failed to add event.");
+      showAlert("Failed to add event.");
     }
   };
 
@@ -489,7 +496,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadEvents();
     } catch (error) {
       console.error("Error deleting event:", error);
-      alert("Failed to delete event.");
+      showAlert("Failed to delete event.");
     }
   };
 
@@ -499,7 +506,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadEvents();
     } catch (error) {
       console.error("Error updating event:", error);
-      alert("Failed to update event.");
+      showAlert("Failed to update event.");
     }
   };
 
@@ -840,19 +847,6 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const canAccessHr = React.useMemo(() => {
     const normalize = (value: unknown): string => String(value || '').trim().toLowerCase();
 
-    // Dynamic check against "HR Management" group members
-    const userTitle = normalize(currentUserTitle);
-    const userUpn = normalize(currentUserUpn || currentUserEmail);
-
-    const isMember = hrGroupUsers.some(user => {
-      const groupUserTitle = normalize(user.Title);
-      const groupUserUpn = normalize(user.UserPrincipalName || user.Email);
-      return (userTitle && groupUserTitle === userTitle) || (userUpn && groupUserUpn === userUpn);
-    });
-
-    return isMember;
-
-    /*
     // Static check (Old logic)
     const allowedNames = HR_ALLOWED_NAMES.map(normalize);
     const allowedEmails = HR_ALLOWED_EMAILS.map(normalize);
@@ -864,8 +858,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     const isEmailAllowed = !!currentEmail && allowedEmails.indexOf(currentEmail) !== -1;
 
     return isNameAllowed || isEmailAllowed;
-    */
-  }, [currentUserTitle, currentUserUpn, currentUserEmail, hrGroupUsers]);
+  }, [currentUserTitle, currentUserEmail, inferredCurrentUser]);
 
   React.useEffect(() => {
     if (canAccessHr) return;
@@ -885,7 +878,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadLeaveRequests(); // Reload data
     } catch (error) {
       console.error("Error updating leave request status:", error);
-      alert("Failed to update leave request status. Please try again.");
+      showAlert("Failed to update leave request status. Please try again.");
     }
   };
 
@@ -910,9 +903,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
     try {
       await saveAttendanceRecords(sp, records);
       await loadAttendance();
-      alert(`Successfully imported ${records.length} records to SharePoint.`);
+      showAlert(`Successfully imported ${records.length} records to SharePoint.`);
     } catch (err) {
-      alert("Failed to import attendance data.");
+      showAlert("Failed to import attendance data.");
       console.error(err);
     } finally {
       setIsImportingAttendance(false);
@@ -949,7 +942,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadLeaveRequests(); // Reload data
     } catch (error) {
       console.error("Error deleting leave request:", error);
-      alert("Failed to delete leave request. Please try again.");
+      showAlert("Failed to delete leave request. Please try again.");
     }
   };
 
@@ -961,7 +954,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadAttendance();
     } catch (error) {
       console.error("Error deleting attendance record:", error);
-      alert("Failed to delete attendance record. Please try again.");
+      showAlert("Failed to delete attendance record. Please try again.");
     }
   };
 
@@ -976,7 +969,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     }
 
     if (emp?.department === 'Trainee' && !req) {
-      alert("Trainees are not eligible to submit new leave or WFH requests.");
+      showAlert("Trainees are not eligible to submit new leave or WFH requests.");
       return;
     }
 
@@ -1069,7 +1062,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const saveLeaveRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEmployeeForLeave) {
-      alert('Please select an employee.');
+      showAlert('Please select an employee.');
       return;
     }
 
@@ -1108,11 +1101,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
           const start = new Date(workFromHomeFormData.startDate);
           const end = new Date(workFromHomeFormData.endDate || workFromHomeFormData.startDate);
           if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-            alert('Please select valid start and end dates for work from home request.');
+            showAlert('Please select valid start and end dates for work from home request.');
             return;
           }
           if (end < start) {
-            alert('End date cannot be earlier than start date.');
+            showAlert('End date cannot be earlier than start date.');
             return;
           }
           const diffTime = Math.abs(end.getTime() - start.getTime());
@@ -1147,7 +1140,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             .reduce((sum, r) => sum + r.days, 0);
 
           if (used + days > quota) {
-            alert(`Insufficient leave balance! You have used ${used} of ${quota} days for ${leaveFormData.leaveType}. This request of ${days} days would exceed your limit.`);
+            showAlert(`Insufficient leave balance! You have used ${used} of ${quota} days for ${leaveFormData.leaveType}. This request of ${days} days would exceed your limit.`);
             return;
           }
 
@@ -1159,7 +1152,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       setIsLeaveModalOpen(false);
     } catch (error) {
       console.error('Failed to save leave request:', error);
-      alert('Failed to save leave request. Please try again.');
+      showAlert('Failed to save leave request. Please try again.');
     } finally {
       setIsSavingLeave(false);
     }
@@ -1246,7 +1239,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadConcerns();
     } catch (error) {
       console.error("Error raising concern:", error);
-      alert("Failed to submit concern to SharePoint.");
+      showAlert("Failed to submit concern to SharePoint.");
     }
   };
 
@@ -1265,7 +1258,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       setIsConcernReplyModalOpen(false);
     } catch (error) {
       console.error("Error saving concern reply:", error);
-      alert("Failed to save resolution to SharePoint.");
+      showAlert("Failed to save resolution to SharePoint.");
     }
   };
 
@@ -1537,7 +1530,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       const all = await getAllSalarySlips(sp);
       setSalarySlips(all);
       setIsSalaryModalOpen(false);
-      alert('Salary slip saved and employee bank details updated.');
+      showAlert('Salary slip saved and employee bank details updated.');
     } catch (error) {
       console.error('Failed to save salary slip', error);
       const e = error as any;
@@ -1547,7 +1540,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         e?.message ||
         'Failed to save salary slip.'
       );
-      alert(`Failed to save salary slip. ${errorMessage}`);
+      showAlert(`Failed to save salary slip. ${errorMessage}`);
     }
   };
 
@@ -1688,7 +1681,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       !employeeFormData.joiningDate
     ) {
       setEmployeeModalTab('professional');
-      alert('Please fill all required professional details.');
+      showAlert('Please fill all required professional details.');
       return;
     }
     try {
@@ -1719,7 +1712,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadDirectoryEmployees();
     } catch (error) {
       console.error("Error saving employee:", error);
-      alert("Failed to save employee to SharePoint.");
+      showAlert("Failed to save employee to SharePoint.");
     }
   };
 
@@ -1731,7 +1724,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadDirectoryEmployees();
     } catch (error) {
       console.error("Error deleting employee:", error);
-      alert("Failed to delete employee.");
+      showAlert("Failed to delete employee.");
     }
   };
 
@@ -1821,7 +1814,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     } catch (err: any) {
       setQuotasError('Failed to save leave quotas. Please try again.');
       console.error('Failed to save quotas', err);
-      alert('Failed to save leave quotas. Please try again.');
+      showAlert('Failed to save leave quotas. Please try again.');
     } finally {
       setIsLoadingQuotas(false);
     }
@@ -1905,7 +1898,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       setEditingPolicyId(null);
     } catch (err: any) {
       console.error('Failed to save policy', err);
-      alert('Failed to save policy. Please try again.');
+      showAlert('Failed to save policy. Please try again.');
     } finally {
       setIsLoadingPolicies(false);
     }
@@ -1925,7 +1918,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadPolicies();
     } catch (err: any) {
       console.error('Failed to delete policy', err);
-      alert('Failed to delete policy. Please try again.');
+      showAlert('Failed to delete policy. Please try again.');
     } finally {
       setIsLoadingPolicies(false);
     }
@@ -2184,7 +2177,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       setHolidayFormData({ name: '', date: '', type: 'Public' });
     } catch (err: any) {
       console.error('Failed to create holiday', err);
-      alert('Failed to create holiday. Please try again.');
+      showAlert('Failed to create holiday. Please try again.');
     } finally {
       setIsLoadingHolidays(false);
     }
@@ -2213,7 +2206,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       setEditingHolidayId(null);
     } catch (err: any) {
       console.error('Failed to update holiday', err);
-      alert('Failed to update holiday. Please try again.');
+      showAlert('Failed to update holiday. Please try again.');
     } finally {
       setIsLoadingHolidays(false);
     }
@@ -2234,7 +2227,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       await loadHolidays();
     } catch (err: any) {
       console.error('Failed to delete holiday', err);
-      alert('Failed to delete holiday. Please try again.');
+      showAlert('Failed to delete holiday. Please try again.');
     } finally {
       setIsLoadingHolidays(false);
     }
@@ -2527,7 +2520,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   const handleGenerateSendReportPdf = React.useCallback(() => {
     if (!sendReportSnapshot) {
-      alert('Please click Generate Data first.');
+      showAlert('Please click Generate Data first.');
       return;
     }
 
@@ -2540,7 +2533,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
     const popup = window.open('', '_blank', 'width=1200,height=900');
     if (!popup) {
-      alert('Please allow popups to generate PDF.');
+      showAlert('Please allow popups to generate PDF.');
       return;
     }
 
@@ -2797,7 +2790,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   const handleGenerateSendReportExcel = React.useCallback(async () => {
     if (!sendReportSnapshot) {
-      alert('Please click Generate Data first.');
+      showAlert('Please click Generate Data first.');
       return;
     }
 
@@ -2950,6 +2943,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   return (
     <div className="bg-light min-vh-100">
+      <CustomAlertProvider />
       <Header
         role={role}
         onRoleToggle={handleRoleToggle}

@@ -91,6 +91,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [expandedEvents, setExpandedEvents] = React.useState<CalendarViewEvent[]>([]);
   const todayKey = React.useMemo(() => formatKey(new Date()), []);
 
+  const getEnrichedTitle = React.useCallback((event: CalendarViewEvent): string => {
+    const raw = event.raw as any;
+    if (!raw || String(event.id).indexOf('holiday-') === 0) return event.title;
+
+    let enriched = event.title;
+    if (raw.isHalfDay) {
+      enriched += ` [${raw.halfDayType === 'first' ? 'First Half' : 'Second Half'}]`;
+    }
+    if (raw.isRecurring) {
+      enriched += ` [Recurring: ${raw.recurringFrequency || 'Daily'}]`;
+    }
+    return enriched;
+  }, []);
+
   const normalizedEvents = React.useMemo(() => {
     return events.map((event) => {
       const start = formatKey(parseYmd(event.startDate));
@@ -484,52 +498,51 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   <th className="text-white fw-semibold py-2">Title</th>
                   <th className="text-white fw-semibold py-2" style={{ width: 140 }}>EndDate</th>
                   <th className="text-white fw-semibold py-2" style={{ width: 120 }}>Status</th>
-                  {showEdit && onEdit && <th className="text-white fw-semibold py-2 text-center" style={{ width: 64 }}>Edit</th>}
-                  {showDelete && onDelete && <th className="text-white fw-semibold py-2 text-center" style={{ width: 64 }}>Delete</th>}
+                  <th className="text-white fw-semibold py-2 text-end" style={{ width: 100 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {expandedEvents.map((event) => (
                   <tr key={`expanded-${expandedDate}-${event.id}`} style={{ borderBottom: '1px solid #edf1f6' }}>
-                    <td className="small py-2">{event.title}</td>
+                    <td className="small py-2">{getEnrichedTitle(event)}</td>
                     <td className="small py-2">{formatShortDate(event.endDate || event.startDate)}</td>
                     <td className="small py-2">{getEventStatus(event)}</td>
-                    {showEdit && onEdit && (
-                      <td className="text-center py-2">
-                        <button
-                          type="button"
-                          className="btn btn-sm p-0 border-0 bg-transparent"
-                          title="Edit"
-                          aria-label="Edit"
-                          style={{ color: '#2f5596' }}
-                          onClick={() => {
-                            setExpandedDate('');
-                            setExpandedEvents([]);
-                            onEdit(event);
-                          }}
-                        >
-                          <Pencil size={14} />
-                        </button>
-                      </td>
-                    )}
-                    {showDelete && onDelete && (
-                      <td className="text-center py-2">
-                        <button
-                          type="button"
-                          className="btn btn-sm p-0 border-0 bg-transparent"
-                          title="Delete"
-                          aria-label="Delete"
-                          style={{ color: '#d14b64' }}
-                          onClick={() => {
-                            setExpandedDate('');
-                            setExpandedEvents([]);
-                            onDelete(event);
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    )}
+                    <td className="text-end py-2">
+                      <div className="d-flex gap-3 justify-content-end align-items-center">
+                        {showEdit && onEdit && (
+                          <button
+                            type="button"
+                            className="p-0 border-0 bg-transparent flex-shrink-0"
+                            title="Edit"
+                            aria-label="Edit"
+                            style={{ color: '#2f5596', display: 'flex' }}
+                            onClick={() => {
+                              setExpandedDate('');
+                              setExpandedEvents([]);
+                              onEdit(event);
+                            }}
+                          >
+                            <Pencil size={16} />
+                          </button>
+                        )}
+                        {showDelete && onDelete && (
+                          <button
+                            type="button"
+                            className="p-0 border-0 bg-transparent flex-shrink-0"
+                            title="Delete"
+                            aria-label="Delete"
+                            style={{ color: '#d14b64', display: 'flex' }}
+                            onClick={() => {
+                              setExpandedDate('');
+                              setExpandedEvents([]);
+                              onDelete(event);
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

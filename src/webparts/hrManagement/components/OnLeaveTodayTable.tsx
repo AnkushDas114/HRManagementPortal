@@ -10,6 +10,7 @@ import { SPFI } from '@pnp/sp';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { createLeaveRequest } from '../services/LeaveRequestsService';
+import { showAlert } from '../ui/CustomAlert';
 
 interface OnLeaveTodayTableProps {
   requests: LeaveRequest[];
@@ -82,7 +83,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEmployee) {
-      alert("Please select an employee first.");
+      showAlert("Please select an employee first.");
       return;
     }
 
@@ -104,7 +105,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       resetForm();
     } catch (error) {
       console.error("Failed to add leave/wfh:", error);
-      alert("Failed to add leave/wfh request.");
+      showAlert("Failed to add leave/wfh request.");
     } finally {
       setIsSubmitting(false);
     }
@@ -240,12 +241,13 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       render: (request) => (
         <button
           type="button"
-          className="onleave-edit-btn"
+          className="p-0 border-0 bg-transparent"
+          style={{ color: '#2f5596', display: 'flex' }}
           onClick={() => onEdit?.(request)}
           title="Edit request"
           aria-label="Edit request"
         >
-          <Edit size={15} />
+          <Edit size={16} />
         </button>
       )
     }

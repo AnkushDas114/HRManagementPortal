@@ -10,6 +10,7 @@ import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import Modal from '../ui/Modal';
 import { Edit3, Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Upload, Calendar, Download, Trash2 } from 'lucide-react';
 import { formatAuditInfo, formatDateIST, getNowIST, todayIST, formatDateForDisplayIST } from '../utils/dateTime';
+import { showAlert } from '../ui/CustomAlert';
 
 interface AttendanceTrackerProps {
   employees: Employee[];
@@ -695,18 +696,18 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         if (parsedRecords.length > 0) {
           await Promise.resolve(onImport(parsedRecords));
         } else {
-          alert("No attendance records found in the file. Please check the format.");
+          showAlert("No attendance records found in the file. Please check the format.");
         }
       } catch (error) {
         console.error('Failed to parse/import attendance file', error);
-        alert('Failed to import attendance data. Please verify the file and try again.');
+        showAlert('Failed to import attendance data. Please verify the file and try again.');
       } finally {
         setIsImportingLocal(false);
       }
     };
     reader.onerror = () => {
       setIsImportingLocal(false);
-      alert('Failed to read the selected file.');
+      showAlert('Failed to read the selected file.');
     };
     reader.readAsBinaryString(file);
     // Reset input
@@ -769,7 +770,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       setEditingAttendance(null);
     } catch (error) {
       console.error('Failed to update attendance record:', error);
-      alert('Failed to update attendance record.');
+      showAlert('Failed to update attendance record.');
     } finally {
       setIsSavingEdit(false);
     }
@@ -785,7 +786,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     e.preventDefault();
     if (!onDeleteAttendanceByDate) return;
     if (!deleteDate) {
-      alert('Please select a date.');
+      showAlert('Please select a date.');
       return;
     }
 
@@ -801,13 +802,13 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     setIsDeletingRecords(true);
     try {
       const deletedCount = await Promise.resolve(onDeleteAttendanceByDate(deleteDate, deleteEmployeeId || undefined));
-      alert(deletedCount > 0
+      showAlert(deletedCount > 0
         ? `Deleted ${deletedCount} attendance record(s).`
         : 'No attendance records found for the selected date/user.');
       setIsDeleteModalOpen(false);
     } catch (error) {
       console.error('Failed to delete attendance records:', error);
-      alert('Failed to delete attendance records. Please try again.');
+      showAlert('Failed to delete attendance records. Please try again.');
     } finally {
       setIsDeletingRecords(false);
     }
@@ -815,7 +816,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
   const handleExportFilteredAttendance = async (): Promise<void> => {
     if (tableRows.length === 0) {
-      alert('No attendance data available to export for current filters.');
+      showAlert('No attendance data available to export for current filters.');
       return;
     }
 
@@ -953,12 +954,12 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
   const exportDailyFlaggedAttendance = React.useCallback(async (mode: 'short-hours' | 'late-login'): Promise<void> => {
     if (viewMode !== 'Daily') {
-      alert('This export is available only in Daily view.');
+      showAlert('This export is available only in Daily view.');
       return;
     }
 
     if (tableRows.length === 0) {
-      alert('No attendance data available for selected day.');
+      showAlert('No attendance data available for selected day.');
       return;
     }
 
@@ -1122,7 +1123,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     });
 
     if (!hasMatch) {
-      alert(mode === 'short-hours'
+      showAlert(mode === 'short-hours'
         ? 'No employees found with working hours less than 9 hours for this day.'
         : 'No employees found with login after 10:20 for this day.');
       return;
@@ -1241,21 +1242,25 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       filterable: false,
       align: 'end',
       render: (row) => (
-        <div className="d-flex gap-2 justify-content-end">
+        <div className="d-flex gap-3 justify-content-end align-items-center">
           <button
-            className="btn btn-sm btn-light border d-inline-flex align-items-center gap-1 fw-bold px-3 shadow-xs"
-            style={{ fontSize: '11px', borderRadius: '4px' }}
+            type="button"
+            className="p-0 border-0 bg-transparent flex-shrink-0"
+            style={{ color: '#2f5596', display: 'flex' }}
             onClick={() => handleOpenEditAttendance(row)}
+            title="Edit"
           >
-            <Edit3 size={14} /> Edit
+            <Edit3 size={16} />
           </button>
           {onDeleteAttendanceRecord && (
             <button
-              className="btn btn-sm btn-outline-danger border d-inline-flex align-items-center gap-1 fw-bold px-3 shadow-xs"
-              style={{ fontSize: '11px', borderRadius: '4px' }}
+              type="button"
+              className="p-0 border-0 bg-transparent flex-shrink-0"
+              style={{ color: '#d14b64', display: 'flex' }}
               onClick={() => { void onDeleteAttendanceRecord(row.record); }}
+              title="Delete"
             >
-              <Trash2 size={14} /> Delete
+              <Trash2 size={16} />
             </button>
           )}
         </div>
@@ -1439,7 +1444,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             <button className="btn btn-sm btn-link text-dark p-1 hover-bg-gray rounded-circle" onClick={handlePrev}>
               <ChevronLeft size={20} />
             </button>
-            <div className="fw-bold px-3 text-center" style={{ minWidth: '180px', color: '#2F5596', fontSize: '13px' }}>
+            <div className="fw-bold px-3 text-center" style={{ minWidth: '240px', color: '#2F5596', fontSize: '13px' }}>
               {getDateDisplay()}
             </div>
             <button className="btn btn-sm btn-link text-dark p-1 hover-bg-gray rounded-circle" onClick={handleNext}>
