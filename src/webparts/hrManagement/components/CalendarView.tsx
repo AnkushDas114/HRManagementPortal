@@ -278,7 +278,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   }, [cursor, normalizedEvents]);
 
   return (
-    <div className="card shadow-sm border-0 mb-4">
+    <div className="card shadow-sm border-0 mb-4 px-4">
       <div className="card-body">
         <div className="d-flex justify-content-between align-items-center mb-2">
           <div className="d-flex gap-2">
@@ -286,7 +286,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <button type="button" className="btn btn-sm btn-default" onClick={() => navigate(-1)}>Back</button>
             <button type="button" className="btn btn-sm btn-default" onClick={() => navigate(1)}>Next</button>
           </div>
-          <div className="fw-bold">{periodLabel}</div>
+          <div className="">{periodLabel}</div>
           <div className="d-flex gap-2">
             <button type="button" className={`btn btn-sm ${mode === 'month' ? 'btn-primary' : 'btn-default'}`} onClick={() => setMode('month')}>Month</button>
             <button type="button" className={`btn btn-sm ${mode === 'week' ? 'btn-primary' : 'btn-default'}`} onClick={() => setMode('week')}>Week</button>
@@ -294,7 +294,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <button type="button" className={`btn btn-sm ${mode === 'agenda' ? 'btn-primary' : 'btn-default'}`} onClick={() => setMode('agenda')}>Agenda</button>
           </div>
         </div>
-        <div className="small text-muted mb-2">{heading}</div>
+        <div className="text-muted mb-2">{heading}</div>
 
         {mode === 'month' && (
           <div className="border overflow-hidden" style={{ width: '100%' }}>
@@ -493,7 +493,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         ) : (
           <div className="table-responsive border rounded">
             <table className="table table-sm mb-0 align-middle">
-              <thead style={{ background: '#0e9a83' }}>
+              <thead className='bg-primary'>
                 <tr>
                   <th className="text-white fw-semibold py-2">Title</th>
                   <th className="text-white fw-semibold py-2" style={{ width: 140 }}>EndDate</th>
@@ -573,7 +573,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           )}
           {showConcern && onConcern && (
             <button
-              className="btn btn-default btn-sm"
+              className="btn btn-primary btn-sm"
               onClick={() => {
                 const fallbackEvent: CalendarViewEvent = selectedEvent || {
                   id: `date-${selectedDate}`,

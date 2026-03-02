@@ -7,7 +7,7 @@ import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import CalendarView, { CalendarViewEvent } from './CalendarView';
 import {
-  Plus, Download, FileText, AlertCircle, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, MessageSquare, Baby, ChevronLeft, ChevronRight, Calendar, Users, Sparkle
+  Plus, Download, FileText, AlertCircle, Calendar as CalendarIcon, Info, UserCheck, Cake, PartyPopper, Clock, Flag, FileCheck, MessageSquare, ChevronLeft, ChevronRight, Calendar, Users, Sparkle
 } from 'lucide-react';
 import { formatDateForDisplayIST, getNowIST, monthNameIST, formatDateIST, todayIST } from '../utils/dateTime';
 import { numberToWords } from '../utils/numberToWords';
@@ -642,28 +642,12 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
       };
     });
 
-    const regulars = allStats.filter(s => !s.isSpecial);
-    const specials = allStats.filter(s => s.isSpecial);
-    const anySpecialUsed = specials.some(s => s.used > 0);
+    const plannedStats = allStats.filter(s => s.label.toLowerCase() !== 'sick');
+    const unplannedStats = allStats.filter(s => s.label.toLowerCase() === 'sick');
 
     return {
-      // Show ALL regular leaves individually (always)
-      regularLeaveStats: regulars.map(s => ({
-        label: s.label,
-        used: s.used,
-        total: s.total,
-        left: s.left,
-        halfDays: s.halfDays
-      })),
-      // Only show special leaves if any has been taken
-      specialLeaveStats: anySpecialUsed
-        ? specials.map(s => ({
-          label: s.label,
-          used: s.used,
-          total: s.total,
-          left: s.left
-        }))
-        : []
+      regularLeaveStats: plannedStats,
+      specialLeaveStats: unplannedStats
     };
   }, [myLeaveRequests, leaveQuotas]);
 
@@ -718,7 +702,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 {c.reply ? (
                   <div className="p-2 rounded mt-2" style={{ backgroundColor: '#f0f9ff', borderLeft: '3px solid #0ea5e9' }}>
                     <div className="d-flex justify-content-between mb-1">
-                      <span className="small fw-bold color-primary">HR Resolution:</span>
+                      <span className="fw-bold color-primary">HR Resolution:</span>
                       <span className="small text-muted" style={{ fontSize: '10px' }}>{c.repliedAt}</span>
                     </div>
                     <p
@@ -741,7 +725,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   };
 
   const attendanceColumns = React.useMemo<ColumnDef<AttendanceRecord>[]>(() => ([
-    { key: 'date', header: 'Date', accessor: (rec) => rec.date, render: (rec) => <span className="fw-bold">{rec.date}</span> },
+    { key: 'date', header: 'Date', accessor: (rec) => rec.date, render: (rec) => <span>{rec.date}</span> },
     {
       key: 'status',
       header: 'Work Status',
@@ -770,7 +754,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           style={{ fontSize: '10px' }}
           onClick={() => handleOpenConcern(ConcernType.Attendance, rec.date)}
         >
-          <AlertCircle size={12} className="me-1" /> Raise Concern
+          <AlertCircle size={16} className="me-1" /> Raise Concern
         </button>
       )
     }
@@ -797,7 +781,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             style={{ fontSize: '10px' }}
             onClick={() => handleOpenConcern(ConcernType.Salary, slip.id)}
           >
-            <AlertCircle size={12} className="me-1" /> Raise Concern
+            <AlertCircle size={16} className="me-1" /> Raise Concern
           </button>
         </div>
       )
@@ -838,7 +822,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           style={{ fontSize: '10px' }}
           onClick={() => handleOpenConcern(r.requestCategory === 'Work From Home' ? ConcernType.WorkFromHome : ConcernType.Leave, r.id)}
         >
-          <AlertCircle size={12} className="me-1" /> Raise Concern
+          <AlertCircle size={16} className="me-1" /> Raise Concern
         </button>
       )
     }
@@ -925,8 +909,8 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <p className="text-muted mb-0">Here is your summary for today.</p>
           </div>
           <div className="text-end d-none d-md-block">
-            <span className="fw-bold text-muted d-block">Current Date</span>
-            <span className="fw-medium text-dark">{formatDateForDisplayIST(getNowIST(), 'en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
+            <span className="fw-medium text-muted d-block">Current Date</span>
+            <span className="text-dark">{formatDateForDisplayIST(getNowIST(), 'en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
         </div>
 
@@ -940,16 +924,16 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 <span className="fw-medium text-dark">{lowWorkingHoursRecords.length} record(s)</span>
               </div>
               <div
-                className="d-flex flex-column gap-3 mt-2 pe-1 no-scrollabr"
+                className="d-flex flex-column gap-3 mt-2 pe-1 no-scrollbar"
                 style={{ maxHeight: lowWorkingHoursRecords.length > 5 ? '320px' : 'none', overflowY: lowWorkingHoursRecords.length > 5 ? 'auto' : 'visible' }}
               >
                 {lowWorkingHoursRecords.map((rec, i) => (
                   <div key={`${rec.employeeId}-${rec.date}-${i}`} className="d-flex align-items-center justify-content-between pb-2 border-bottom border-light last-border-none">
                     <div className="d-flex flex-column">
-                      <div className=" fw-bold text-dark">{formatDateForDisplayIST(rec.date, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                      <div className="text-dark">{formatDateForDisplayIST(rec.date, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
                       <div className="small text-muted">{rec.clockIn || '--:--'} - {rec.clockOut || '--:--'}</div>
                     </div>
-                    <span className="badge bg-primary border-0" style={{ fontSize: '10px' }}>
+                    <span className="badge bg-primary border-0">
                       {rec.workDuration || '--:--'} Low
                     </span>
                   </div>
@@ -967,7 +951,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
                   <Users size={18} color="#2F5596" /> On Leave / WFH Today
                 </h6>
-                <span className="fw-medium text-primary-emphasis">{onLeaveWfhTodayRecords.length} record(s)</span>
+                <span className="fw-medium text-dark">{onLeaveWfhTodayRecords.length} record(s)</span>
               </div>
               <div
                 className="d-flex flex-column gap-3 mt-2 pe-1"
@@ -975,7 +959,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               >
                 {onLeaveWfhTodayRecords.map((rec, i) => (
                   <div key={`${rec.id}-${i}`} className="d-flex align-items-center justify-content-between pb-2 border-bottom border-light last-border-none">
-                    <div className="fw-medium text-dark">{rec.employee.name}</div>
+                    <div className="text-dark">{rec.employee.name}</div>
                     <span className="text-primary border-0 fw-medium" style={{ fontSize: '14px' }}>
                       {rec.requestCategory === 'Work From Home' ? 'Work From Home' : rec.leaveType}
                     </span>
@@ -993,7 +977,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                 <h6 className="mb-0 text-dark">Leave Balance</h6>
                 <button className="btn btn-link p-0 border-0" onClick={() => setIsBalanceModalOpen(true)}>
-                  <Info size={14} className="text-muted" />
+                  <Info size={18} />
                 </button>
               </div>
               <div
@@ -1005,17 +989,17 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                     <div className="d-flex align-items-center gap-2 text-dark" style={{ fontSize: '13px' }}>
                       <FileText size={13} className="text-muted" /> {item.label}
                     </div>
-                    <div className="small fw-bold" style={{ color: '#2F5596' }}>{item.used}/{item.total} Days</div>
+                    <div>{item.used}/{item.total} Days</div>
                   </div>
                 ))}
 
                 {specialLeaveStats.length > 0 && (
                   <>
-                    <div className="small text-muted fw-bold text-uppercase mt-2 border-top pt-2" style={{ fontSize: '10px' }}>Special Leaves</div>
+                    <div className="small text-muted fw-bold text-uppercase mt-2 border-top pt-2" style={{ fontSize: '10px' }}>Unplanned Leaves</div>
                     {specialLeaveStats.map((item, idx) => (
                       <div key={`special-${idx}`} className="d-flex justify-content-between align-items-center">
                         <div className="d-flex align-items-center gap-2 text-dark" style={{ fontSize: '13px' }}>
-                          <Baby size={13} className="text-muted" /> {item.label}
+                          <AlertCircle size={13} className="text-muted" /> {item.label}
                         </div>
                         <div className="small fw-bold" style={{ color: '#2F5596' }}>{item.used}/{item.total} Days</div>
                       </div>
@@ -1025,7 +1009,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               </div>
               <div className="mt-auto pt-3 border-top">
                 <button
-                  className="btn btn-link btn-sm p-0 text-decoration-none d-flex align-items-center gap-1 fw-bold"
+                  className="btn btn-link btn-sm p-0 text-decoration-none d-flex align-items-center gap-1 fw-medium"
                   style={{ color: '#2F5596', fontSize: '12px' }}
                   onClick={() => setIsPolicyModalOpen(true)}
                 >
@@ -1124,7 +1108,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
                   <UserCheck size={18} color="#2F5596" /> Recent Attendance
                 </h6>
-                <button className="btn btn-link btn-sm p-0 text-decoration-none small" style={{ color: '#2F5596' }} onClick={() => onTabChange && onTabChange('attendance')}>View History</button>
+                <button className="btn btn-link btn-sm p-0 text-decoration-none fw-medium" style={{ color: '#2F5596' }} onClick={() => onTabChange && onTabChange('attendance')}>View History</button>
               </div>
               <div className="d-flex flex-column gap-3 mt-2">
                 {recentAttendanceRecords.map((rec, i) => (
@@ -1174,10 +1158,10 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           </div>
 
           <div className="d-flex flex-column gap-2">
-            {/* Grouped Other Leaves Card */}
+            {/* Grouped Planned Leaves Card */}
             <div className="border rounded p-3">
               <div className="d-flex justify-content-between align-items-center mb-2">
-                <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>Other Leaves</span>
+                <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>Planned Leaves</span>
                 <span className="text-muted small">
                   {regularLeaveStats.reduce((s, i) => s + i.used, 0)}/{regularLeaveStats.reduce((s, i) => s + i.total, 0)} used
                 </span>
@@ -1201,10 +1185,10 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               </div>
             </div>
 
-            {/* Maternity / Paternity — only if any taken */}
+            {/* Sick / Unplanned — only if any taken */}
             {specialLeaveStats.length > 0 && (
               <>
-                <div className="small text-muted fw-bold text-uppercase px-1 mt-1" style={{ fontSize: '10px' }}>Special Leaves</div>
+                <div className="small text-muted fw-bold text-uppercase px-1 mt-1" style={{ fontSize: '10px' }}>Unplanned Leaves</div>
                 {specialLeaveStats.map((item, idx) => (
                   <div key={`special-modal-${idx}`} className="border rounded p-3 bg-light">
                     <div className="d-flex justify-content-between align-items-center mb-1">
@@ -1215,7 +1199,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                       <div className="progress-bar bg-primary" role="progressbar" style={{ width: `${(item.used / (item.total || 1)) * 100}%` }} />
                     </div>
                     <div className="d-flex justify-content-between align-items-center">
-                      <span className="text-muted small fw-semibold">Leaves Left</span>
+                      <span className="text-muted fw-semibold">Leaves Left</span>
                       <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>{item.left}</span>
                     </div>
                   </div>
@@ -1225,7 +1209,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           </div>
 
           <div className="mt-3 pt-2 border-top text-center">
-            <button className="btn btn-light border fw-bold px-4" onClick={() => setIsBalanceModalOpen(false)}>Close</button>
+            <button className="btn btn-default" onClick={() => setIsBalanceModalOpen(false)}>Close</button>
           </div>
         </Modal>
       </div>
@@ -1243,7 +1227,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <div>
                 <button
                   type="button"
-                  className={`btn btn-sm ${calendarViewByTab.attendance ? 'btn-primary' : 'btn-default'}`}
+                  className={`btn btn-sm ${calendarViewByTab.attendance ? 'btn-primary' : 'btn-primary'}`}
                   onClick={() => setCalendarViewByTab((prev) => ({ ...prev, attendance: !prev.attendance }))}
                 >
                   {calendarViewByTab.attendance ? 'Table View' : 'Calendar View'}
@@ -1335,14 +1319,14 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <div className="d-flex align-items-center gap-2">
               <button
                 type="button"
-                className={`btn btn-sm ${calendarViewByTab.leave ? 'btn-primary' : 'btn-default'}`}
+                className={`btn btn-sm ${calendarViewByTab.leave ? 'btn-primary' : 'btn-primary'}`}
                 onClick={() => setCalendarViewByTab((prev) => ({ ...prev, leave: !prev.leave }))}
               >
                 {calendarViewByTab.leave ? 'Table View' : 'Calendar View'}
               </button>
               {!isTrainee && (
                 <button
-                  className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm"
+                  className="btn btn-primary d-flex align-items-center gap-1"
                   onClick={() => onSubmitLeave('leave')}
                 >
                   <Plus size={18} /> New Request
@@ -1476,7 +1460,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         footer={
           <>
             <button className="btn btn-default" onClick={() => setIsConcernModalOpen(false)}>Cancel</button>
-            <button type="submit" form="raise-concern-form" className="btn btn-primary fw-bold px-4">Submit Concern</button>
+            <button type="submit" form="raise-concern-form" className="btn btn-primary">Submit Concern</button>
           </>
         }
       >
@@ -1485,7 +1469,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <Info size={14} className="me-1" /> Raising concern for <strong>{targetType}</strong> (Ref: {targetRefId}).
           </div>
           <div className="mb-3">
-            <label className="form-label small text-muted fw-bold text-uppercase">Description</label>
+            <label className="form-label text-muted">Description</label>
             <textarea
               className="form-control"
               rows={5}
@@ -1502,7 +1486,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         <div className="policy-content small" style={{ color: '#333', lineHeight: '1.6' }}>
           {policies.map((policy, idx) => (
             <div key={policy.id} className="mb-4">
-              <h6 className="fw-bold text-dark mb-2 border-bottom pb-1 d-flex justify-content-between align-items-center">
+              <h6 className="text-dark mb-2 border-bottom pb-1 d-flex justify-content-between align-items-center">
                 <span>{idx + 1}. {policy.title}</span>
                 <span className="small text-muted fw-normal" style={{ fontSize: '10px' }}>{policy.lastUpdated}</span>
               </h6>
@@ -1520,16 +1504,16 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         {selectedApprovalNote && (
           <div className="d-flex flex-column gap-3">
             <div className="p-3 border rounded bg-light">
-              <div className="small text-muted mb-1">Leave Details</div>
-              <div className="fw-bold">{selectedApprovalNote.leaveType}</div>
+              <div className="text-muted mb-1">Leave Details</div>
+              <div className="fw-medium text-primary">{selectedApprovalNote.leaveType}</div>
               <div className="small text-muted">{selectedApprovalNote.startDate} - {selectedApprovalNote.endDate} ({selectedApprovalNote.days} days)</div>
             </div>
             <div className="p-3 border rounded bg-white">
-              <div className="small text-muted mb-1">Approved By</div>
-              <div className="fw-semibold">{selectedApprovalNote.approverName || 'HR'}</div>
+              <div className=" text-muted mb-1">Approved By</div>
+              <div className="fw-medium">{selectedApprovalNote.approverName || 'HR'}</div>
             </div>
             <div className="p-3 border rounded bg-white">
-              <div className="small text-muted mb-1">HR Message</div>
+              <div className=" text-muted mb-1">HR Message</div>
               <div style={{ whiteSpace: 'pre-wrap' }}>
                 {toPlainText(selectedApprovalNote.approverComment, 'No comment provided.')}
               </div>
@@ -1548,18 +1532,18 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <div className="p-3 border rounded bg-light">
               <div className="d-flex justify-content-between align-items-start gap-2">
                 <div>
-                  <div className="small text-muted mb-1">Reference</div>
+                  <div className="text-muted mb-1">Reference</div>
                   <div className="fw-semibold">Ref: {selectedConcern.referenceId}</div>
                 </div>
                 <Badge status={selectedConcern.status === ConcernStatus.Open ? 'Unresolved' : selectedConcern.status} />
               </div>
-              <div className="small text-muted mt-2">Submitted: {selectedConcern.submittedAt}</div>
+              <div className="text-muted mt-2">Submitted: {selectedConcern.submittedAt}</div>
               {selectedConcern.repliedAt && (
-                <div className="small text-muted">Replied: {selectedConcern.repliedAt}</div>
+                <div className="text-muted">Replied: {selectedConcern.repliedAt}</div>
               )}
             </div>
             <div className="p-3 border rounded bg-white">
-              <div className="small text-muted mb-1">Query</div>
+              <div className="text-muted mb-1">Query</div>
               <div style={{ whiteSpace: 'pre-wrap' }}>
                 {toPlainText(selectedConcern.description, 'No query message.')}
               </div>
@@ -1582,17 +1566,17 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         {selectedCelebration && (
           <div className="d-flex flex-column gap-3">
             <div className="p-3 border rounded bg-light">
-              <div className="small text-muted mb-1">Event</div>
+              <div className="text-muted mb-1">Event</div>
               <div className="fw-bold">{selectedCelebration.name}</div>
-              <div className="small text-muted mt-1">
+              <div className="text-muted mt-1">
                 {selectedCelebration.type} • {formatDateForDisplayIST(selectedCelebration.date, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
               </div>
               {selectedCelebration.employee?.name && (
-                <div className="small text-muted mt-1">Employee: {selectedCelebration.employee.name}</div>
+                <div className="text-muted mt-1">Employee: {selectedCelebration.employee.name}</div>
               )}
             </div>
             <div className="p-3 border rounded bg-white">
-              <div className="small text-muted mb-1">Description</div>
+              <div className="text-muted mb-1">Description</div>
               <div style={{ whiteSpace: 'pre-wrap' }}>
                 {toPlainText(selectedCelebration.description, 'No description provided.')}
               </div>

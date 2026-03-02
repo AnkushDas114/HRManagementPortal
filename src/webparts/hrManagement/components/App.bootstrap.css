@@ -210,15 +210,14 @@ input[type='date']::-webkit-clear-button {
 .btn-default {
   background-color: #fff !important;
   color: var(--hr-primary) !important;
+  border: 1px solid var(--hr-primary) !important;
 }
 
 .btn-default:hover,
 .btn-default:focus,
 .btn-default:active {
   background-color: #fff !important;
-  border-color: transparent !important;
   color: var(--hr-primary) !important;
-  box-shadow: none !important;
 }
 
 .btn-link,
@@ -356,9 +355,7 @@ input[type='date']::-webkit-clear-button {
 .event-modal-form .form-label {
   margin-bottom: 0.35rem;
   color: #5b687d;
-  font-size: 0.74rem;
   letter-spacing: 0.02em;
-  text-transform: uppercase;
 }
 
 .event-modal-form .form-control,
@@ -594,7 +591,7 @@ input[type='date']::-webkit-clear-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 190px;
+  min-width: 140px;
   padding: 0.42rem 0.95rem;
   border: 1px solid #a9bdd7;
   background: #ffffff;
@@ -707,7 +704,7 @@ input[type='date']::-webkit-clear-button {
 }
 
 .ai-week-insights__head h6 {
-  color: #1e3f74;
+  color: #2f5596;
   font-weight: 700;
 }
 
@@ -773,14 +770,13 @@ input[type='date']::-webkit-clear-button {
 .ai-week-insights__label {
   font-size: 0.72rem;
   color: #5f7794;
-  text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 600;
 }
 
 .ai-week-insights__value {
   font-size: 1.06rem;
-  color: #1d3d70;
+  color: #2f5596;
   font-weight: 700;
   margin-top: 0.02rem;
 }
@@ -800,12 +796,12 @@ input[type='date']::-webkit-clear-button {
   border: 1px dashed #cedcee;
   border-radius: 0.55rem;
   font-size: 0.8rem;
-  color: #324d70;
+  color: #2f5596;
   background: #f7faff;
 }
 
 .ai-report-content {
-  color: #23344d;
+  color: #2f5596;
   line-height: 1.6;
   font-size: 0.95rem;
 }
@@ -813,7 +809,7 @@ input[type='date']::-webkit-clear-button {
 .ai-report-content h2,
 .ai-report-content h3,
 .ai-report-content h4 {
-  color: #1e3f74;
+  color: #2f5596;
   font-weight: 700;
   margin: 0 0 0.45rem;
 }
@@ -852,7 +848,7 @@ input[type='date']::-webkit-clear-button {
 
 .ai-report-content p {
   margin: 0 0 0.55rem;
-  color: #304766;
+  color: #2f5596;
 }
 
 .ai-report-content ul {
@@ -887,7 +883,7 @@ input[type='date']::-webkit-clear-button {
 }
 
 .ai-report-content strong {
-  color: #163868;
+  color: #2f5596;
 }
 
 @media (max-width: 991.98px) {
@@ -1030,6 +1026,10 @@ input[type='date']::-webkit-clear-button {
 }
 
 .hr-main-content .text-primary {
+  color: var(--hr-primary) !important;
+}
+
+.hr-modal .text-primary {
   color: var(--hr-primary) !important;
 }
 

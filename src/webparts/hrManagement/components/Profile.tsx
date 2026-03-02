@@ -260,7 +260,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
               />
             </div>
             <h3 className="h5 fw-bold mb-1">{displayText(user.name)}</h3>
-            <p className="text-muted small mb-2">{displayText(user.department)} Department</p>
+            <p className="text-muted mb-2">{displayText(user.department)} Department</p>
             <hr className="my-3" />
             <div className="d-grid gap-2">
               <button
@@ -290,7 +290,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                     <Briefcase size={18} className="text-muted" />
                   </div>
                   <div>
-                    <label className="text-muted small fw-bold text-uppercase d-block mb-1">Employee ID</label>
+                    <label className="text-muted fw-bold text-uppercase d-block mb-1">Employee ID</label>
                     <span className="fw-medium">{displayText(user.id)}</span>
                   </div>
                 </div>
@@ -302,7 +302,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                     <Mail size={18} className="text-muted" />
                   </div>
                   <div>
-                    <label className="text-muted small fw-bold text-uppercase d-block mb-1">Email Address</label>
+                    <label className="text-muted fw-bold text-uppercase d-block mb-1">Email Address</label>
                     <span className="fw-medium">{displayText(user.email)}</span>
                   </div>
                 </div>
@@ -314,7 +314,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                     <Briefcase size={18} className="text-muted" />
                   </div>
                   <div>
-                    <label className="text-muted small fw-bold text-uppercase d-block mb-1">Designation</label>
+                    <label className="text-muted fw-bold text-uppercase d-block mb-1">Designation</label>
                     <span className="fw-medium">{displayText(user.position)}</span>
                   </div>
                 </div>
@@ -326,7 +326,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                     <Briefcase size={18} className="text-muted" />
                   </div>
                   <div>
-                    <label className="text-muted small fw-bold text-uppercase d-block mb-1">Department</label>
+                    <label className="text-muted fw-bold text-uppercase d-block mb-1">Department</label>
                     <span className="fw-medium">{displayText(user.department)}</span>
                   </div>
                 </div>
@@ -338,7 +338,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                     <Calendar size={18} className="text-muted" />
                   </div>
                   <div>
-                    <label className="text-muted small fw-bold text-uppercase d-block mb-1">Joining Date</label>
+                    <label className="text-muted fw-bold text-uppercase d-block mb-1">Joining Date</label>
                     <span className="fw-medium">{user.joiningDate ? formatDateForDisplayIST(user.joiningDate, 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A'}</span>
                   </div>
                 </div>
@@ -363,31 +363,31 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
             <div className="row g-2 g-md-3 mb-3">
               <div className="col-md-6">
                 <div className="border rounded p-3 bg-light h-100">
-                  <label className="text-muted small fw-bold text-uppercase d-block mb-1">PAN Number</label>
+                  <label className="text-muted fw-bold text-uppercase d-block mb-1">PAN Number</label>
                   <span className="fw-medium">{maskedText(user.pan)}</span>
                 </div>
               </div>
               <div className="col-md-6">
                 <div className="border rounded p-3 bg-light h-100">
-                  <label className="text-muted small fw-bold text-uppercase d-block mb-1">UAN Number</label>
+                  <label className="text-muted fw-bold text-uppercase d-block mb-1">UAN Number</label>
                   <span className="fw-medium">{maskedText(user.uan)}</span>
                 </div>
               </div>
               <div className="col-md-6">
                 <div className="border rounded p-3 bg-light h-100">
-                  <label className="text-muted small fw-bold text-uppercase d-block mb-1">Bank Name</label>
+                  <label className="text-muted fw-bold text-uppercase d-block mb-1">Bank Name</label>
                   <span className="fw-medium">{maskedText(user.bankName)}</span>
                 </div>
               </div>
               <div className="col-md-6">
                 <div className="border rounded p-3 bg-light h-100">
-                  <label className="text-muted small fw-bold text-uppercase d-block mb-1">Account Number</label>
+                  <label className="text-muted fw-bold text-uppercase d-block mb-1">Account Number</label>
                   <span className="fw-medium">{maskedText(user.accountNumber)}</span>
                 </div>
               </div>
               <div className="col-md-6">
                 <div className="border rounded p-3 bg-light h-100">
-                  <label className="text-muted small fw-bold text-uppercase d-block mb-1">IFSC Code</label>
+                  <label className="text-muted fw-bold text-uppercase d-block mb-1">IFSC Code</label>
                   <span className="fw-medium">{maskedText(user.ifscCode)}</span>
                 </div>
               </div>
@@ -400,7 +400,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
               {payrollFields.map((field) => (
                 <div className="col-md-4" key={field.label}>
                   <div className="border rounded p-3 h-100">
-                    <label className="text-muted small fw-bold text-uppercase d-block mb-1">{field.label}</label>
+                    <label className="text-muted fw-bold text-uppercase d-block mb-1">{field.label}</label>
                     <span className="fw-semibold">{field.value}</span>
                   </div>
                 </div>
@@ -425,7 +425,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
         footer={
           <div className="d-flex justify-content-between align-items-center w-100">
             <div className="d-flex gap-2">
-              <button type="button" className="btn btn-outline-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button>
+              <button type="button" className="btn btn-default" onClick={() => setIsEditModalOpen(false)}>Cancel</button>
               <button
                 type="submit"
                 form="edit-profile-form"
@@ -551,7 +551,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                     alt={displayText(user.name)}
                   />
                   <div>
-                    <div className="small text-muted">Current profile image</div>
+                    <div className="text-muted">Current profile image</div>
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-danger mt-1"
@@ -582,7 +582,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                 </div>
                 <div className="col-12">
                   <div className="d-flex justify-content-between align-items-center">
-                    <label className="form-label fw-bold mb-0">Choose from Gallery Folders</label>
+                    <label className="form-label mb-0">Choose from Gallery Folders</label>
                     <button type="button" className="btn btn-sm color-primary" onClick={() => void loadProfileImageFolders()}>Refresh</button>
                   </div>
                 </div>
@@ -590,9 +590,9 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                   <div className="row g-3">
                     <div className="col-md-4">
                       <div className="border rounded p-2" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                        {isLoadingProfileFolders && <div className="text-muted small p-2">Loading image folders...</div>}
+                        {isLoadingProfileFolders && <div className="text-muted p-2">Loading image folders...</div>}
                         {!isLoadingProfileFolders && profileImageFolders.length === 0 && (
-                          <div className="text-muted small p-2">No folders found in Images library.</div>
+                          <div className="text-muted p-2">No folders found in Images library.</div>
                         )}
                         {profileImageFolders.map((folder) => {
                           const isActive = selectedProfileFolder?.ServerRelativeUrl === folder.ServerRelativeUrl;
@@ -613,14 +613,14 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                     <div className="col-md-8">
                       <div className="border rounded p-2" style={{ minHeight: '300px' }}>
                         {selectedProfileFolder && (
-                          <div className="small fw-semibold mb-2">Images in "{selectedProfileFolder.Name}"</div>
+                          <div className="fw-semibold mb-2">Images in "{selectedProfileFolder.Name}"</div>
                         )}
                         {!selectedProfileFolder && (
-                          <div className="text-muted small">Select a folder to view images.</div>
+                          <div className="text-muted">Select a folder to view images.</div>
                         )}
-                        {isLoadingFolderImages && <div className="text-muted small">Loading folder images...</div>}
+                        {isLoadingFolderImages && <div className="text-muted">Loading folder images...</div>}
                         {!isLoadingFolderImages && selectedProfileFolder && profileFolderImages.length === 0 && (
-                          <div className="text-muted small">No images found in this folder.</div>
+                          <div className="text-muted">No images found in this folder.</div>
                         )}
                         {!isLoadingFolderImages && profileFolderImages.length > 0 && (
                           <div className="d-flex flex-wrap gap-2">

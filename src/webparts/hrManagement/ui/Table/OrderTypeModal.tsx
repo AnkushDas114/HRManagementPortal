@@ -30,7 +30,7 @@ const OrderTypeModal: React.FC<OrderTypeModalProps> = ({ isOpen, onClose, column
       <div className="order-type-content" style={{ fontFamily: 'Segoe UI, sans-serif' }}>
         <div className="mb-3 d-flex align-items-center gap-1">
           <span style={{ fontSize: '14px', color: '#333333', fontWeight: 400 }}>Order Type</span>
-          <i className="bi bi-info-circle" style={{ fontSize: '14px', color: '#918D8D' }}></i>
+          <i className="bi bi-info-circle" style={{ fontSize: '14px', color: '#2F5596' }}></i>
         </div>
 
         <div className="d-flex flex-column gap-3">

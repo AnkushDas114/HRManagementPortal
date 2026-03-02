@@ -59,6 +59,8 @@ interface ReportTypeGroup {
     approverComment: string;
     isHalfDay: boolean;
     halfDayType: string;
+    isRecurring: boolean;
+    recurringFrequency: string;
   }>;
 }
 
@@ -66,6 +68,8 @@ interface LeaveReportRow {
   employee: Employee;
   planned: number;
   unplanned: number;
+  maternity: number;
+  paternity: number;
   restrictedHoliday: number;
   halfDay: number;
   totalLeave: number;
@@ -143,9 +147,11 @@ const resolvePresetRange = (preset: ReportDatePreset, today: Date): { start: Dat
   return { start: null, end: null };
 };
 
-const classifyLeaveBucket = (request: LeaveRequest): 'planned' | 'unplanned' | 'restrictedHoliday' => {
+const classifyLeaveBucket = (request: LeaveRequest): 'planned' | 'unplanned' | 'restrictedHoliday' | 'maternity' | 'paternity' => {
   const leaveType = String(request.leaveType || '').toLowerCase();
   if (leaveType.indexOf('restricted') !== -1 || leaveType === 'rh') return 'restrictedHoliday';
+  if (leaveType.indexOf('maternity') !== -1) return 'maternity';
+  if (leaveType.indexOf('paternity') !== -1) return 'paternity';
   if (leaveType.indexOf('planned') !== -1) return 'planned';
   if (leaveType.indexOf('unplanned') !== -1) return 'unplanned';
   return 'unplanned';
@@ -324,6 +330,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
           employee: request.employee,
           planned: 0,
           unplanned: 0,
+          maternity: 0,
+          paternity: 0,
           restrictedHoliday: 0,
           halfDay: 0,
           totalLeave: 0,
@@ -358,7 +366,9 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         approverName: request.approverName || '',
         approverComment: request.approverComment || '',
         isHalfDay: Boolean(request.isHalfDay),
-        halfDayType: request.halfDayType || ''
+        halfDayType: request.halfDayType || '',
+        isRecurring: Boolean(request.isRecurring),
+        recurringFrequency: request.recurringFrequency || ''
       });
     });
 
@@ -384,7 +394,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     worksheet.addRow([]); // Gap
 
     // Define main summary columns
-    const summaryHeaders = ['Name', 'Planned', 'Unplanned', 'Restricted Holiday', 'Half-Day', 'Total Leave'];
+    const summaryHeaders = ['Name', 'Planned', 'Unplanned', 'Maternity', 'Paternity', 'Restricted Holiday', 'Half-Day', 'Total Leave'];
     const summaryHeaderRow = worksheet.addRow(summaryHeaders);
     summaryHeaderRow.eachCell(cell => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F5596' } };
@@ -395,11 +405,13 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
 
     worksheet.columns = [
       { key: 'col1', width: 30 },
-      { key: 'col2', width: 20 },
-      { key: 'col3', width: 20 },
-      { key: 'col4', width: 20 },
-      { key: 'col5', width: 20 },
-      { key: 'col6', width: 20 }
+      { key: 'col2', width: 15 },
+      { key: 'col3', width: 15 },
+      { key: 'col4', width: 15 },
+      { key: 'col5', width: 15 },
+      { key: 'col6', width: 15 },
+      { key: 'col7', width: 15 },
+      { key: 'col8', width: 15 }
     ];
 
     generatedReportRows.forEach((row) => {
@@ -408,6 +420,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         row.employee.name,
         row.planned,
         row.unplanned,
+        row.maternity,
+        row.paternity,
         row.restrictedHoliday,
         row.halfDay,
         row.totalLeave
@@ -471,6 +485,157 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     saveAs(blob, `leave_report_${todayIST()}.xlsx`);
   }, [generatedReportRows]);
 
+  const handleDownloadPdf = React.useCallback((): void => {
+    if (generatedReportRows.length === 0) return;
+
+    const popup = window.open('', '_blank', 'width=1200,height=900');
+    if (!popup) {
+      alert('Please allow popups to generate PDF.');
+      return;
+    }
+
+    const escapeHtml = (value: unknown): string => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return '';
+      try {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      } catch {
+        return dateStr;
+      }
+    };
+
+    const periodDisplay = reportDatePreset === 'All Time' ? 'All Time' : `${formatDate(reportStartDate)} to ${formatDate(reportEndDate)}`;
+
+    const rowsHtml = generatedReportRows.map(row => {
+      const detailsHtml = row.details.map(group => `
+        <div class="detail-group">
+          <div class="group-header">${escapeHtml(group.type)}: ${group.entries.length}</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 100px">Start Date</th>
+                <th style="width: 100px">End Date</th>
+                <th>Description</th>
+                <th style="width: 120px">Status/Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${group.entries.map(entry => {
+        let statusBadges = `<span class="status-badge status-${entry.status.toLowerCase()}">${escapeHtml(entry.status)}</span>`;
+        if (entry.isHalfDay) {
+          const halfLabel = entry.halfDayType === 'first' ? 'First Half' : 'Second Half';
+          statusBadges += `<span class="type-badge badge-half">${escapeHtml(halfLabel)}</span>`;
+        }
+        if (entry.isRecurring) {
+          statusBadges += `<span class="type-badge badge-recurring">Recurring (${escapeHtml(entry.recurringFrequency)})</span>`;
+        }
+        return `
+                  <tr>
+                    <td>${escapeHtml(entry.startDate)}</td>
+                    <td>${escapeHtml(entry.endDate)}</td>
+                    <td>${escapeHtml(entry.description)}</td>
+                    <td>${statusBadges}</td>
+                  </tr>
+                `;
+      }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `).join('');
+
+      return `
+        <div class="employee-section">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th style="width: 200px">Employee Name</th>
+                <th>Planned</th>
+                <th>Unplanned</th>
+                <th>Maternity</th>
+                <th>Paternity</th>
+                <th>RH</th>
+                <th>Half-Day</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight: bold; background: #f8f9fa;">${escapeHtml(row.employee.name)}</td>
+                <td>${row.planned}</td>
+                <td>${row.unplanned}</td>
+                <td>${row.maternity}</td>
+                <td>${row.paternity}</td>
+                <td>${row.restrictedHoliday}</td>
+                <td>${row.halfDay}</td>
+                <td style="font-weight: bold; color: #2F5596;">${row.totalLeave}</td>
+              </tr>
+            </tbody>
+          </table>
+          ${detailsHtml}
+        </div>
+      `;
+    }).join('');
+
+    const html = `
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8"/>
+        <title>Leave Report</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; margin: 25px 35px; color: #333; line-height: 1.3; }
+          .report-title { font-size: 20px; font-weight: bold; color: #2F5596; margin-bottom: 2px; }
+          .report-meta { font-size: 11px; color: #666; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+          .employee-section { margin-bottom: 25px; page-break-inside: avoid; }
+          .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 0; font-size: 11px; }
+          .summary-table th { background: #2F5596; color: white; padding: 6px 8px; font-weight: 600; border: 1px solid #234478; text-align: center; }
+          .summary-table td { border: 1px solid #ddd; padding: 6px 8px; text-align: center; }
+          .detail-group { padding: 5px 10px 10px 20px; border-left: 2px solid #eee; margin-top: -1px; }
+          .group-header { font-size: 10px; font-weight: bold; margin-bottom: 4px; color: #2F5596; background: #eef2f7; padding: 2px 8px; border-radius: 2px; display: inline-block; text-transform: uppercase; letter-spacing: 0.5px; }
+          table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+          th, td { border: 1px solid #eee; padding: 4px 8px; text-align: left; }
+          th { background: #fcfcfc; font-weight: 600; color: #666; }
+          
+          .status-badge { font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: bold; display: inline-block; margin-right: 4px; }
+          .status-approved { background: #e6f4ea; color: #1e7e34; }
+          .status-pending { background: #fff4e5; color: #b7791f; }
+          .status-rejected { background: #fdeaea; color: #c53030; }
+          
+          .type-badge { font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: bold; display: inline-block; margin-top: 2px; }
+          .badge-half { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
+          .badge-recurring { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+          
+          @media print {
+            body { margin: 15px; }
+            .employee-section { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="report-title">Monthly Employee Leave Report</div>
+        <div class="report-meta">
+          Generated: ${new Date().toLocaleString('en-GB')} | Period: ${periodDisplay}
+        </div>
+        ${rowsHtml}
+      </body>
+      </html>
+    `;
+
+    popup.document.write(html);
+    popup.document.close();
+
+    setTimeout(() => {
+      popup.print();
+    }, 500);
+  }, [generatedReportRows, reportStartDate, reportEndDate, reportDatePreset]);
+
   const handleClearFilters = () => {
     setSelectedDateFilter('All Time');
     setStartDate('');
@@ -495,9 +660,9 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
 
   const modalFooter = (
     <>
-      <button className="btn btn-outline-secondary px-4 fw-medium" onClick={() => setIsCommentModalOpen(false)}>Cancel</button>
+      <button className="btn btn-default" onClick={() => setIsCommentModalOpen(false)}>Cancel</button>
       <button
-        className={`btn px-4 fw-bold text-white ${actionType === LeaveStatus.Approved ? 'btn-primary' : 'btn-danger'}`}
+        className={`btn ${actionType === LeaveStatus.Approved ? 'btn-primary' : 'btn-default'}`}
         onClick={handleCommentSubmit}
       >
         Confirm {actionType}
@@ -514,7 +679,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         <div className="d-flex align-items-center">
           <img className="rounded-circle border" src={request.employee.avatar} alt={request.employee.name} width="36" height="36" style={{ objectFit: 'cover' }} />
           <div className="ms-3">
-            <div className="fw-bold text-dark small">{request.employee.name}</div>
+            <div className="text-dark">{request.employee.name}</div>
             <div className="text-muted" style={{ fontSize: '10px' }}>ID: {request.employee.id} • {request.employee.department}</div>
           </div>
         </div>
@@ -548,7 +713,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         return (
           <div className="d-flex flex-column">
             <div className="d-flex align-items-center gap-2">
-              <span className="fw-bold small" style={{ color: '#2F5596' }}>{used} / {quota}</span>
+              <span className="">{used} / {quota}</span>
               <Info size={14} className="text-muted cursor-pointer" onClick={() => onViewBalance?.(request.employee)} />
             </div>
             <div className="text-muted" style={{ fontSize: '9px' }}>{label}</div>
@@ -562,13 +727,41 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       accessor: (request) => request.leaveType,
       render: (request) => (
         <div className="d-flex flex-column gap-1">
-          <span className="small fw-medium text-dark">{request.leaveType}</span>
-          {request.isHalfDay && (
-            <span className="badge bg-info-subtle text-info border border-info-subtle d-inline-block" style={{ fontSize: '8px', width: 'fit-content' }}>
-              <Clock size={8} className="me-1" />
-              {request.halfDayType === 'first' ? 'First Half' : 'Second Half'}
-            </span>
-          )}
+          <span className="text-dark fw-bold" style={{ fontSize: '13px' }}>{request.leaveType}</span>
+          <div className="d-flex flex-wrap gap-1">
+            {request.isHalfDay && (
+              <span
+                className="badge rounded-pill d-inline-flex align-items-center"
+                style={{
+                  fontSize: '9px',
+                  padding: '2px 8px',
+                  backgroundColor: '#eef2ff',
+                  color: '#4338ca',
+                  border: '1px solid #c7d2fe',
+                  fontWeight: 600
+                }}
+              >
+                <Clock size={10} className="me-1" />
+                {request.halfDayType === 'first' ? 'First Half' : 'Second Half'}
+              </span>
+            )}
+            {request.isRecurring && (
+              <span
+                className="badge rounded-pill d-inline-flex align-items-center"
+                style={{
+                  fontSize: '9px',
+                  padding: '2px 8px',
+                  backgroundColor: '#f5f3ff',
+                  color: '#6d28d9',
+                  border: '1px solid #ddd6fe',
+                  fontWeight: 600
+                }}
+              >
+                <RotateCcw size={10} className="me-1" />
+                Recurring ({request.recurringFrequency || 'N/A'})
+              </span>
+            )}
+          </div>
         </div>
       )
     },
@@ -578,8 +771,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       accessor: (request) => `${request.startDate} ${request.endDate}`,
       render: (request) => (
         <>
-          <div className="small text-dark fw-medium">{request.startDate} <span className="text-muted">to</span> {request.endDate}</div>
-          <div className="small text-muted" style={{ fontSize: '10px' }}>{request.days} Full Day(s)</div>
+          <div className="text-dark">{request.startDate} <span className="text-muted">to</span> {request.endDate}</div>
+          <div className="text-muted" style={{ fontSize: '10px' }}>{request.days} Full Day(s)</div>
         </>
       )
     },
@@ -588,7 +781,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       header: 'Reason',
       accessor: (request) => request.reason,
       render: (request) => (
-        <div className="small text-muted text-truncate" style={{ maxWidth: '150px' }} title={request.reason}>
+        <div className="text-muted text-truncate" style={{ maxWidth: '150px' }} title={request.reason}>
           {request.reason}
         </div>
       )
@@ -601,7 +794,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         <>
           <Badge status={request.status} />
           {request.status !== LeaveStatus.Pending && request.approverName && (
-            <div className="small text-muted mt-1" style={{ fontSize: '9px' }}>
+            <div className="text-muted mt-1" style={{ fontSize: '9px' }}>
               by {request.approverName}
               {request.approverComment && (
                 <span className="approver-comment-tooltip ms-1">
@@ -624,34 +817,37 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       filterable: false,
       align: 'end',
       render: (request) => (
-        <div className="d-flex align-items-center justify-content-end gap-1 leave-action-group">
+        <div className="d-flex align-items-center justify-content-end gap-3 leave-action-group">
           {request.status === LeaveStatus.Pending ? (
             <>
               <button
                 onClick={() => handleActionClick(request, LeaveStatus.Approved)}
-                className="leave-action-btn leave-action-btn--approve"
+                className="p-0 border-0 bg-transparent flex-shrink-0"
+                style={{ color: '#15803d', display: 'flex' }}
                 title="Approve request"
                 aria-label="Approve request"
               >
-                <Check size={17} strokeWidth={2.4} />
+                <Check size={18} strokeWidth={2.5} />
               </button>
               <button
                 onClick={() => handleActionClick(request, LeaveStatus.Rejected)}
-                className="leave-action-btn leave-action-btn--reject"
+                className="p-0 border-0 bg-transparent flex-shrink-0"
+                style={{ color: '#dc2626', display: 'flex' }}
                 title="Reject request"
                 aria-label="Reject request"
               >
-                <X size={17} strokeWidth={2.4} />
+                <X size={18} strokeWidth={2.5} />
               </button>
             </>
           ) : (
             <button
               onClick={() => handleRevertClick(request)}
-              className="leave-action-btn leave-action-btn--revert"
+              className="p-0 border-0 bg-transparent flex-shrink-0"
+              style={{ color: '#2f5596', display: 'flex' }}
               title="Revert to pending"
               aria-label="Revert to pending"
             >
-              <RotateCcw size={16} strokeWidth={2.2} />
+              <RotateCcw size={17} strokeWidth={2.2} />
             </button>
           )}
         </div>
@@ -661,7 +857,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
 
   return (
     <>
-      <div className="card shadow-sm border-0 bg-white">
+      <div className="card shadow-sm border-0 bg-white px-4 pb-2">
         <div className="card-header bg-white d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 py-3 border-bottom-0">
           <h2 className="h5 mb-0 fw-bold" style={{ color: '#2F5596' }}>{title}</h2>
           <div className="d-flex align-items-center gap-2">
@@ -694,7 +890,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         </div>
 
         {/* Dynamic Filtering Section */}
-        <div className="px-4 pb-2">
+        <div className="">
           {/* Team-Based Avatar Filtering */}
           <div className="border-top pt-3 pb-2">
             <div className="d-flex flex-wrap gap-5">
@@ -704,11 +900,15 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                 const teamLabel = /team$/i.test(teamName) ? teamName : `${teamName} Team`;
 
                 return (
-                  <div key={teamName} className="team-filter-group">
-                    <div className="small text-muted border-bottom mb-2 pb-1 fw-bold text-uppercase" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>
-                      {teamLabel}
+                  <div key={teamName} className="taskTeamBox px-2 mt-1">
+                    <div className='top-assign'>
+                      <div className='team'>
+                        <label className="BdrBtm">
+                          {teamLabel}
+                        </label>
+                      </div>
                     </div>
-                    <div className="d-flex align-items-center gap-2">
+                    <div className="d-flex align-items-center gap-1">
                       {teamMembers.map(emp => (
                         <div
                           key={emp.id}
@@ -743,7 +943,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
               onClick={() => setIsDateAccordionOpen(!isDateAccordionOpen)}
             >
               {isDateAccordionOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-              <span className="fw-bold small">Date</span>
+              <span className="fw-semibold">Date</span>
             </div>
             {isDateAccordionOpen && (
               <div className="ps-4 pb-3 animate-in fade-in">
@@ -754,21 +954,21 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                         type="radio"
                         id={`date-${preset}`}
                         name="datePreset"
-                        className="form-check-input"
+                        className="radio"
                         checked={selectedDateFilter === preset}
                         onChange={() => setSelectedDateFilter(preset)}
                       />
-                      <label htmlFor={`date-${preset}`} className="small text-muted mb-0 cursor-pointer">{preset}</label>
+                      <label htmlFor={`date-${preset}`} className="text-muted mb-0 cursor-pointer">{preset}</label>
                     </div>
                   ))}
                 </div>
                 <div className="d-flex align-items-center gap-3">
                   <div className="d-flex align-items-center gap-2">
-                    <label className="small text-muted fw-bold">Start Date</label>
+                    <label className="text-muted">Start Date</label>
                     <input type="date" className="form-control form-control-sm" style={{ width: '140px' }} value={startDate} onChange={e => { setStartDate(e.target.value); setSelectedDateFilter('Custom'); }} />
                   </div>
                   <div className="d-flex align-items-center gap-2">
-                    <label className="small text-muted fw-bold">End Date</label>
+                    <label className="text-muted">End Date</label>
                     <input type="date" className="form-control form-control-sm" style={{ width: '140px' }} value={endDate} onChange={e => { setEndDate(e.target.value); setSelectedDateFilter('Custom'); }} />
                   </div>
                   <button className="btn btn-link btn-sm text-decoration-none fw-bold p-0" style={{ color: '#2F5596' }} onClick={handleClearFilters}>Clear</button>
@@ -804,12 +1004,12 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         footer={modalFooter}
       >
         <div className="animate-in fade-in">
-          <p className="small text-dark mb-4 p-3 bg-light rounded border">
+          <p className="text-dark mb-4 p-3 bg-light rounded border">
             Decision for <strong>{selectedRequest?.employee.name}</strong><br />
             Leave Period: {selectedRequest?.startDate} to {selectedRequest?.endDate} ({selectedRequest?.days} days)
           </p>
           <div className="mb-3">
-            <label htmlFor="approverComment" className="form-label fw-bold small text-muted">Approval / Rejection Comment</label>
+            <label htmlFor="approverComment" className="form-label text-muted">Approval / Rejection Comment</label>
             <textarea
               id="approverComment"
               className="form-control"
@@ -835,6 +1035,9 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
               <button className="btn btn-primary px-4" onClick={runReportGeneration}>Submit</button>
             ) : (
               <>
+                <button className="btn btn-default d-flex align-items-center gap-1" onClick={handleDownloadPdf}>
+                  <FileText size={14} /> Download PDF
+                </button>
                 <button className="btn btn-default d-flex align-items-center gap-1" onClick={handleDownloadReport}>
                   <Download size={14} /> Download Excel
                 </button>
@@ -847,11 +1050,11 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         <div className="row g-3 align-items-end">
           <div className="col-12">
             <div className="d-flex align-items-center justify-content-between mb-1">
-              <label className="form-label fw-bold mb-0">Team Members</label>
+              <h6 className="mb-0">Team Members</h6>
               <div className="d-flex align-items-center gap-2">
                 <button
                   type="button"
-                  className="btn btn-default btn-sm text-nowrap"
+                  className="btn btn-primary btn-sm text-nowrap"
                   onClick={() => setReportSelectedMemberIds(employees.map((emp) => emp.id))}
                 >
                   Select All
@@ -865,7 +1068,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                 </button>
               </div>
             </div>
-            <div className="small text-muted mb-2">
+            <div className="text-muted mb-2">
               {reportSelectedMemberIds.length === 0
                 ? 'No users selected'
                 : reportSelectedMemberIds.length === employees.length
@@ -881,8 +1084,10 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                 const teamLabel = /team$/i.test(teamName) ? teamName : `${teamName} Team`;
                 return (
                   <div key={`report-team-${teamName}`} style={{ minWidth: '190px' }}>
-                    <div className="small text-muted border-bottom mb-2 pb-1 fw-bold text-uppercase" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>
-                      {teamLabel}
+                    <div className='team'>
+                      <label className="BdrBtm">
+                        {teamLabel}
+                      </label>
                     </div>
                     <div className="d-flex flex-wrap gap-1">
                       {teamMembers.map((emp) => {
@@ -923,24 +1128,24 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
             </div>
           </div>
           <div className="col-12">
-            <label className="form-label fw-bold">Date</label>
+            <label className="form-label">Date</label>
             <div className="d-flex flex-wrap gap-3 mb-2">
               {(['Custom', 'Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month', 'Last 3 Months', 'This Year', 'Last Year', 'All Time'] as ReportDatePreset[]).map((preset) => (
-                <div key={`report-${preset}`} className="form-check">
+                <div key={`report-${preset}`} className="SpfxCheckRadio">
                   <input
-                    className="form-check-input"
+                    className="radio"
                     type="radio"
                     id={`report-preset-${preset}`}
                     checked={reportDatePreset === preset}
                     onChange={() => setReportDatePreset(preset)}
                   />
-                  <label className="form-check-label small" htmlFor={`report-preset-${preset}`}>{preset}</label>
+                  <label className="radio-label" htmlFor={`report-preset-${preset}`}>{preset}</label>
                 </div>
               ))}
             </div>
           </div>
           <div className="col-md-6">
-            <label className="form-label fw-bold">Start Date</label>
+            <label className="form-label">Start Date</label>
             <input
               type="date"
               className="form-control"
@@ -949,7 +1154,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
             />
           </div>
           <div className="col-md-6">
-            <label className="form-label fw-bold">End Date</label>
+            <label className="form-label">End Date</label>
             <input
               type="date"
               className="form-control"
@@ -969,6 +1174,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                     <th>Name</th>
                     <th>Planned</th>
                     <th>Unplanned</th>
+                    <th>Maternity</th>
+                    <th>Paternity</th>
                     <th>Restricted Holiday</th>
                     <th>Half-Day</th>
                     <th>Total Leave</th>
@@ -997,6 +1204,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                           <td>{row.employee.name}</td>
                           <td>{row.planned}</td>
                           <td>{row.unplanned}</td>
+                          <td>{row.maternity}</td>
+                          <td>{row.paternity}</td>
                           <td>{row.restrictedHoliday}</td>
                           <td>{row.halfDay}</td>
                           <td>{row.totalLeave}</td>

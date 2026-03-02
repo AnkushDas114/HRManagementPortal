@@ -8,7 +8,7 @@ import type { Employee, LeaveRequest, AttendanceRecord, AttendanceStatus } from 
 import Badge from '../ui/Badge';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import Modal from '../ui/Modal';
-import { Edit3, Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Upload, Calendar, Download, Trash2 } from 'lucide-react';
+import { Clock, Info, ChevronDown, ChevronRight, ChevronLeft, Upload, Calendar, Download, Edit3, Trash2 } from 'lucide-react';
 import { formatAuditInfo, formatDateIST, getNowIST, todayIST, formatDateForDisplayIST } from '../utils/dateTime';
 import { showAlert } from '../ui/CustomAlert';
 
@@ -1153,11 +1153,11 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             <img className="rounded-circle border" src={employee.avatar} alt={employee.name} width="36" height="36" style={{ objectFit: 'cover' }} />
           ) : (
             <div className="rounded-circle border bg-light d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px' }}>
-              <Clock size={20} className="text-muted" />
+              <Clock size={20} className="text-primary" />
             </div>
           )}
           <div className="ms-3">
-            <div className="fw-bold text-dark small">{employee?.name || record.employeeName || 'Unknown'}</div>
+            <div className="text-dark">{employee?.name || record.employeeName || 'Unknown'}</div>
             <div className="text-muted" style={{ fontSize: '11px' }}>ID: {record.employeeId}</div>
           </div>
         </div>
@@ -1167,16 +1167,16 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       key: 'department',
       header: 'Department',
       accessor: ({ record, employee }) => employee?.department || record.department || 'N/A',
-      render: ({ record, employee }) => <span className="small text-muted">{employee?.department || record.department || 'N/A'}</span>
+      render: ({ record, employee }) => <span className="text-muted">{employee?.department || record.department || 'N/A'}</span>
     },
-    { key: 'date', header: 'Date', accessor: ({ record }) => record.date, render: ({ record }) => <span className="small fw-bold text-primary-emphasis">{record.date}</span> },
+    { key: 'date', header: 'Date', accessor: ({ record }) => record.date, render: ({ record }) => <span className="text-primary-emphasis">{record.date}</span> },
     {
       key: 'clockIn',
       header: 'Clock In',
       accessor: ({ record }) => record.clockIn || '',
       render: ({ record }) => (
-        <div className="d-flex align-items-center gap-1 small text-dark">
-          <Clock size={12} />
+        <div className="d-flex align-items-center gap-1 text-dark">
+          <Clock size={12} color="#2F5596" />
           {record.clockIn || '--:--'}
         </div>
       )
@@ -1186,8 +1186,8 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       header: 'Clock Out',
       accessor: ({ record }) => record.clockOut || '',
       render: ({ record }) => (
-        <div className="d-flex align-items-center gap-1 small text-dark">
-          <Clock size={12} />
+        <div className="d-flex align-items-center gap-1 text-dark">
+          <Clock size={12} color="#2F5596" />
           {record.clockOut || '--:--'}
         </div>
       )
@@ -1196,7 +1196,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       key: 'workDuration',
       header: 'Total Time',
       accessor: ({ record }) => record.workDuration || '',
-      render: ({ record }) => <span className="small fw-medium">{record.workDuration || '--:--'}</span>
+      render: ({ record }) => <span>{record.workDuration || '--:--'}</span>
     },
     {
       key: 'status',
@@ -1214,11 +1214,11 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         if (!summary.total) return <span className="text-muted">--</span>;
         return (
           <div className="d-flex align-items-center gap-2">
-            <span className="fw-bold" style={{ color: '#2F5596' }}>
+            <span style={{ color: '#2F5596' }}>
               {formatLeaveNumber(summary.used)}/{formatLeaveNumber(summary.total)}
               <span className="ms-1 text-muted">({formatLeaveNumber(summary.left)} left)</span>
             </span>
-            {employee && <Info size={14} className="text-muted cursor-pointer" onClick={() => onViewBalance?.(employee)} />}
+            {employee && <Info size={14} className="text-primary cursor-pointer" onClick={() => onViewBalance?.(employee)} />}
           </div>
         );
       }
@@ -1229,7 +1229,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       render: ({ employee, record }) => {
         const monthlyUsage = getMonthlyLeaveUsage(employee, record);
         return (
-          <span className="fw-bold" style={{ color: '#2F5596' }}>
+          <span style={{ color: '#2F5596' }}>
             {formatLeaveNumber(monthlyUsage.taken)}/{monthlyUsage.totalDaysInMonth}
           </span>
         );
@@ -1285,7 +1285,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             </label>
             <button
               type="button"
-              className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
+              className="btn btn-default btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
               onClick={handleExportFilteredAttendance}
               disabled={tableRows.length === 0 || isImporting}
             >
@@ -1293,11 +1293,13 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             </button>
             <button
               type="button"
-              className="btn btn-outline-danger btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
+              className="p-0 border-0 bg-transparent flex-shrink-0"
+              style={{ color: '#d14b64', display: 'flex' }}
               onClick={handleOpenDeleteModal}
               disabled={isImporting}
+              title="Delete"
             >
-              <Trash2 size={14} /> Delete By Date
+              <Trash2 size={16} />
             </button>
             {viewMode === 'Daily' && (
               <>
@@ -1328,7 +1330,9 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         <div className="d-flex flex-wrap gap-5 mb-4 border-top pt-3">
           {Object.entries(teams).map(([dept, members]) => (
             <div key={dept} className="team-filter-group">
-              <div className="small text-muted border-bottom mb-2 pb-1 fw-bold text-uppercase" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>{dept} Team</div>
+              <div className="team ng-scope">
+                <label className="BdrBtm">{dept} Team</label>
+              </div>
               <div className="d-flex align-items-center gap-2">
                 {members.map((m) => (
                   <div
@@ -1359,8 +1363,8 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             className="d-flex align-items-center gap-2 py-2 cursor-pointer"
             onClick={() => setIsDateAccordionOpen(!isDateAccordionOpen)}
           >
-            {isDateAccordionOpen ? <ChevronDown size={18} className="text-dark" /> : <ChevronRight size={18} className="text-dark" />}
-            <span className="fw-bold small text-dark">Date</span>
+            {isDateAccordionOpen ? <ChevronDown size={18} className="text-primary" /> : <ChevronRight size={18} className="text-primary" />}
+            <span className="text-dark">Date</span>
           </div>
 
           {isDateAccordionOpen && (
@@ -1376,13 +1380,13 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                       checked={selectedDateFilter === filter}
                       onChange={() => handleDateFilterChange(filter)}
                     />
-                    <label htmlFor={`radio-date-${filter}`} className="small text-muted mb-0 cursor-pointer">{filter}</label>
+                    <label htmlFor={`radio-date-${filter}`} className="text-muted mb-0 cursor-pointer">{filter}</label>
                   </div>
                 ))}
               </div>
               <div className="d-flex flex-wrap align-items-end gap-3">
                 <div className="d-flex align-items-center gap-2">
-                  <label className="small text-muted fw-bold">Start Date</label>
+                  <label className="text-muted">Start Date</label>
                   <input
                     type="date"
                     className="form-control form-control-sm shadow-xs"
@@ -1392,11 +1396,11 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                   />
                 </div>
                 <div className="d-flex align-items-center gap-2">
-                  <label className="small text-muted fw-bold">End Date</label>
+                  <label className="text-muted">End Date</label>
                   <input
                     type="date"
                     className="form-control form-control-sm shadow-xs"
-                    style={{ width: '135px' }}
+                    style={{ width: '140px' }}
                     value={endDate}
                     onChange={e => { setEndDate(e.target.value); setSelectedDateFilter('Custom'); }}
                   />
@@ -1517,7 +1521,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                   </option>
                 ))}
               </select>
-              <small className="text-muted">Default is All Users.</small>
+              <span className="text-muted">Default is All Users.</span>
             </div>
           </div>
         </form>

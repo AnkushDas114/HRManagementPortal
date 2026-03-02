@@ -2,7 +2,7 @@
 import * as React from 'react';
 import type { LeaveRequest, Employee } from '../types';
 import { LeaveStatus } from '../types';
-import { Users, Edit, Download, Plus, Search, Calendar, Clock, Info } from 'lucide-react';
+import { Users, Download, Plus, Search, Calendar, Clock, Info, Edit } from 'lucide-react';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import Modal from '../ui/Modal';
 import { todayIST } from '../utils/dateTime';
@@ -202,7 +202,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
             className="rounded-circle border shadow-sm"
             style={{ width: '40px', height: '40px', objectFit: 'cover' }}
           />
-          <div className="fw-semibold text-dark fs-6">{request.employee.name}</div>
+          <div className="text-dark fs-6">{request.employee.name}</div>
         </div>
       )
     },
@@ -216,7 +216,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       key: 'leaveType',
       header: 'Request Type',
       render: (request) => (
-        <span className="small fw-semibold py-1 px-3 rounded border" style={{ backgroundColor: '#f8f9fa', color: '#333' }}>
+        <span className="py-1 px-3 rounded border" style={{ backgroundColor: '#f8f9fa', color: '#333' }}>
           {request.leaveType}
         </span>
       )
@@ -227,7 +227,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       key: 'days',
       header: 'Duration',
       render: (request) => (
-        <span className="fw-bold" style={{ color: '#2F5596', fontSize: '15px' }}>
+        <span style={{ color: '#2F5596', fontSize: '15px' }}>
           {request.days} Day(s)
         </span>
       )
@@ -255,21 +255,21 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
 
   return (
     <>
-      <div className="card shadow-sm border-0 animate-in fade-in overflow-hidden" style={{ borderRadius: '8px' }}>
+      <div className="card shadow-sm border-0 animate-in fade-in overflow-hidden px-4" style={{ borderRadius: '8px' }}>
         <div className="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom border-light">
           <h2 className="h5 mb-0 d-flex align-items-center gap-2" style={{ color: '#2F5596', fontWeight: 600 }}>
             <Users size={20} /> Employees On Leave / WFH Today
           </h2>
           <div className="d-flex align-items-center gap-2">
             <button
-              className="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-bold px-3 shadow-xs"
+              className="btn btn-primary btn-sm d-flex align-items-center gap-2"
               onClick={() => setIsAddLeaveModalOpen(true)}
               style={{ borderRadius: '4px' }}
             >
               <Plus size={16} /> Add Employee Leave/WFH
             </button>
             <button
-              className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
+              className="btn btn-default btn-sm d-flex align-items-center gap-2"
               onClick={handleDownloadExcel}
               style={{ borderRadius: '4px' }}
               disabled={onLeaveToday.length === 0}
@@ -317,7 +317,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
               </label>
               <div className="position-relative">
                 <div className="position-absolute h-100 d-flex align-items-center ps-3" style={{ zIndex: 5 }}>
-                  <Search size={16} className="text-muted" />
+                  <Search size={16} color="#2F5596" />
                 </div>
                 <input
                   type="text"
@@ -345,8 +345,8 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
                     >
                       <img src={emp.avatar} width="36" height="36" className="rounded-circle border" />
                       <div>
-                        <div className="fw-bold small">{emp.name}</div>
-                        <div className="text-muted small">ID: {emp.id} • {emp.department}</div>
+                        <div className="fw-bold">{emp.name}</div>
+                        <div className="text-muted">ID: {emp.id} • {emp.department}</div>
                       </div>
                     </button>
                   ))}
@@ -359,8 +359,8 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
                 <div className="p-3 rounded-3 border bg-light d-flex align-items-center gap-3">
                   <img src={selectedEmployee.avatar} width="48" height="48" className="rounded-circle border shadow-sm" />
                   <div>
-                    <div className="fw-bold text-dark">{selectedEmployee.name}</div>
-                    <div className="text-muted small">{selectedEmployee.position} • {selectedEmployee.department}</div>
+                    <div className="text-dark">{selectedEmployee.name}</div>
+                    <div className="text-muted">{selectedEmployee.position} • {selectedEmployee.department}</div>
                   </div>
                   <button type="button" className="btn btn-sm btn-outline-danger ms-auto" onClick={() => resetForm()}>Change</button>
                 </div>
@@ -440,7 +440,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
 
             {leaveFormData.isHalfDay && (
               <div className="col-12 animate-in slide-in-from-top-1">
-                <label className="form-label fw-bold small text-muted text-uppercase">Half Day Type</label>
+                <label className="form-label fw-bold text-muted text-uppercase">Half Day Type</label>
                 <div className="d-flex gap-4 p-2">
                   <div className="form-check">
                     <input
@@ -484,7 +484,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
                 <div className="p-3 border rounded bg-white shadow-xs">
                   {/* Recurrence Pattern Selection */}
                   <div className="mb-3">
-                    <label className="form-label fw-bold small text-primary text-uppercase">Recurrence Frequency</label>
+                    <label className="form-label fw-bold text-primary text-uppercase">Recurrence Frequency</label>
                     <div className="d-flex flex-wrap gap-3">
                       {(['Daily', 'Weekly', 'Monthly', 'Yearly'] as const).map(freq => (
                         <div key={freq} className="form-check">
@@ -497,7 +497,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
                             checked={leaveFormData.recurringFrequency === freq}
                             onChange={e => setLeaveFormData({ ...leaveFormData, recurringFrequency: e.target.value as any })}
                           />
-                          <label className="form-check-label small fw-medium" htmlFor={`freq${freq}_alt`}>{freq}</label>
+                          <label className="form-check-label fw-medium" htmlFor={`freq${freq}_alt`}>{freq}</label>
                         </div>
                       ))}
                     </div>
@@ -509,20 +509,20 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
                       <div className="p-2 border rounded-3 bg-light-subtle">
                         <div className="form-check mb-2">
                           <input className="form-check-input" type="radio" name="dailyP" id="dE" checked={!leaveFormData.dailyWeekdaysOnly} onChange={() => setLeaveFormData({ ...leaveFormData, dailyWeekdaysOnly: false })} />
-                          <label className="form-check-label small" htmlFor="dE">
+                          <label className="form-check-label" htmlFor="dE">
                             every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.dailyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, dailyInterval: parseInt(e.target.value) || 1 })} /> days
                           </label>
                         </div>
                         <div className="form-check">
                           <input className="form-check-input" type="radio" name="dailyP" id="dW" checked={leaveFormData.dailyWeekdaysOnly} onChange={() => setLeaveFormData({ ...leaveFormData, dailyWeekdaysOnly: true })} />
-                          <label className="form-check-label small" htmlFor="dW">every weekdays</label>
+                          <label className="form-check-label" htmlFor="dW">every weekdays</label>
                         </div>
                       </div>
                     )}
 
                     {leaveFormData.recurringFrequency === 'Weekly' && (
                       <div className="p-2 border rounded-3 bg-light-subtle">
-                        <div className="mb-2 small">
+                        <div className="mb-2">
                           every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={leaveFormData.weeklyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, weeklyInterval: parseInt(e.target.value) || 1 })} /> week(s) on
                         </div>
                         <div className="d-flex flex-wrap gap-2">
@@ -540,7 +540,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
                                   setLeaveFormData({ ...leaveFormData, weeklyDays: days });
                                 }}
                               />
-                              <label className="form-check-label small" htmlFor={`day${day}_alt`}>{day.slice(0, 3)}</label>
+                              <label className="form-check-label" htmlFor={`day${day}_alt`}>{day.slice(0, 3)}</label>
                             </div>
                           ))}
                         </div>
@@ -551,13 +551,13 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
                       <div className="p-2 border rounded-3 bg-light-subtle">
                         <div className="form-check mb-2">
                           <input className="form-check-input" type="radio" name="mP" id="mD" checked={leaveFormData.monthlyPattern === 'day'} onChange={() => setLeaveFormData({ ...leaveFormData, monthlyPattern: 'day' })} />
-                          <label className="form-check-label small" htmlFor="mD">
+                          <label className="form-check-label" htmlFor="mD">
                             Day <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '50px' }} min="1" max="31" value={leaveFormData.monthlyDay} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyDay: parseInt(e.target.value) || 1 })} /> of every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '50px' }} min="1" value={leaveFormData.monthlyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyInterval: parseInt(e.target.value) || 1 })} /> month(s)
                           </label>
                         </div>
                         <div className="form-check">
                           <input className="form-check-input" type="radio" name="mP" id="mT" checked={leaveFormData.monthlyPattern === 'the'} onChange={() => setLeaveFormData({ ...leaveFormData, monthlyPattern: 'the' })} />
-                          <label className="form-check-label small" htmlFor="mT">
+                          <label className="form-check-label" htmlFor="mT">
                             the <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.monthlyWeekNumber} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyWeekNumber: e.target.value as any })}>
                               <option value="first">first</option><option value="second">second</option><option value="third">third</option><option value="fourth">fourth</option><option value="last">last</option>
                             </select> <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.monthlyWeekDay} onChange={e => setLeaveFormData({ ...leaveFormData, monthlyWeekDay: e.target.value })}>
@@ -572,7 +572,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
                       <div className="p-2 border rounded-3 bg-light-subtle">
                         <div className="form-check mb-2">
                           <input className="form-check-input" type="radio" name="yP" id="yE" checked={leaveFormData.yearlyPattern === 'every'} onChange={() => setLeaveFormData({ ...leaveFormData, yearlyPattern: 'every' })} />
-                          <label className="form-check-label small" htmlFor="yE">
+                          <label className="form-check-label" htmlFor="yE">
                             every <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyMonth} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyMonth: e.target.value })}>
                               {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => <option key={m} value={m}>{m}</option>)}
                             </select> <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '50px' }} min="1" value={leaveFormData.yearlyInterval} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyInterval: parseInt(e.target.value) || 1 })} />
@@ -580,7 +580,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
                         </div>
                         <div className="form-check">
                           <input className="form-check-input" type="radio" name="yP" id="yT" checked={leaveFormData.yearlyPattern === 'the'} onChange={() => setLeaveFormData({ ...leaveFormData, yearlyPattern: 'the' })} />
-                          <label className="form-check-label small" htmlFor="yT">
+                          <label className="form-check-label" htmlFor="yT">
                             the <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyWeekNumber} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyWeekNumber: e.target.value as any })}>
                               <option value="first">first</option><option value="second">second</option><option value="third">third</option><option value="fourth">fourth</option><option value="last">last</option>
                             </select> <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={leaveFormData.yearlyWeekDay} onChange={e => setLeaveFormData({ ...leaveFormData, yearlyWeekDay: e.target.value })}>
@@ -596,21 +596,21 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
 
                   {/* Date Range for Recurrence */}
                   <div>
-                    <label className="form-label fw-bold small text-primary text-uppercase">End Preference</label>
+                    <label className="form-label fw-bold text-primary text-uppercase">End Preference</label>
                     <div className="p-2 border rounded-3 bg-light-subtle">
-                      <div className="form-check mb-2">
-                        <input className="form-check-input" type="radio" name="endOpt" id="nE" checked={leaveFormData.endDateOption === 'noEnd'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'noEnd' })} />
-                        <label className="form-check-label small" htmlFor="nE">no end date</label>
+                      <div className="radio mb-2">
+                        <input className="radio-input" type="radio" name="endOpt" id="nE" checked={leaveFormData.endDateOption === 'noEnd'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'noEnd' })} />
+                        <label className="radio-label" htmlFor="nE">no end date</label>
                       </div>
-                      <div className="form-check mb-2">
-                        <input className="form-check-input" type="radio" name="endOpt" id="eB" checked={leaveFormData.endDateOption === 'endBy'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endBy' })} />
-                        <label className="form-check-label small" htmlFor="eB">
+                      <div className="radio mb-2">
+                        <input className="radio-input" type="radio" name="endOpt" id="eB" checked={leaveFormData.endDateOption === 'endBy'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endBy' })} />
+                        <label className="radio-label" htmlFor="eB">
                           end by <input type="date" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '130px' }} value={leaveFormData.recurrenceEndDate} onChange={e => setLeaveFormData({ ...leaveFormData, recurrenceEndDate: e.target.value })} disabled={leaveFormData.endDateOption !== 'endBy'} />
                         </label>
                       </div>
-                      <div className="form-check">
-                        <input className="form-check-input" type="radio" name="endOpt" id="eA" checked={leaveFormData.endDateOption === 'endAfter'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endAfter' })} />
-                        <label className="form-check-label small" htmlFor="eA">
+                      <div className="radio">
+                        <input className="radio-input" type="radio" name="endOpt" id="eA" checked={leaveFormData.endDateOption === 'endAfter'} onChange={() => setLeaveFormData({ ...leaveFormData, endDateOption: 'endAfter' })} />
+                        <label className="radio-label" htmlFor="eA">
                           end after <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '50px' }} min="1" value={leaveFormData.recurrenceOccurrences} onChange={e => setLeaveFormData({ ...leaveFormData, recurrenceOccurrences: parseInt(e.target.value) || 1 })} disabled={leaveFormData.endDateOption !== 'endAfter'} /> occurrences
                         </label>
                       </div>
