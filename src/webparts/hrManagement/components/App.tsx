@@ -3277,7 +3277,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
             <div className="tab-content">
               {role === UserRole.Employee ? (
-                <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={(preferredTab) => handleOpenLeaveModal(undefined, preferredTab)} onTabChange={setActiveTab} activeTab={activeTab} />
+                <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={(preferredTab, initialDate) => handleOpenLeaveModal(undefined, preferredTab, initialDate)} onTabChange={setActiveTab} activeTab={activeTab} />
               ) : (
                 <>
                   {activeTab === 'overview' && <Dashboard requests={leaveRequests} attendanceRecords={attendanceRecords} concernsCount={openConcernsCount} holidays={holidays} teamEvents={teamEvents} onAddTeamEvent={handleAddTeamEvent} onUpdateTeamEvent={handleUpdateTeamEvent} onDeleteTeamEvent={handleDeleteTeamEvent} onPendingClick={() => setActiveTab('leaves-request')} onOnLeaveTodayClick={() => setActiveTab('onLeaveToday')} onConcernsClick={() => setActiveTab('concerns-admin')} onOpenTeamEventForm={(eventId) => { openOutOfBoxListItemForm(sp, 'TeamCelebrations', eventId).catch(() => undefined); }} onOpenTeamEventVersionHistory={(eventId) => { void handleOpenVersionHistory('Team Event', 'TeamCelebrations', eventId); }} />}

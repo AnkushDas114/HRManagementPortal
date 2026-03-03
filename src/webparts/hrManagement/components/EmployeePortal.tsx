@@ -24,7 +24,7 @@ interface EmployeePortalProps {
   leaveQuotas: Record<string, number>;
   teamEvents: TeamEvent[];
   onRaiseConcern: (type: ConcernType, referenceId: string | number, description: string) => void;
-  onSubmitLeave: (preferredTab?: 'leave' | 'workFromHome') => void;
+  onSubmitLeave: (preferredTab?: 'leave' | 'workFromHome', initialDate?: string) => void;
   onTabChange?: (tab: string) => void;
   activeTab: string;
 }
@@ -1355,7 +1355,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               events={employeeLeaveCalendarEvents}
               showCreate={!isTrainee}
               showConcern
-              onCreate={() => onSubmitLeave('leave')}
+              onCreate={(date) => onSubmitLeave('leave', date)}
               onConcern={(event) => handleOpenConcern(ConcernType.Leave, event.referenceId || event.startDate)}
             />
           ) : (
@@ -1449,7 +1449,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               events={employeeWfhCalendarEvents}
               showCreate={!isTrainee}
               showConcern
-              onCreate={() => onSubmitLeave('workFromHome')}
+              onCreate={(date) => onSubmitLeave('workFromHome', date)}
               onConcern={(event) => handleOpenConcern(ConcernType.WorkFromHome, event.referenceId || event.startDate)}
             />
           ) : (
