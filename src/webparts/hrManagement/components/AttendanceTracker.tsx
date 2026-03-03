@@ -1329,13 +1329,13 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             </button>
             <button
               type="button"
-              className="p-0 border-0 bg-transparent flex-shrink-0"
-              style={{ color: '#d14b64', display: 'flex' }}
+              className="btn btn-default btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs"
+              // style={{ color: '#d14b64', display: 'flex', alignItems: 'center' }}
               onClick={handleOpenDeleteModal}
               disabled={isImporting}
               title="Delete"
             >
-              <Trash2 size={16} />
+              <Trash2 size={16} /> Delete Attendance By Date
             </button>
             {viewMode === 'Daily' && (
               <>
@@ -1523,7 +1523,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             <button
               type="submit"
               form="delete-attendance-form"
-              className="btn btn-danger px-4"
+              className="btn btn-primary btn-sm d-flex align-items-center gap-2 fw-medium px-3 shadow-xs mb-0"
               disabled={isDeletingRecords || !deleteDate}
             >
               {isDeletingRecords ? 'Deleting...' : 'Delete'}
