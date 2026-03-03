@@ -912,7 +912,14 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     if (!raw) return null;
 
     const match = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?$/i);
-    if (!match) return null;
+    if (!match) {
+      // Check if it's a decimal number (Excel fraction of a day)
+      const asNum = Number(raw);
+      if (!Number.isNaN(asNum) && asNum > 0 && asNum < 1 && raw.indexOf('.') !== -1) {
+        return Math.round(asNum * 24 * 60);
+      }
+      return null;
+    }
 
     let hours = Number(match[1]);
     const minutes = Number(match[2]);
@@ -964,7 +971,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     }
 
     const scheduledMinutes = 9 * 60;
-    const formatMinutesAsHM = (minutes: number): string => {
+    const formatMinsExcel = (minutes: number): string => {
       const safeMinutes = Math.max(0, Math.floor(Number(minutes) || 0));
       const hrs = Math.floor(safeMinutes / 60);
       const mins = safeMinutes % 60;
@@ -1077,11 +1084,11 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
           parsedDate
             ? new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Kolkata' }).format(parsedDate)
             : '',
-          formatMinutesAsHM(scheduledMinutes),
+          formatMinsExcel(scheduledMinutes),
           record.clockIn || 'N/A',
           record.clockOut || 'N/A',
-          formatMinutesAsHM(workedMinutes),
-          formatMinutesAsHM(shortageMinutes),
+          formatMinsExcel(workedMinutes),
+          formatMinsExcel(shortageMinutes),
           shortageMinutes
         ];
       } else {
@@ -1096,7 +1103,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             : '',
           record.clockIn || 'N/A',
           record.clockOut || 'N/A',
-          formatMinutesAsHM(workedMinutes),
+          formatMinsExcel(workedMinutes),
           shortageMinutes
         ];
       }
@@ -1141,6 +1148,32 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     referenceDate,
     parseRecordDate
   ]);
+
+  const formatMinutesAsHM = React.useCallback((minutes: number): string => {
+    const safeMinutes = Math.max(0, Math.floor(Number(minutes) || 0));
+    const hrs = Math.floor(safeMinutes / 60);
+    const mins = safeMinutes % 60;
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+  }, []);
+
+  // Auto-calculate Work Duration in Edit Modal
+  React.useEffect(() => {
+    if (!isEditModalOpen || !editingAttendance) return;
+
+    const { clockIn, clockOut } = editingAttendance;
+    if (!clockIn || !clockOut) return;
+
+    const inMins = parseTimeToMinutes(clockIn);
+    const outMins = parseTimeToMinutes(clockOut);
+
+    if (inMins !== null && outMins !== null && outMins > inMins) {
+      const durationStr = formatMinutesAsHM(outMins - inMins);
+
+      if (editingAttendance.workDuration !== durationStr) {
+        setEditingAttendance(prev => prev ? ({ ...prev, workDuration: durationStr }) : null);
+      }
+    }
+  }, [editingAttendance?.clockIn, editingAttendance?.clockOut, isEditModalOpen, parseTimeToMinutes, formatMinutesAsHM]);
 
   const columns = React.useMemo<ColumnDef<{ record: AttendanceRecord; employee: Employee }>[]>(() => ([
     {
@@ -1196,7 +1229,10 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       key: 'workDuration',
       header: 'Total Time',
       accessor: ({ record }) => record.workDuration || '',
-      render: ({ record }) => <span>{record.workDuration || '--:--'}</span>
+      render: ({ record }) => {
+        const mins = parseDurationToMinutes(record.workDuration);
+        return <span>{mins !== null ? formatMinutesAsHM(mins) : (record.workDuration || '--:--')}</span>;
+      }
     },
     {
       key: 'status',
@@ -1266,7 +1302,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         </div>
       )
     }
-  ]), [formatLeaveNumber, getLeaveSummary, getMonthlyLeaveUsage, onViewBalance, handleOpenEditAttendance, onDeleteAttendanceRecord]);
+  ]), [formatLeaveNumber, getLeaveSummary, getMonthlyLeaveUsage, onViewBalance, handleOpenEditAttendance, onDeleteAttendanceRecord, parseDurationToMinutes, formatMinutesAsHM]);
 
   return (
     <div className="card shadow-sm border-0 bg-white">
@@ -1607,6 +1643,14 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                   placeholder="HH:mm"
                   value={editingAttendance.clockIn || ''}
                   onChange={(event) => setEditingAttendance({ ...editingAttendance, clockIn: event.target.value })}
+                  onBlur={(event) => {
+                    const formatted = parseTimeToMinutes(event.target.value);
+                    if (formatted !== null) {
+                      const h = Math.floor(formatted / 60);
+                      const m = formatted % 60;
+                      setEditingAttendance({ ...editingAttendance, clockIn: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}` });
+                    }
+                  }}
                 />
               </div>
               <div className="col-md-4">
@@ -1617,6 +1661,14 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                   placeholder="HH:mm"
                   value={editingAttendance.clockOut || ''}
                   onChange={(event) => setEditingAttendance({ ...editingAttendance, clockOut: event.target.value })}
+                  onBlur={(event) => {
+                    const formatted = parseTimeToMinutes(event.target.value);
+                    if (formatted !== null) {
+                      const h = Math.floor(formatted / 60);
+                      const m = formatted % 60;
+                      setEditingAttendance({ ...editingAttendance, clockOut: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}` });
+                    }
+                  }}
                 />
               </div>
               <div className="col-md-4">
