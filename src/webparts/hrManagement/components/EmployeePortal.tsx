@@ -619,10 +619,14 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     const allStats = Object.keys(leaveQuotas)
       .filter(type => {
         const lowerType = type.toLowerCase();
-        const isSpecialType = lowerType.includes('maternity') || lowerType.includes('paternity');
-        if (isSpecialType) {
-          // Only show if the user has actually requested this type of leave at least once
-          return myLeaveRequests.some(r => r.leaveType === type);
+        const isMaternity = lowerType.includes('maternity');
+        const isPaternity = lowerType.includes('paternity');
+        if (isMaternity || isPaternity) {
+          // Only show if the user has actually requested this type of leave at least once (fuzzy match)
+          return myLeaveRequests.some(r => {
+            const rType = String(r.leaveType || '').toLowerCase();
+            return (isMaternity && rType.includes('maternity')) || (isPaternity && rType.includes('paternity'));
+          });
         }
         return true;
       })

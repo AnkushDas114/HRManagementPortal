@@ -83,6 +83,7 @@ export interface Employee {
   modifiedAt?: string;
   createdByName?: string;
   modifiedByName?: string;
+  employeeStatus?: 'Active Employee' | 'Ex-Staff';
 }
 
 export interface LeaveRequest {

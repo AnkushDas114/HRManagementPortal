@@ -74,9 +74,11 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
     if (!searchTerm.trim()) return [];
     const term = searchTerm.toLowerCase();
     return employees.filter(emp =>
-      emp.name.toLowerCase().includes(term) ||
-      emp.id.toLowerCase().includes(term) ||
-      (emp.email && emp.email.toLowerCase().includes(term))
+      emp.employeeStatus !== 'Ex-Staff' && (
+        emp.name.toLowerCase().includes(term) ||
+        emp.id.toLowerCase().includes(term) ||
+        (emp.email && emp.email.toLowerCase().includes(term))
+      )
     ).slice(0, 5);
   }, [employees, searchTerm]);
 

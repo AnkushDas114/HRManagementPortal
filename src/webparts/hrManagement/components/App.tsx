@@ -60,7 +60,7 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 const HR_ALLOWED_NAMES = ['Juli', 'Prashant', 'Laxmi Prashanti', 'Satendra Shakya', 'Tanu Jain', 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi', 'Vikas Kumar Yadav', 'Vikas Yadav'];
 const HR_ALLOWED_EMAILS = ['laxmip@smalsus.com', 'skshakya@hochhuth-consulting.de'];
 
-const LEAVE_EVENT_COLORS = ['#5f8fbd', '#050406ff', '#4d7ac7', '#6c63c7', '#557bd6', '#7a6cd6', '#4f70b8', '#7b5fc1', '#6680d2', '#6a57b0'];
+const LEAVE_EVENT_COLORS = ['#5f8fbd', '#4a88cc', '#4d7ac7', '#6c63c7', '#557bd6', '#7a6cd6', '#4f70b8', '#7b5fc1', '#6680d2', '#6a57b0'];
 const HOLIDAY_EVENT_COLOR = '#1f8f3a';
 type SendReportDatePreset =
   | 'Custom'
@@ -85,6 +85,18 @@ const endOfDay = (date: Date): Date => {
   const d = new Date(date);
   d.setHours(23, 59, 59, 999);
   return d;
+};
+
+const toDateValue = (value: string): Date | null => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split('-').map(Number);
+    const parsed = new Date(year, month - 1, day, 12, 0, 0);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
 const resolveSendReportRange = (
@@ -162,6 +174,8 @@ interface SendReportDetailRow {
   team: string;
   status: string;
   totalLeaveThisYear: number;
+  maternityUsage?: string;
+  paternityUsage?: string;
 }
 
 interface SendReportSnapshot {
@@ -516,8 +530,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
     if (!sp) return;
     setDirectoryError(null);
     try {
-      const mapped = await getAllEmployees(sp);
-      setDirectoryEmployees(mapped);
+      const allMapped = await getAllEmployees(sp);
+      setDirectoryEmployees(allMapped);
     } catch (err: any) {
       setDirectoryError('Failed to load Employee Master directory.');
       setDirectoryEmployees([]);
@@ -612,7 +626,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
     employerESI: 0,
     salaryInsurance: 0,
     salaryBonus: 0,
-    insuranceTaken: 'Yes'
+    insuranceTaken: 'Yes',
+    employeeStatus: 'Active Employee'
   });
 
   // Leave Form Modal State
@@ -684,7 +699,35 @@ const App: React.FC<AppProps> = ({ sp }) => {
     workFromHomeType: 'Work From Home',
     startDate: todayIST(),
     endDate: todayIST(),
-    reason: ''
+    reason: '',
+    isHalfDay: false,
+    halfDayType: 'first' as 'first' | 'second',
+    isRecurring: false,
+    recurringFrequency: 'Daily' as 'Daily' | 'Weekly' | 'Monthly' | 'Yearly',
+    // Daily pattern
+    dailyInterval: 1,
+    dailyWeekdaysOnly: false,
+    // Weekly pattern
+    weeklyInterval: 1,
+    weeklyDays: [] as string[],
+    // Monthly pattern
+    monthlyPattern: 'day' as 'day' | 'the',
+    monthlyDay: 1,
+    monthlyInterval: 1,
+    monthlyWeekNumber: 'first' as 'first' | 'second' | 'third' | 'fourth' | 'last',
+    monthlyWeekDay: 'Monday',
+    monthlyIntervalThe: 1,
+    // Yearly pattern
+    yearlyPattern: 'every' as 'every' | 'the',
+    yearlyMonth: 'January',
+    yearlyInterval: 1,
+    yearlyWeekNumber: 'first' as 'first' | 'second' | 'third' | 'fourth' | 'last',
+    yearlyWeekDay: 'Monday',
+    yearlyMonthThe: 'January',
+    // Date range
+    endDateOption: 'noEnd' as 'noEnd' | 'endBy' | 'endAfter',
+    recurrenceEndDate: '',
+    recurrenceOccurrences: 1
   });
 
   // Policy Modal State
@@ -958,7 +1001,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     }
   };
 
-  const handleOpenLeaveModal = (empOrReq?: Employee | LeaveRequest, preferredTab?: 'leave' | 'workFromHome') => {
+  const handleOpenLeaveModal = (empOrReq?: Employee | LeaveRequest, preferredTab?: 'leave' | 'workFromHome', initialDate?: string) => {
     let emp: Employee;
     let req: LeaveRequest | undefined;
     if (empOrReq && 'leaveType' in empOrReq) {
@@ -1011,12 +1054,35 @@ const App: React.FC<AppProps> = ({ sp }) => {
         workFromHomeType: req.leaveType || (workFromHomeTypes[0] || 'Work From Home'),
         startDate: req.startDate || todayIST(),
         endDate: req.endDate || req.startDate || todayIST(),
-        reason: req.reason || ''
+        reason: req.reason || '',
+        isHalfDay: req.isHalfDay || false,
+        halfDayType: req.halfDayType || 'first',
+        isRecurring: req.isRecurring || false,
+        recurringFrequency: (req.recurringFrequency as 'Daily' | 'Weekly' | 'Monthly' | 'Yearly') || 'Daily',
+        dailyInterval: 1,
+        dailyWeekdaysOnly: false,
+        weeklyInterval: 1,
+        weeklyDays: [],
+        monthlyPattern: 'day' as 'day' | 'the',
+        monthlyDay: 1,
+        monthlyInterval: 1,
+        monthlyWeekNumber: 'first' as 'first' | 'second' | 'third' | 'fourth' | 'last',
+        monthlyWeekDay: 'Monday',
+        monthlyIntervalThe: 1,
+        yearlyPattern: 'every' as 'every' | 'the',
+        yearlyMonth: 'January',
+        yearlyInterval: 1,
+        yearlyWeekNumber: 'first' as 'first' | 'second' | 'third' | 'fourth' | 'last',
+        yearlyWeekDay: 'Monday',
+        yearlyMonthThe: 'January',
+        endDateOption: 'noEnd' as 'noEnd' | 'endBy' | 'endAfter',
+        recurrenceEndDate: '',
+        recurrenceOccurrences: 1
       });
     } else {
       setLeaveModalTab(preferredTab || 'leave');
       setEditingRequest(null);
-      const todayStr = todayIST();
+      const todayStr = initialDate || todayIST();
       const defaultType = Object.keys(leaveQuotas)[0] || 'Sick';
       setLeaveFormData({
         leaveType: defaultType,
@@ -1051,7 +1117,30 @@ const App: React.FC<AppProps> = ({ sp }) => {
         workFromHomeType: workFromHomeTypes[0] || 'Work From Home',
         startDate: todayStr,
         endDate: todayStr,
-        reason: ''
+        reason: '',
+        isHalfDay: false,
+        halfDayType: 'first' as 'first' | 'second',
+        isRecurring: false,
+        recurringFrequency: 'Daily' as 'Daily' | 'Weekly' | 'Monthly' | 'Yearly',
+        dailyInterval: 1,
+        dailyWeekdaysOnly: false,
+        weeklyInterval: 1,
+        weeklyDays: [],
+        monthlyPattern: 'day' as 'day' | 'the',
+        monthlyDay: 1,
+        monthlyInterval: 1,
+        monthlyWeekNumber: 'first' as 'first' | 'second' | 'third' | 'fourth' | 'last',
+        monthlyWeekDay: 'Monday',
+        monthlyIntervalThe: 1,
+        yearlyPattern: 'every' as 'every' | 'the',
+        yearlyMonth: 'January',
+        yearlyInterval: 1,
+        yearlyWeekNumber: 'first' as 'first' | 'second' | 'third' | 'fourth' | 'last',
+        yearlyWeekDay: 'Monday',
+        yearlyMonthThe: 'January',
+        endDateOption: 'noEnd' as 'noEnd' | 'endBy' | 'endAfter',
+        recurrenceEndDate: '',
+        recurrenceOccurrences: 1
       });
     }
     setIsLeaveModalOpen(true);
@@ -1071,17 +1160,19 @@ const App: React.FC<AppProps> = ({ sp }) => {
       if (editingRequest) {
         if (leaveModalTab === 'workFromHome') {
           const start = new Date(workFromHomeFormData.startDate);
-          const end = new Date(workFromHomeFormData.endDate || workFromHomeFormData.startDate);
-          const diffTime = Math.abs(end.getTime() - start.getTime());
-          const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          const end = workFromHomeFormData.isHalfDay ? start : new Date(workFromHomeFormData.endDate || workFromHomeFormData.startDate);
+          let days = 1;
+          if (workFromHomeFormData.isHalfDay) {
+            days = 0.5;
+          } else {
+            const diffTime = Math.abs(end.getTime() - start.getTime());
+            days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          }
 
           await updateLeaveRequest(sp, editingRequest.id, {
+            ...workFromHomeFormData,
             leaveType: workFromHomeFormData.workFromHomeType || 'Work From Home',
-            startDate: workFromHomeFormData.startDate,
-            endDate: workFromHomeFormData.endDate || workFromHomeFormData.startDate,
-            reason: workFromHomeFormData.reason,
-            isHalfDay: false,
-            isRecurring: false,
+            endDate: workFromHomeFormData.isHalfDay ? workFromHomeFormData.startDate : (workFromHomeFormData.endDate || workFromHomeFormData.startDate),
             requestCategory: 'Work From Home'
           }, days);
         } else {
@@ -1099,25 +1190,28 @@ const App: React.FC<AppProps> = ({ sp }) => {
       } else {
         if (leaveModalTab === 'workFromHome') {
           const start = new Date(workFromHomeFormData.startDate);
-          const end = new Date(workFromHomeFormData.endDate || workFromHomeFormData.startDate);
-          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+          const end = workFromHomeFormData.isHalfDay ? start : new Date(workFromHomeFormData.endDate || workFromHomeFormData.startDate);
+          if (Number.isNaN(start.getTime()) || (!workFromHomeFormData.isHalfDay && Number.isNaN(end.getTime()))) {
             showAlert('Please select valid start and end dates for work from home request.');
             return;
           }
-          if (end < start) {
+          if (!workFromHomeFormData.isHalfDay && end < start) {
             showAlert('End date cannot be earlier than start date.');
             return;
           }
-          const diffTime = Math.abs(end.getTime() - start.getTime());
-          const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+          let days = 1;
+          if (workFromHomeFormData.isHalfDay) {
+            days = 0.5;
+          } else {
+            const diffTime = Math.abs(end.getTime() - start.getTime());
+            days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          }
 
           await createLeaveRequest(sp, selectedEmployeeForLeave, {
+            ...workFromHomeFormData,
             leaveType: workFromHomeFormData.workFromHomeType || 'Work From Home',
-            startDate: workFromHomeFormData.startDate,
-            endDate: workFromHomeFormData.endDate || workFromHomeFormData.startDate,
-            reason: workFromHomeFormData.reason,
-            isHalfDay: false,
-            isRecurring: false,
+            endDate: workFromHomeFormData.isHalfDay ? workFromHomeFormData.startDate : (workFromHomeFormData.endDate || workFromHomeFormData.startDate),
             requestCategory: 'Work From Home'
           }, days);
         } else {
@@ -1573,7 +1667,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
         employerESI: emp.employerESI ?? 0,
         salaryInsurance: emp.salaryInsurance ?? 0,
         salaryBonus: emp.salaryBonus ?? 0,
-        insuranceTaken: normalizedInsuranceTaken
+        insuranceTaken: normalizedInsuranceTaken,
+        employeeStatus: emp.employeeStatus || 'Active Employee'
       });
     } else {
       setEditingEmployee(null);
@@ -1599,7 +1694,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
         employerESI: 0,
         salaryInsurance: 0,
         salaryBonus: 0,
-        insuranceTaken: 'Yes'
+        insuranceTaken: 'Yes',
+        employeeStatus: 'Active Employee'
       });
     }
     setEmployeeModalTab('professional');
@@ -1942,6 +2038,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
     { key: 'department', header: 'Department', accessor: (emp) => emp.department, render: (emp) => emp.department },
     { key: 'position', header: 'Designation', accessor: (emp) => emp.position || '', render: (emp) => emp.position || '-' },
     { key: 'joiningDate', header: 'DOJ', accessor: (emp) => emp.joiningDate },
+    {
+      key: 'employeeStatus',
+      header: 'Status',
+      accessor: (emp) => emp.employeeStatus || 'Active Employee',
+      render: (emp) => {
+        const status = emp.employeeStatus || 'Active Employee';
+        const textColor = status === 'Active Employee' ? '#198754' : '#555555';
+        return <span style={{ color: textColor, fontWeight: '600' }}>{status}</span>;
+      }
+    },
     {
       key: 'actions',
       header: 'Actions',
@@ -2382,13 +2488,28 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
     const filtered = leaveRequests.filter((request) => {
       if (request.status === LeaveStatus.Rejected) return false;
-      const requestDateKey = toDateKey(request.startDate);
-      if (!requestDateKey) return false;
-      const requestDate = new Date(requestDateKey);
-      if (Number.isNaN(requestDate.getTime())) return false;
-      const requestTime = requestDate.getTime();
-      if (startBound && requestTime < startBound.getTime()) return false;
-      if (endBound && requestTime > endBound.getTime()) return false;
+      if (request.employee.employeeStatus === 'Ex-Staff') return false; // Exclude Ex-Staff
+      const requestStartKey = toDateKey(request.startDate);
+      if (!requestStartKey) return false;
+      const requestStart = new Date(requestStartKey);
+      if (Number.isNaN(requestStart.getTime())) return false;
+      const requestStartTime = requestStart.getTime();
+
+      const leaveType = String(request.leaveType || '').toLowerCase();
+      const isLongLeave = leaveType.includes('maternity') || leaveType.includes('paternity');
+
+      if (isLongLeave) {
+        // For maternity/paternity: use overlap check (include if leave is active during the period)
+        const requestEndKey = toDateKey(request.endDate) || requestStartKey;
+        const requestEnd = new Date(requestEndKey);
+        const requestEndTime = Number.isNaN(requestEnd.getTime()) ? requestStartTime : requestEnd.getTime();
+        if (startBound && requestEndTime < startBound.getTime()) return false;
+        if (endBound && requestStartTime > endBound.getTime()) return false;
+      } else {
+        // For regular leaves: check if start date falls within the range (original behavior)
+        if (startBound && requestStartTime < startBound.getTime()) return false;
+        if (endBound && requestStartTime > endBound.getTime()) return false;
+      }
       return true;
     });
 
@@ -2465,12 +2586,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
     const onLeaveEmployeeIds: Record<string, true> = {};
     filtered.forEach((request) => { onLeaveEmployeeIds[request.employee.id] = true; });
-    const totalTeamCount = directoryEmployees.length;
+
+    // Filter directory for active employees only for report counts
+    const activeDirectory = directoryEmployees.filter(emp => emp.employeeStatus !== 'Ex-Staff');
+
+    const totalTeamCount = activeDirectory.length;
     const onLeaveCount = Object.keys(onLeaveEmployeeIds).length;
     const availableCount = Math.max(0, totalTeamCount - onLeaveCount);
 
     const typeSummary: SendReportTypeSummary[] = ['Staff', 'Trainee'].map((type) => {
-      const teamMembers = directoryEmployees.filter((employee) => toEmployeeType(employee.department) === type);
+      const teamMembers = activeDirectory.filter((employee) => toEmployeeType(employee.department) === type);
       const onLeaveMembers = teamMembers.filter((employee) => Boolean(onLeaveEmployeeIds[employee.id]));
       return {
         type: type as 'Staff' | 'Trainee',
@@ -2480,14 +2605,14 @@ const App: React.FC<AppProps> = ({ sp }) => {
       };
     });
 
-    const teamNames = directoryEmployees
+    const teamNames = activeDirectory
       .map((employee) => String(employee.department || '').trim())
       .filter((team, index, arr) => Boolean(team) && arr.indexOf(team) === index)
       .sort((a, b) => a.localeCompare(b));
 
     const teamMatrix: Array<{ type: 'Staff' | 'Trainee'; cells: SendReportTeamMatrixCell[] }> = ['Staff', 'Trainee'].map((type) => {
       const cells = teamNames.map((team) => {
-        const teamMembers = directoryEmployees.filter((employee) => String(employee.department || '').trim() === team);
+        const teamMembers = activeDirectory.filter((employee) => String(employee.department || '').trim() === team);
         const teamTypeMembers = teamMembers.filter((employee) => toEmployeeType(employee.department) === type);
         const teamOnLeave = teamTypeMembers.filter((employee) => Boolean(onLeaveEmployeeIds[employee.id])).length;
         return {
@@ -2500,7 +2625,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       return { type: type as 'Staff' | 'Trainee', cells };
     });
 
-    const currentYear = getNowIST().getFullYear();
+
     const details: SendReportDetailRow[] = filtered
       .slice()
       .sort((a, b) => (a.startDate || '').localeCompare(b.startDate || '') || a.employee.name.localeCompare(b.employee.name))
@@ -2508,9 +2633,81 @@ const App: React.FC<AppProps> = ({ sp }) => {
         const leaveTypeText = request.isHalfDay
           ? `${request.leaveType} (${request.halfDayType === 'second' ? 'Second Half Day' : 'First Half Day'})`
           : request.leaveType;
-        const totalLeaveThisYear = leaveRequests
-          .filter((r) => r.employee.id === request.employee.id && r.status !== LeaveStatus.Rejected && String(r.startDate || '').startsWith(String(currentYear)))
-          .reduce((sum, r) => sum + Number(r.days || 0), 0);
+
+        // Calculate total leave within the report date range (not just current year)
+        const reportEndMs = endBound?.getTime() || now.getTime();
+        const reportStartMs = startBound?.getTime() || 0;
+        const totalLeaveInRange = leaveRequests
+          .filter((r) => {
+            if (r.employee.id !== request.employee.id) return false;
+            if (r.status === LeaveStatus.Rejected) return false;
+            const rStart = toDateValue(r.startDate);
+            const rEnd = toDateValue(r.endDate);
+            if (!rStart) return false;
+            const rStartMs = rStart.getTime();
+            const rEndMs = rEnd ? rEnd.getTime() : rStartMs;
+            // Overlap check: leave overlaps with report range
+            if (reportStartMs && rEndMs < reportStartMs) return false;
+            if (reportEndMs && rStartMs > reportEndMs) return false;
+            return true;
+          })
+          .reduce((sum, r) => {
+            const lt = String(r.leaveType || '').toLowerCase();
+            // For maternity/paternity, don't double-count here — they'll be shown separately
+            if (lt.includes('maternity') || lt.includes('paternity')) return sum;
+            return sum + Number(r.days || 0);
+          }, 0);
+
+        // Cumulative Maternity/Paternity Usage up to report end
+        const cumulativeRequests = leaveRequests.filter(r =>
+          r.employee.id === request.employee.id &&
+          r.status === LeaveStatus.Approved
+        );
+
+        const calcCumulative = (search: string) => cumulativeRequests
+          .filter(r => {
+            const rDate = toDateValue(r.startDate);
+            return rDate && rDate.getTime() <= reportEndMs &&
+              String(r.leaveType || '').toLowerCase().includes(search);
+          })
+          .reduce((sum, r) => {
+            const start = toDateValue(r.startDate);
+            const end = toDateValue(r.endDate);
+            if (!start) return sum + Number(r.days || 0);
+            // Calculate actual elapsed days: from leave start to min(leaveEnd, reportEnd)
+            const effectiveEnd = end ? Math.min(end.getTime(), reportEndMs) : reportEndMs;
+            const elapsedMs = effectiveEnd - start.getTime();
+            const elapsedDays = Math.max(0, Math.floor(elapsedMs / (1000 * 60 * 60 * 24)) + 1);
+            // Cap at total requested days (r.days) to avoid overcounting
+            const totalDays = Number(r.days || 0);
+            return sum + Math.min(elapsedDays, totalDays);
+          }, 0);
+
+        const getDynamicQuota = (search: string) => {
+          // Only assign a quota if this employee has ever requested this leave type
+          const hasEverRequested = leaveRequests.some(r =>
+            r.employee.id === request.employee.id &&
+            String(r.leaveType || '').toLowerCase().includes(search.toLowerCase())
+          );
+          if (!hasEverRequested) return 0;
+
+          const qKey = Object.keys(leaveQuotas).find(k => k.toLowerCase().includes(search.toLowerCase()));
+          const listQuota = qKey ? leaveQuotas[qKey] : 0;
+          if (listQuota > 0) return listQuota;
+          // Fallback to total days approved for this person if not in global list
+          const totalDaysApproved = cumulativeRequests
+            .filter(r => String(r.leaveType || '').toLowerCase().includes(search.toLowerCase()))
+            .reduce((sum, r) => sum + Number(r.days || 0), 0);
+          return totalDaysApproved > 0 ? totalDaysApproved : (search === 'maternity' ? 182 : 5);
+        };
+
+        const matUsed = calcCumulative('maternity');
+        const patUsed = calcCumulative('paternity');
+        const matQuota = getDynamicQuota('maternity');
+        const patQuota = getDynamicQuota('paternity');
+
+        // Total = regular leaves + elapsed maternity/paternity days
+        const grandTotal = totalLeaveInRange + matUsed + patUsed;
 
         return {
           no: index + 1,
@@ -2522,7 +2719,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
           expectedLeaveEnd: request.endDate,
           team: request.employee.department || '',
           status: String(request.status || ''),
-          totalLeaveThisYear: Number(totalLeaveThisYear.toFixed(2))
+          totalLeaveThisYear: Number(grandTotal.toFixed(2)),
+          maternityUsage: (matUsed > 0 || matQuota > 0) ? `${matUsed} / ${matQuota}` : undefined,
+          paternityUsage: (patUsed > 0 || patQuota > 0) ? `${patUsed} / ${patQuota}` : undefined
         };
       });
 
@@ -2606,7 +2805,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
         <td>${escapeHtml(item.expectedLeaveEnd)}</td>
         <td>${escapeHtml(item.team)}</td>
         <td>${escapeHtml(item.status)}</td>
-        <td>${item.totalLeaveThisYear}</td>
+        <td>
+          ${item.totalLeaveThisYear}
+          ${item.maternityUsage ? `<br/><span style="font-size:10px;color:#11803f;font-weight:bold">Mat: ${escapeHtml(item.maternityUsage)}</span>` : ''}
+          ${item.paternityUsage ? `<br/><span style="font-size:10px;color:#11803f;font-weight:bold">Pat: ${escapeHtml(item.paternityUsage)}</span>` : ''}
+        </td>
       </tr>
     `).join('');
 
@@ -3112,7 +3315,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                             showCreate
                             showEdit
                             showDelete
-                            onCreate={() => handleOpenLeaveModal(undefined, 'leave')}
+                            onCreate={(date) => handleOpenLeaveModal(undefined, 'leave', date)}
                             onEdit={(event) => {
                               if (String(event.id).indexOf('holiday-') === 0) {
                                 handleOpenHolidayModal(event.raw as Holiday);
@@ -3162,7 +3365,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                             showCreate
                             showEdit
                             showDelete
-                            onCreate={() => handleOpenLeaveModal(undefined, 'workFromHome')}
+                            onCreate={(date) => handleOpenLeaveModal(undefined, 'workFromHome', date)}
                             onEdit={(event) => {
                               if (String(event.id).indexOf('holiday-') === 0) {
                                 handleOpenHolidayModal(event.raw as Holiday);
@@ -3284,7 +3487,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                           showCreate
                           showEdit
                           showDelete
-                          onCreate={() => handleOpenLeaveModal(undefined, 'leave')}
+                          onCreate={(date) => handleOpenLeaveModal(undefined, 'leave', date)}
                           onEdit={(event) => {
                             if (String(event.id).indexOf('holiday-') === 0) {
                               handleOpenHolidayModal(event.raw as Holiday);
@@ -3884,8 +4087,201 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   value={workFromHomeFormData.endDate}
                   onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, endDate: e.target.value })}
                   required
+                  disabled={workFromHomeFormData.isHalfDay}
                 />
               </div>
+              <div className="col-12">
+                <button
+                  type="button"
+                  className={`btn popup-option-toggle ${workFromHomeFormData.isHalfDay ? 'popup-option-toggle--active' : ' btn-default'}`}
+                  onClick={() => setWorkFromHomeFormData({ ...workFromHomeFormData, isHalfDay: !workFromHomeFormData.isHalfDay })}
+                  aria-pressed={workFromHomeFormData.isHalfDay}
+                >
+                  Request Half Day
+                </button>
+              </div>
+              {workFromHomeFormData.isHalfDay && (
+                <div className="col-12">
+                  <label className="form-label">Half Day Type</label>
+                  <div className="d-flex gap-3">
+                    <div className="SpfxCheckRadio">
+                      <input
+                        className="radio"
+                        type="radio"
+                        name="wfhHalfDayType"
+                        id="wfhFirstHalf"
+                        value="first"
+                        checked={workFromHomeFormData.halfDayType === 'first'}
+                        onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, halfDayType: e.target.value as 'first' | 'second' })}
+                      />
+                      <label className="" htmlFor="wfhFirstHalf">First Half</label>
+                    </div>
+                    <div className="SpfxCheckRadio">
+                      <input
+                        className="radio"
+                        type="radio"
+                        name="wfhHalfDayType"
+                        id="wfhSecondHalf"
+                        value="second"
+                        checked={workFromHomeFormData.halfDayType === 'second'}
+                        onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, halfDayType: e.target.value as 'first' | 'second' })}
+                      />
+                      <label className="" htmlFor="wfhSecondHalf">Second Half</label>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="col-12">
+                <button
+                  type="button"
+                  className={`btn popup-option-toggle ${workFromHomeFormData.isRecurring ? 'popup-option-toggle--active' : ' btn-default'}`}
+                  onClick={() => setWorkFromHomeFormData({ ...workFromHomeFormData, isRecurring: !workFromHomeFormData.isRecurring })}
+                  aria-pressed={workFromHomeFormData.isRecurring}
+                >
+                  Recurrence
+                </button>
+              </div>
+              {workFromHomeFormData.isRecurring && (
+                <>
+                  <div className="col-12">
+                    <label className="form-label">Recurrence Pattern</label>
+                    <div className="d-flex gap-2">
+                      {(['Daily', 'Weekly', 'Monthly', 'Yearly'] as const).map(freq => (
+                        <div key={freq} className="SpfxCheckRadio">
+                          <input
+                            className="radio"
+                            type="radio"
+                            name="wfhRecurringFrequency"
+                            id={`wfhFreq${freq}`}
+                            value={freq}
+                            checked={workFromHomeFormData.recurringFrequency === freq}
+                            onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, recurringFrequency: e.target.value as typeof freq })}
+                          />
+                          <label className="" htmlFor={`wfhFreq${freq}`}>{freq}</label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="col-12">
+                    <label className="form-label text-primary">Pattern</label>
+                    {workFromHomeFormData.recurringFrequency === 'Daily' && (
+                      <div className="border rounded p-2">
+                        <div className="SpfxCheckRadio mb-2">
+                          <input className="radio" type="radio" name="wfhDailyPattern" id="wfhDailyEvery" checked={!workFromHomeFormData.dailyWeekdaysOnly} onChange={() => setWorkFromHomeFormData({ ...workFromHomeFormData, dailyWeekdaysOnly: false })} />
+                          <label className="" htmlFor="wfhDailyEvery">
+                            every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={workFromHomeFormData.dailyInterval} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, dailyInterval: parseInt(e.target.value) || 1 })} /> days
+                          </label>
+                        </div>
+                        <div className="SpfxCheckRadio">
+                          <input className="radio" type="radio" name="wfhDailyPattern" id="wfhDailyWeekdays" checked={workFromHomeFormData.dailyWeekdaysOnly} onChange={() => setWorkFromHomeFormData({ ...workFromHomeFormData, dailyWeekdaysOnly: true })} />
+                          <label className="" htmlFor="wfhDailyWeekdays">every weekdays</label>
+                        </div>
+                      </div>
+                    )}
+                    {workFromHomeFormData.recurringFrequency === 'Weekly' && (
+                      <div className="border rounded p-2">
+                        <div className="mb-2">
+                          every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={workFromHomeFormData.weeklyInterval} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, weeklyInterval: parseInt(e.target.value) || 1 })} /> week(s) on
+                        </div>
+                        <div className="d-flex flex-wrap gap-1">
+                          {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
+                            <div key={day} className="form-check form-check-inline">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id={`wfhDay${day}`}
+                                checked={workFromHomeFormData.weeklyDays.indexOf(day) !== -1}
+                                onChange={e => {
+                                  const days = e.target.checked
+                                    ? [...workFromHomeFormData.weeklyDays, day]
+                                    : workFromHomeFormData.weeklyDays.filter(d => d !== day);
+                                  setWorkFromHomeFormData({ ...workFromHomeFormData, weeklyDays: days });
+                                }}
+                              />
+                              <label className="form-check-label" htmlFor={`wfhDay${day}`}>{day.slice(0, 3)}</label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {workFromHomeFormData.recurringFrequency === 'Monthly' && (
+                      <div className="border rounded p-2">
+                        <div className="SpfxCheckRadio mb-2">
+                          <input className="radio" type="radio" name="wfhMonthlyPattern" id="wfhMonthlyDay" checked={workFromHomeFormData.monthlyPattern === 'day'} onChange={() => setWorkFromHomeFormData({ ...workFromHomeFormData, monthlyPattern: 'day' })} />
+                          <label className="" htmlFor="wfhMonthlyDay">
+                            Day <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" max="31" value={workFromHomeFormData.monthlyDay} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, monthlyDay: parseInt(e.target.value) || 1 })} /> of every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={workFromHomeFormData.monthlyInterval} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, monthlyInterval: parseInt(e.target.value) || 1 })} /> month(s)
+                          </label>
+                        </div>
+                        <div className="SpfxCheckRadio">
+                          <input className="radio" type="radio" name="wfhMonthlyPattern" id="wfhMonthlyThe" checked={workFromHomeFormData.monthlyPattern === 'the'} onChange={() => setWorkFromHomeFormData({ ...workFromHomeFormData, monthlyPattern: 'the' })} />
+                          <label className="" htmlFor="wfhMonthlyThe">
+                            the <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={workFromHomeFormData.monthlyWeekNumber} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, monthlyWeekNumber: e.target.value as any })}>
+                              <option value="first">first</option>
+                              <option value="second">second</option>
+                              <option value="third">third</option>
+                              <option value="fourth">fourth</option>
+                              <option value="last">last</option>
+                            </select> <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={workFromHomeFormData.monthlyWeekDay} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, monthlyWeekDay: e.target.value })}>
+                              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d} value={d}>{d}</option>)}
+                            </select> of every <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={workFromHomeFormData.monthlyIntervalThe} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, monthlyIntervalThe: parseInt(e.target.value) || 1 })} /> month(s)
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                    {workFromHomeFormData.recurringFrequency === 'Yearly' && (
+                      <div className="border rounded p-2">
+                        <div className="SpfxCheckRadio mb-2">
+                          <input className="radio" type="radio" name="wfhYearlyPattern" id="wfhYearlyEvery" checked={workFromHomeFormData.yearlyPattern === 'every'} onChange={() => setWorkFromHomeFormData({ ...workFromHomeFormData, yearlyPattern: 'every' })} />
+                          <label className="" htmlFor="wfhYearlyEvery">
+                            every <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={workFromHomeFormData.yearlyMonth} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, yearlyMonth: e.target.value })}>
+                              {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => <option key={m} value={m}>{m}</option>)}
+                            </select> <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={workFromHomeFormData.yearlyInterval} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, yearlyInterval: parseInt(e.target.value) || 1 })} />
+                          </label>
+                        </div>
+                        <div className="SpfxCheckRadio">
+                          <input className="radio" type="radio" name="wfhYearlyPattern" id="wfhYearlyThe" checked={workFromHomeFormData.yearlyPattern === 'the'} onChange={() => setWorkFromHomeFormData({ ...workFromHomeFormData, yearlyPattern: 'the' })} />
+                          <label className="" htmlFor="wfhYearlyThe">
+                            the <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={workFromHomeFormData.yearlyWeekNumber} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, yearlyWeekNumber: e.target.value as any })}>
+                              <option value="first">first</option>
+                              <option value="second">second</option>
+                              <option value="third">third</option>
+                              <option value="fourth">fourth</option>
+                              <option value="last">last</option>
+                            </select> <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={workFromHomeFormData.yearlyWeekDay} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, yearlyWeekDay: e.target.value })}>
+                              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d} value={d}>{d}</option>)}
+                            </select> of <select className="form-select form-select-sm d-inline-block mx-1" style={{ width: 'auto' }} value={workFromHomeFormData.yearlyMonthThe} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, yearlyMonthThe: e.target.value })}>
+                              {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="col-12">
+                    <label className="form-label text-primary">Range of recurrence</label>
+                    <div className="border rounded p-2">
+                      <div className="SpfxCheckRadio mb-2">
+                        <input className="radio" type="radio" name="wfhEndDateOption" id="wfhNoEnd" checked={workFromHomeFormData.endDateOption === 'noEnd'} onChange={() => setWorkFromHomeFormData({ ...workFromHomeFormData, endDateOption: 'noEnd' })} />
+                        <label className="" htmlFor="wfhNoEnd">no end date</label>
+                      </div>
+                      <div className="SpfxCheckRadio mb-2">
+                        <input className="radio" type="radio" name="wfhEndDateOption" id="wfhEndBy" checked={workFromHomeFormData.endDateOption === 'endBy'} onChange={() => setWorkFromHomeFormData({ ...workFromHomeFormData, endDateOption: 'endBy' })} />
+                        <label className="" htmlFor="wfhEndBy">
+                          end by <input type="date" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '130px' }} value={workFromHomeFormData.recurrenceEndDate} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, recurrenceEndDate: e.target.value })} disabled={workFromHomeFormData.endDateOption !== 'endBy'} />
+                        </label>
+                      </div>
+                      <div className="SpfxCheckRadio">
+                        <input className="radio" type="radio" name="wfhEndDateOption" id="wfhEndAfter" checked={workFromHomeFormData.endDateOption === 'endAfter'} onChange={() => setWorkFromHomeFormData({ ...workFromHomeFormData, endDateOption: 'endAfter' })} />
+                        <label className="" htmlFor="wfhEndAfter">
+                          end after <input type="number" className="form-control form-control-sm d-inline-block mx-1" style={{ width: '60px' }} min="1" value={workFromHomeFormData.recurrenceOccurrences} onChange={e => setWorkFromHomeFormData({ ...workFromHomeFormData, recurrenceOccurrences: parseInt(e.target.value) || 1 })} disabled={workFromHomeFormData.endDateOption !== 'endAfter'} /> occurrences
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
               <div className="col-12">
                 <label className="form-label">Reason</label>
                 <textarea
@@ -4581,6 +4977,18 @@ const App: React.FC<AppProps> = ({ sp }) => {
                 <div className="col-md-6">
                   <label className="form-label">Joining Date (DOJ)</label>
                   <input type="date" className="form-control" value={employeeFormData.joiningDate} onChange={e => setEmployeeFormData({ ...employeeFormData, joiningDate: e.target.value })} required />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Employee Status</label>
+                  <select
+                    className="form-select"
+                    value={employeeFormData.employeeStatus || 'Active Employee'}
+                    onChange={e => setEmployeeFormData({ ...employeeFormData, employeeStatus: e.target.value as any })}
+                    required
+                  >
+                    <option value="Active Employee">Active Employee</option>
+                    <option value="Ex-Staff">Ex-Staff</option>
+                  </select>
                 </div>
               </>
             )}

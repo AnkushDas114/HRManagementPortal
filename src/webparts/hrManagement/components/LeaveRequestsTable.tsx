@@ -69,7 +69,11 @@ interface LeaveReportRow {
   planned: number;
   unplanned: number;
   maternity: number;
+  maternityTotal: number; // Used in period
+  maternityQuota: number; // Entitlement
   paternity: number;
+  paternityTotal: number; // Used in period
+  paternityQuota: number; // Entitlement
   restrictedHoliday: number;
   halfDay: number;
   totalLeave: number;
@@ -183,8 +187,9 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     let m = false;
     let p = false;
     generatedReportRows.forEach(row => {
-      if (row.maternity > 0) m = true;
-      if (row.paternity > 0) p = true;
+      // Show columns if either there is usage (period or cumulative) OR if a quota is explicitly set > 0
+      if (row.maternity > 0 || row.maternityTotal > 0 || row.maternityQuota > 0) m = true;
+      if (row.paternity > 0 || row.paternityTotal > 0 || row.paternityQuota > 0) p = true;
     });
     return { hasMaternity: m, hasPaternity: p };
   }, [generatedReportRows]);
@@ -308,7 +313,10 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
   const runReportGeneration = React.useCallback((): void => {
     const todayDate = getNowIST();
     const selectedEmployeeIds = reportSelectedMemberIds;
-    let source = requests.filter((request) => selectedEmployeeIds.indexOf(request.employee.id) !== -1);
+    let source = requests.filter((request) =>
+      selectedEmployeeIds.indexOf(request.employee.id) !== -1 &&
+      request.employee.employeeStatus !== 'Ex-Staff'
+    );
 
     if (reportDatePreset === 'Custom') {
       if (reportStartDate && reportEndDate) {
@@ -339,16 +347,78 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       }
     }
 
+    // Determine report end date for cumulative calculations
+    let reportEndAt = todayDate.getTime();
+    if (reportDatePreset === 'Custom' && reportEndDate) {
+      const end = toDateValue(reportEndDate);
+      if (end) reportEndAt = endOfDay(end).getTime();
+    } else if (reportDatePreset !== 'All Time') {
+      const range = resolvePresetRange(reportDatePreset, todayDate);
+      if (range.end) reportEndAt = range.end.getTime();
+    }
+
     const grouped: Record<string, LeaveReportRow> = {};
     source.forEach((request) => {
       const key = request.employee.id;
       if (!grouped[key]) {
+        // Calculate cumulative maternity/paternity for this employee up to reportEndAt
+        const empRequests = requests.filter(r =>
+          r.employee.id === key &&
+          r.status === LeaveStatus.Approved
+        );
+
+        const calcCumulative = (typeSearch: string) => empRequests
+          .filter(r => {
+            const rDate = toDateValue(r.startDate);
+            return rDate && rDate.getTime() <= reportEndAt &&
+              String(r.leaveType || '').toLowerCase().includes(typeSearch);
+          })
+          .reduce((sum, r) => {
+            const start = toDateValue(r.startDate);
+            const end = toDateValue(r.endDate);
+            if (!start) return sum + Number(r.days || 0);
+            // Calculate actual elapsed days: from leave start to min(leaveEnd, reportEnd)
+            const effectiveEnd = end ? Math.min(end.getTime(), reportEndAt) : reportEndAt;
+            const elapsedMs = effectiveEnd - start.getTime();
+            const elapsedDays = Math.max(0, Math.floor(elapsedMs / (1000 * 60 * 60 * 24)) + 1);
+            // Cap at total requested days (r.days) to avoid overcounting
+            const totalDays = Number(r.days || 0);
+            return sum + Math.min(elapsedDays, totalDays);
+          }, 0);
+
+        const getDynamicQuota = (search: string) => {
+          // Only assign a quota if this employee has ever requested this leave type
+          const hasEverRequested = requests.some(r =>
+            r.employee.id === key &&
+            String(r.leaveType || '').toLowerCase().includes(search.toLowerCase())
+          );
+          if (!hasEverRequested) return 0;
+
+          const qKey = Object.keys(leaveQuotas).find(k => k.toLowerCase().includes(search.toLowerCase()));
+          const listQuota = qKey ? leaveQuotas[qKey] : 0;
+          if (listQuota > 0) return listQuota;
+          // Fallback to total days approved for this person if not in global list
+          const totalDaysApproved = empRequests
+            .filter(r => String(r.leaveType || '').toLowerCase().includes(search.toLowerCase()))
+            .reduce((sum, r) => sum + Number(r.days || 0), 0);
+          return totalDaysApproved > 0 ? totalDaysApproved : (search === 'maternity' ? 182 : 5);
+        };
+
+        const matUsed = calcCumulative('maternity');
+        const patUsed = calcCumulative('paternity');
+        const matQuota = getDynamicQuota('maternity');
+        const patQuota = getDynamicQuota('paternity');
+
         grouped[key] = {
           employee: request.employee,
           planned: 0,
           unplanned: 0,
           maternity: 0,
+          maternityTotal: matUsed,
+          maternityQuota: matQuota,
           paternity: 0,
+          paternityTotal: patUsed,
+          paternityQuota: patQuota,
           restrictedHoliday: 0,
           halfDay: 0,
           totalLeave: 0,
@@ -360,7 +430,13 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       const days = Number(request.days || 0);
       row[bucket] += days;
       if (request.isHalfDay) row.halfDay += days;
-      row.totalLeave += days;
+      // For maternity/paternity, use the dynamically calculated elapsed days (maternityTotal/paternityTotal)
+      // instead of the full r.days, since those are already computed based on the report end date.
+      if (bucket === 'maternity' || bucket === 'paternity') {
+        // Don't add to totalLeave here; it will be set after the loop using the dynamic totals.
+      } else {
+        row.totalLeave += days;
+      }
 
       const detailType = request.leaveType || 'Leave';
       let group = row.details.find((d) => d.type === detailType);
@@ -387,6 +463,11 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         isRecurring: Boolean(request.isRecurring),
         recurringFrequency: request.recurringFrequency || ''
       });
+    });
+
+    // Add the dynamically calculated maternity/paternity elapsed days to totalLeave
+    Object.values(grouped).forEach(row => {
+      row.totalLeave += row.maternityTotal + row.paternityTotal;
     });
 
     const rows = Object.keys(grouped).map((key) => grouped[key]).sort((a, b) => a.employee.name.localeCompare(b.employee.name));
@@ -445,8 +526,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         row.planned,
         row.unplanned
       ];
-      if (hasMaternity) rowData.push(row.maternity);
-      if (hasPaternity) rowData.push(row.paternity);
+      if (hasMaternity) rowData.push(row.maternityQuota > 0 ? `${row.maternityTotal} / ${row.maternityQuota}` : (row.maternityTotal > 0 ? `${row.maternityTotal} / 0` : '0'));
+      if (hasPaternity) rowData.push(row.paternityQuota > 0 ? `${row.paternityTotal} / ${row.paternityQuota}` : (row.paternityTotal > 0 ? `${row.paternityTotal} / 0` : '0'));
       rowData.push(
         row.restrictedHoliday,
         row.halfDay,
@@ -598,8 +679,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                 <td style="font-weight: bold; background: #f8f9fa;">${escapeHtml(row.employee.name)}</td>
                 <td>${row.planned}</td>
                 <td>${row.unplanned}</td>
-                ${hasMaternity ? `<td>${row.maternity}</td>` : ''}
-                ${hasPaternity ? `<td>${row.paternity}</td>` : ''}
+                ${hasMaternity ? `<td>${row.maternityQuota > 0 || row.maternityTotal > 0 ? `<span style="font-weight:bold;color:#11803f">${row.maternityTotal} / ${row.maternityQuota}</span>` : '0'}</td>` : ''}
+                ${hasPaternity ? `<td>${row.paternityQuota > 0 || row.paternityTotal > 0 ? `<span style="font-weight:bold;color:#11803f">${row.paternityTotal} / ${row.paternityQuota}</span>` : '0'}</td>` : ''}
                 <td>${row.restrictedHoliday}</td>
                 <td>${row.halfDay}</td>
                 <td style="font-weight: bold; color: #2F5596;">${row.totalLeave}</td>
@@ -930,7 +1011,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
           <div className="border-top pt-3 pb-2">
             <div className="d-flex flex-wrap gap-5">
               {teams.map(teamName => {
-                const teamMembers = employees.filter(emp => emp.department === teamName);
+                const teamMembers = employees.filter(emp => emp.department === teamName && emp.employeeStatus !== 'Ex-Staff');
                 if (teamMembers.length === 0) return null;
                 const teamLabel = /team$/i.test(teamName) ? teamName : `${teamName} Team`;
 
@@ -1090,7 +1171,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                 <button
                   type="button"
                   className="btn btn-primary btn-sm text-nowrap"
-                  onClick={() => setReportSelectedMemberIds(employees.map((emp) => emp.id))}
+                  onClick={() => setReportSelectedMemberIds(employees.filter(emp => emp.employeeStatus !== 'Ex-Staff').map((emp) => emp.id))}
                 >
                   Select All
                 </button>
@@ -1106,7 +1187,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
             <div className="text-muted mb-2">
               {reportSelectedMemberIds.length === 0
                 ? 'No users selected'
-                : reportSelectedMemberIds.length === employees.length
+                : reportSelectedMemberIds.length === employees.filter(emp => emp.employeeStatus !== 'Ex-Staff').length
                   ? 'All users selected'
                   : `${reportSelectedMemberIds.length} user(s) selected`}
             </div>
@@ -1114,7 +1195,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
           <div className="col-12">
             <div className="d-flex flex-wrap gap-4 border rounded p-2" style={{ background: '#f7f9fc', borderColor: '#d9e2f2' }}>
               {teams.map((teamName) => {
-                const teamMembers = employees.filter((emp) => emp.department === teamName);
+                const teamMembers = employees.filter((emp) => emp.department === teamName && emp.employeeStatus !== 'Ex-Staff');
                 if (teamMembers.length === 0) return null;
                 const teamLabel = /team$/i.test(teamName) ? teamName : `${teamName} Team`;
                 return (
@@ -1239,8 +1320,24 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                           <td>{row.employee.name}</td>
                           <td>{row.planned}</td>
                           <td>{row.unplanned}</td>
-                          {hasMaternity && <td>{row.maternity}</td>}
-                          {hasPaternity && <td>{row.paternity}</td>}
+                          {hasMaternity && (
+                            <td>
+                              {row.maternityQuota > 0 || row.maternityTotal > 0 ? (
+                                <span className="fw-bold text-success">
+                                  {row.maternityTotal} / {row.maternityQuota}
+                                </span>
+                              ) : '0'}
+                            </td>
+                          )}
+                          {hasPaternity && (
+                            <td>
+                              {row.paternityQuota > 0 || row.paternityTotal > 0 ? (
+                                <span className="fw-bold text-success">
+                                  {row.paternityTotal} / {row.paternityQuota}
+                                </span>
+                              ) : '0'}
+                            </td>
+                          )}
                           <td>{row.restrictedHoliday}</td>
                           <td>{row.halfDay}</td>
                           <td>{row.totalLeave}</td>

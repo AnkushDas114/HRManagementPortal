@@ -224,7 +224,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
   const teams = React.useMemo(() => {
     const groups: Record<string, Employee[]> = {};
-    employees.forEach(emp => {
+    employees.filter(emp => emp.employeeStatus !== 'Ex-Staff').forEach(emp => {
       if (!groups[emp.department]) groups[emp.department] = [];
       groups[emp.department].push(emp);
     });
@@ -1551,7 +1551,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                 onChange={(event) => setDeleteEmployeeId(event.target.value)}
               >
                 <option value="">All Users</option>
-                {employees.map((employee) => (
+                {employees.filter(emp => emp.employeeStatus !== 'Ex-Staff').map((employee) => (
                   <option key={employee.id} value={employee.id}>
                     {employee.name} ({employee.id})
                   </option>

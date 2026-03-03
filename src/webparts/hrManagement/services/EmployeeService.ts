@@ -130,7 +130,8 @@ export async function createEmployee(sp: SPFI, employee: Partial<Employee>): Pro
       InsuranceTaken: employee.insuranceTaken ?? 'Yes',
       Phone: employee.phone,
       Location: employee.location,
-      ReportingManager: employee.reportingManager
+      ReportingManager: employee.reportingManager,
+      EmployeeStatus: employee.employeeStatus || 'Active Employee'
     });
 
     return addResult.data?.Id as number;
@@ -165,6 +166,7 @@ export async function updateEmployee(sp: SPFI, itemId: number, employee: Partial
     if (employee.phone !== undefined) payload.Phone = employee.phone;
     if (employee.location !== undefined) payload.Location = employee.location;
     if (employee.reportingManager !== undefined) payload.ReportingManager = employee.reportingManager;
+    if (employee.employeeStatus !== undefined) payload.EmployeeStatus = employee.employeeStatus;
 
     if (!Object.keys(payload).length) return;
     await sp.web.lists.getByTitle(EMPLOYEE_MASTER_LIST_TITLE).items.getById(itemId).update(payload);
@@ -437,6 +439,7 @@ async function mapItemToEmployee(sp: SPFI, item: any): Promise<Employee> {
     createdAt: formatDateIST(item.Created),
     modifiedAt: formatDateIST(item.Modified),
     createdByName: item.Author?.Title || '',
-    modifiedByName: item.Editor?.Title || ''
+    modifiedByName: item.Editor?.Title || '',
+    employeeStatus: item.EmployeeStatus || 'Active Employee'
   };
 }
