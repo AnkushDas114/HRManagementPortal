@@ -16,11 +16,11 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, isTotal = false
           <h6 className={`card-subtitle mb-2 ${isTotal ? 'text-white' : 'text-muted'}`} style={{ letterSpacing: '0.5px' }}>
             {title}
           </h6>
-          <h2 className="card-title mb-0 fw-bold text-white">{value}</h2>
+          <h2 className={`card-title mb-0 fw-bold ${isTotal ? 'text-white' : 'text-primary'}`}>{value}</h2>
         </div>
-        <div className={`p-3 rounded-circle d-flex align-items-center justify-content-center ${isTotal ? 'bg-white bg-opacity-25' : 'bg-light text-primary'}`} style={{ width: '56px', height: '56px' }}>
+        <div className={`p-2 rounded-circle d-flex align-items-center justify-content-center ${isTotal ? 'bg-white bg-opacity-25' : 'bg-light text-primary'}`} style={{ width: '48px', height: '48px' }}>
           {React.isValidElement(icon)
-            ? React.cloneElement(icon as React.ReactElement<{ size?: number }>, { size: 28 })
+            ? React.cloneElement(icon as React.ReactElement<{ size?: number }>, { size: 24 })
             : icon}
         </div>
       </div>

@@ -57,10 +57,10 @@ const OFFICIAL_LEAVES_LIST_ID = 'SmartMetadata';
 const LEAVE_MONTHLY_BALANCE_LIST_REF = 'LeaveMonthlyBalance';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const HR_ALLOWED_NAMES = ['Juli', 'Laxmi Prashanti', 'Satendra Shakya', 'Tanu Jain', 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi', 'Vikas Kumar Yadav', 'Vikas Yadav'];
+const HR_ALLOWED_NAMES = ['Juli', 'Prashant', 'Laxmi Prashanti', 'Satendra Shakya', 'Tanu Jain', 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi', 'Vikas Kumar Yadav', 'Vikas Yadav'];
 const HR_ALLOWED_EMAILS = ['laxmip@smalsus.com', 'skshakya@hochhuth-consulting.de'];
 
-const LEAVE_EVENT_COLORS = ['#5f8fbd', '#8b6fc8', '#4d7ac7', '#6c63c7', '#557bd6', '#7a6cd6', '#4f70b8', '#7b5fc1', '#6680d2', '#6a57b0'];
+const LEAVE_EVENT_COLORS = ['#5f8fbd', '#050406ff', '#4d7ac7', '#6c63c7', '#557bd6', '#7a6cd6', '#4f70b8', '#7b5fc1', '#6680d2', '#6a57b0'];
 const HOLIDAY_EVENT_COLOR = '#1f8f3a';
 type SendReportDatePreset =
   | 'Custom'

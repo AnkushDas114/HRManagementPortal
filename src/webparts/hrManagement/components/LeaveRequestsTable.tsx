@@ -179,6 +179,23 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
   const [isReportGenerated, setIsReportGenerated] = React.useState(false);
   const lastExternalOpenKeyRef = React.useRef<number | null>(null);
 
+  const { hasMaternity, hasPaternity } = React.useMemo(() => {
+    let m = false;
+    let p = false;
+    generatedReportRows.forEach(row => {
+      if (row.maternity > 0) m = true;
+      if (row.paternity > 0) p = true;
+    });
+    return { hasMaternity: m, hasPaternity: p };
+  }, [generatedReportRows]);
+
+  const reportColSpan = React.useMemo(() => {
+    let span = 7; // base: expand + name + planned + unplanned + restrictedHoliday + halfDay + total
+    if (hasMaternity) span++;
+    if (hasPaternity) span++;
+    return span;
+  }, [hasMaternity, hasPaternity]);
+
   React.useEffect(() => {
     if (typeof externalOpenReportKey !== 'number') return;
     if (lastExternalOpenKeyRef.current === null) {
@@ -394,7 +411,11 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     worksheet.addRow([]); // Gap
 
     // Define main summary columns
-    const summaryHeaders = ['Name', 'Planned', 'Unplanned', 'Maternity', 'Paternity', 'Restricted Holiday', 'Half-Day', 'Total Leave'];
+    const summaryHeaders = ['Name', 'Planned', 'Unplanned'];
+    if (hasMaternity) summaryHeaders.push('Maternity');
+    if (hasPaternity) summaryHeaders.push('Paternity');
+    summaryHeaders.push('Restricted Holiday', 'Half-Day', 'Total Leave');
+
     const summaryHeaderRow = worksheet.addRow(summaryHeaders);
     summaryHeaderRow.eachCell(cell => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F5596' } };
@@ -403,29 +424,36 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
     });
 
-    worksheet.columns = [
+    const columns: Partial<ExcelJS.Column>[] = [
       { key: 'col1', width: 30 },
       { key: 'col2', width: 15 },
-      { key: 'col3', width: 15 },
-      { key: 'col4', width: 15 },
-      { key: 'col5', width: 15 },
+      { key: 'col3', width: 15 }
+    ];
+    if (hasMaternity) columns.push({ key: 'col4', width: 15 });
+    if (hasPaternity) columns.push({ key: 'col5', width: 15 });
+    columns.push(
       { key: 'col6', width: 15 },
       { key: 'col7', width: 15 },
       { key: 'col8', width: 15 }
-    ];
+    );
+    worksheet.columns = columns;
 
     generatedReportRows.forEach((row) => {
       // Employee Summary Row
-      const empRow = worksheet.addRow([
+      const rowData = [
         row.employee.name,
         row.planned,
-        row.unplanned,
-        row.maternity,
-        row.paternity,
+        row.unplanned
+      ];
+      if (hasMaternity) rowData.push(row.maternity);
+      if (hasPaternity) rowData.push(row.paternity);
+      rowData.push(
         row.restrictedHoliday,
         row.halfDay,
         row.totalLeave
-      ]);
+      );
+
+      const empRow = worksheet.addRow(rowData);
       empRow.eachCell(cell => {
         cell.font = { bold: true };
         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
@@ -558,8 +586,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                 <th style="width: 200px">Employee Name</th>
                 <th>Planned</th>
                 <th>Unplanned</th>
-                <th>Maternity</th>
-                <th>Paternity</th>
+                ${hasMaternity ? '<th>Maternity</th>' : ''}
+                ${hasPaternity ? '<th>Paternity</th>' : ''}
                 <th>RH</th>
                 <th>Half-Day</th>
                 <th>Total</th>
@@ -570,8 +598,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                 <td style="font-weight: bold; background: #f8f9fa;">${escapeHtml(row.employee.name)}</td>
                 <td>${row.planned}</td>
                 <td>${row.unplanned}</td>
-                <td>${row.maternity}</td>
-                <td>${row.paternity}</td>
+                ${hasMaternity ? `<td>${row.maternity}</td>` : ''}
+                ${hasPaternity ? `<td>${row.paternity}</td>` : ''}
                 <td>${row.restrictedHoliday}</td>
                 <td>${row.halfDay}</td>
                 <td style="font-weight: bold; color: #2F5596;">${row.totalLeave}</td>
@@ -590,18 +618,25 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         <meta charset="utf-8"/>
         <title>Leave Report</title>
         <style>
-          body { font-family: 'Segoe UI', Arial, sans-serif; margin: 25px 35px; color: #333; line-height: 1.3; }
+          body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            margin: 25px 35px; 
+            color: #333; 
+            line-height: 1.3;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           .report-title { font-size: 20px; font-weight: bold; color: #2F5596; margin-bottom: 2px; }
           .report-meta { font-size: 11px; color: #666; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
           .employee-section { margin-bottom: 25px; page-break-inside: avoid; }
           .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 0; font-size: 11px; }
-          .summary-table th { background: #2F5596; color: white; padding: 6px 8px; font-weight: 600; border: 1px solid #234478; text-align: center; }
+          .summary-table th { background: #2F5596 !important; color: white !important; padding: 6px 8px; font-weight: 600; border: 1px solid #234478; text-align: center; }
           .summary-table td { border: 1px solid #ddd; padding: 6px 8px; text-align: center; }
           .detail-group { padding: 5px 10px 10px 20px; border-left: 2px solid #eee; margin-top: -1px; }
-          .group-header { font-size: 10px; font-weight: bold; margin-bottom: 4px; color: #2F5596; background: #eef2f7; padding: 2px 8px; border-radius: 2px; display: inline-block; text-transform: uppercase; letter-spacing: 0.5px; }
+          .group-header { font-size: 10px; font-weight: bold; margin-bottom: 4px; color: white !important; background: #2F5596 !important; padding: 3px 10px; border-radius: 2px; display: inline-block; text-transform: uppercase; letter-spacing: 0.5px; }
           table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
-          th, td { border: 1px solid #eee; padding: 4px 8px; text-align: left; }
-          th { background: #fcfcfc; font-weight: 600; color: #666; }
+          th, td { border: 1px solid #ddd; padding: 4px 8px; text-align: left; }
+          th { background: #f1f5f9 !important; font-weight: 600; color: #334155 !important; }
           
           .status-badge { font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: bold; display: inline-block; margin-right: 4px; }
           .status-approved { background: #e6f4ea; color: #1e7e34; }
@@ -1174,8 +1209,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                     <th>Name</th>
                     <th>Planned</th>
                     <th>Unplanned</th>
-                    <th>Maternity</th>
-                    <th>Paternity</th>
+                    {hasMaternity && <th>Maternity</th>}
+                    {hasPaternity && <th>Paternity</th>}
                     <th>Restricted Holiday</th>
                     <th>Half-Day</th>
                     <th>Total Leave</th>
@@ -1184,7 +1219,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                 <tbody>
                   {generatedReportRows.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center text-muted py-3">No report data found for selected filters.</td>
+                      <td colSpan={reportColSpan} className="text-center text-muted py-3">No report data found for selected filters.</td>
                     </tr>
                   )}
                   {generatedReportRows.map((row) => {
@@ -1204,8 +1239,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                           <td>{row.employee.name}</td>
                           <td>{row.planned}</td>
                           <td>{row.unplanned}</td>
-                          <td>{row.maternity}</td>
-                          <td>{row.paternity}</td>
+                          {hasMaternity && <td>{row.maternity}</td>}
+                          {hasPaternity && <td>{row.paternity}</td>}
                           <td>{row.restrictedHoliday}</td>
                           <td>{row.halfDay}</td>
                           <td>{row.totalLeave}</td>
@@ -1213,7 +1248,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                         {isOpen && (
                           <tr>
                             <td />
-                            <td colSpan={6}>
+                            <td colSpan={reportColSpan - 1}>
                               <div className="d-flex flex-column gap-3 py-2">
                                 {row.details.map((detail) => (
                                   <div key={`detail-${row.employee.id}-${detail.type}`} className="border rounded p-2" style={{ borderColor: '#d9e2f2' }}>

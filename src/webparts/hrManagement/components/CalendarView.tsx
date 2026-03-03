@@ -493,7 +493,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         ) : (
           <div className="table-responsive border rounded">
             <table className="table table-sm mb-0 align-middle">
-              <thead className='bg-primary'>
+              <thead style={{ backgroundColor: '#1f8f3a' }}>
                 <tr>
                   <th className="text-white fw-semibold py-2">Title</th>
                   <th className="text-white fw-semibold py-2" style={{ width: 140 }}>EndDate</th>

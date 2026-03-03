@@ -202,7 +202,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
             className="rounded-circle border shadow-sm"
             style={{ width: '40px', height: '40px', objectFit: 'cover' }}
           />
-          <div className="text-dark fs-6">{request.employee.name}</div>
+          <div className="text-dark">{request.employee.name}</div>
         </div>
       )
     },
@@ -216,7 +216,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       key: 'leaveType',
       header: 'Request Type',
       render: (request) => (
-        <span className="py-1 px-3 rounded border" style={{ backgroundColor: '#f8f9fa', color: '#333' }}>
+        <span className="py-1 px-3 rounded border" style={{ backgroundColor: '#f8f9fa', color: '#333', fontSize: '13px' }}>
           {request.leaveType}
         </span>
       )
@@ -227,7 +227,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       key: 'days',
       header: 'Duration',
       render: (request) => (
-        <span style={{ color: '#2F5596', fontSize: '15px' }}>
+        <span style={{ color: '#2F5596', fontSize: '13px' }}>
           {request.days} Day(s)
         </span>
       )

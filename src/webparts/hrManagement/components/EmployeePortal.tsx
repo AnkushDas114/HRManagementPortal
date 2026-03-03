@@ -616,31 +616,41 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     // Only count APPROVED leaves for usage
     const approved = myLeaveRequests.filter(r => r.status === LeaveStatus.Approved);
 
-    const allStats = Object.keys(leaveQuotas).map(type => {
-      const typeRequests = approved.filter(r => r.leaveType === type);
-      const used = typeRequests.reduce((sum, r) => sum + r.days, 0);
+    const allStats = Object.keys(leaveQuotas)
+      .filter(type => {
+        const lowerType = type.toLowerCase();
+        const isSpecialType = lowerType.includes('maternity') || lowerType.includes('paternity');
+        if (isSpecialType) {
+          // Only show if the user has actually requested this type of leave at least once
+          return myLeaveRequests.some(r => r.leaveType === type);
+        }
+        return true;
+      })
+      .map(type => {
+        const typeRequests = approved.filter(r => r.leaveType === type);
+        const used = typeRequests.reduce((sum, r) => sum + r.days, 0);
 
-      const total = leaveQuotas[type];
-      const lowerType = type.toLowerCase();
-      const isSpecial = lowerType.includes('maternity') || lowerType.includes('paternity');
+        const total = leaveQuotas[type];
+        const lowerType = type.toLowerCase();
+        const isSpecial = lowerType.includes('maternity') || lowerType.includes('paternity');
 
-      // Track half-day sub-types taken for this leave type
-      const firstHalfCount = typeRequests.filter(r => r.isHalfDay && r.halfDayType === 'first').reduce((sum, r) => sum + r.days, 0);
-      const secondHalfCount = typeRequests.filter(r => r.isHalfDay && r.halfDayType === 'second').reduce((sum, r) => sum + r.days, 0);
+        // Track half-day sub-types taken for this leave type
+        const firstHalfCount = typeRequests.filter(r => r.isHalfDay && r.halfDayType === 'first').reduce((sum, r) => sum + r.days, 0);
+        const secondHalfCount = typeRequests.filter(r => r.isHalfDay && r.halfDayType === 'second').reduce((sum, r) => sum + r.days, 0);
 
-      const halfDays: { label: string; days: number }[] = [];
-      if (firstHalfCount > 0) halfDays.push({ label: 'First Half', days: firstHalfCount });
-      if (secondHalfCount > 0) halfDays.push({ label: 'Second Half', days: secondHalfCount });
+        const halfDays: { label: string; days: number }[] = [];
+        if (firstHalfCount > 0) halfDays.push({ label: 'First Half', days: firstHalfCount });
+        if (secondHalfCount > 0) halfDays.push({ label: 'Second Half', days: secondHalfCount });
 
-      return {
-        label: type,
-        used,
-        total,
-        left: Math.max(0, total - used),
-        isSpecial,
-        halfDays
-      };
-    });
+        return {
+          label: type,
+          used,
+          total,
+          left: Math.max(0, total - used),
+          isSpecial,
+          halfDays
+        };
+      });
 
     const plannedStats = allStats.filter(s => s.label.toLowerCase() !== 'sick');
     const unplannedStats = allStats.filter(s => s.label.toLowerCase() === 'sick');

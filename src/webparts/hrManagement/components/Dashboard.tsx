@@ -437,7 +437,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         </button>
       </div>
 
-      <div className="row g-4 px-3">
+      <div className="row g-3 px-3">
         <div className="col-12 col-sm-6 col-lg-4 col-xl-2">
           <StatCard title="Present Today" value={stats.presentToday} icon={<UserCheck />} />
         </div>
@@ -478,7 +478,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
 
       <div className="row g-4 mt-4">
         <div className="col-12 col-lg-7">
-          <div className="card shadow-sm border-0 h-100 p-4">
+          <div className="card shadow-sm border-0 h-100 p-3">
             <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
               <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
                 <Flag size={18} color="#2F5596" /> Upcoming Holidays ({monthNameIST()})
@@ -509,7 +509,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
           </div>
         </div>
         <div className="col-12 col-lg-5">
-          <div className="card shadow-sm border-0 h-100 p-4">
+          <div className="card shadow-sm border-0 h-100 p-3">
             <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
               <h6 className="mb-0 text-dark d-flex align-items-center gap-2">
                 <PartyPopper size={20} /> Team Celebrations
@@ -579,7 +579,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
         </div>
       </div>
 
-      <div className="mt-5 row g-4">
+      <div className="mt-4 row g-3">
         <div className="col-12 col-lg-6">
           <div className="card shadow-sm h-100">
             <div className="card-body">
