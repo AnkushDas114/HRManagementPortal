@@ -1363,13 +1363,13 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
       <div className="px-4 pb-2">
         {/* Teams Avatar Selection */}
-        <div className="d-flex flex-wrap gap-5 mb-4 border-top pt-3">
+        <div className="d-flex flex-wrap gap-3 mb-2 border-top pt-2">
           {Object.entries(teams).map(([dept, members]) => (
             <div key={dept} className="team-filter-group">
               <div className="team ng-scope">
                 <label className="BdrBtm">{dept} Team</label>
               </div>
-              <div className="d-flex align-items-center gap-2">
+              <div className="d-flex align-items-center gap-1">
                 {members.map((m) => (
                   <div
                     key={m.id}

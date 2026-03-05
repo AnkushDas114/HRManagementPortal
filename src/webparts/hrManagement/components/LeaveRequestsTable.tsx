@@ -1008,15 +1008,15 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         {/* Dynamic Filtering Section */}
         <div className="">
           {/* Team-Based Avatar Filtering */}
-          <div className="border-top pt-3 pb-2">
-            <div className="d-flex flex-wrap gap-5">
+          <div className="border-top pt-2 pb-1">
+            <div className="d-flex flex-wrap gap-3">
               {teams.map(teamName => {
                 const teamMembers = employees.filter(emp => emp.department === teamName && emp.employeeStatus !== 'Ex-Staff');
                 if (teamMembers.length === 0) return null;
                 const teamLabel = /team$/i.test(teamName) ? teamName : `${teamName} Team`;
 
                 return (
-                  <div key={teamName} className="taskTeamBox px-2 mt-1">
+                  <div key={teamName} className="taskTeamBox px-1 mt-0">
                     <div className='top-assign'>
                       <div className='team'>
                         <label className="BdrBtm">
@@ -1193,7 +1193,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
             </div>
           </div>
           <div className="col-12">
-            <div className="d-flex flex-wrap gap-4 border rounded p-2" style={{ background: '#f7f9fc', borderColor: '#d9e2f2' }}>
+            <div className="d-flex flex-wrap gap-2 border rounded p-2" style={{ background: '#f7f9fc', borderColor: '#d9e2f2' }}>
               {teams.map((teamName) => {
                 const teamMembers = employees.filter((emp) => emp.department === teamName && emp.employeeStatus !== 'Ex-Staff');
                 if (teamMembers.length === 0) return null;

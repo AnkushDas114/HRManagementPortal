@@ -152,7 +152,8 @@ export async function updateLeaveRequest(
     sp: SPFI,
     requestId: number,
     formData: any,
-    days: number
+    days: number,
+    employee?: Employee
 ): Promise<void> {
     try {
         // Prepare LeaveData JSON
@@ -172,19 +173,29 @@ export async function updateLeaveRequest(
             };
         }
 
+        const updatePayload: any = {
+            Title: `${formData.leaveType} - ${formData.startDate}`,
+            LeaveType: formData.leaveType,
+            Startdate: formData.startDate,
+            Enddate: formData.isHalfDay ? formData.startDate : formData.endDate,
+            Days: days,
+            Reason: formData.reason,
+            LeaveData: JSON.stringify(leaveData)
+        };
+
+        // If employee is provided, update the EmployeeLookup as well
+        if (employee) {
+            const employeeLookupId = await getEmployeeLookupId(sp, employee);
+            if (employeeLookupId) {
+                updatePayload.EmployeeLookupId = employeeLookupId;
+            }
+        }
+
         // Update item in SharePoint
         await sp.web.lists
             .getByTitle('Leave Request')
             .items.getById(requestId)
-            .update({
-                Title: `${formData.leaveType} - ${formData.startDate}`,
-                LeaveType: formData.leaveType,
-                Startdate: formData.startDate,
-                Enddate: formData.isHalfDay ? formData.startDate : formData.endDate,
-                Days: days,
-                Reason: formData.reason,
-                LeaveData: JSON.stringify(leaveData)
-            });
+            .update(updatePayload);
 
         console.log('Leave request updated successfully');
     } catch (error) {

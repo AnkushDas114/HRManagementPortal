@@ -57,8 +57,8 @@ const OFFICIAL_LEAVES_LIST_ID = 'SmartMetadata';
 const LEAVE_MONTHLY_BALANCE_LIST_REF = 'LeaveMonthlyBalance';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const HR_ALLOWED_NAMES = ['Juli', 'Prashant', 'Laxmi Prashanti', 'Satendra Shakya', 'Tanu Jain', 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi', 'Vikas Kumar Yadav', 'Vikas Yadav'];
-const HR_ALLOWED_EMAILS = ['laxmip@smalsus.com', 'skshakya@hochhuth-consulting.de'];
+const HR_ALLOWED_NAMES = ['Juli', 'Umesh Kumar', 'Devendra dixit', 'Thordis Jacobs', 'Stefan Hochhuth', 'Prashant', 'Laxmi Prashanti', 'Satendra Shakya', 'Tanu Jain', 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi', 'Vikas Kumar Yadav', 'Vikas Yadav', 'Stefan Hochhuth (Admin)', 'laxmi.prashanti@hochhuth-consulting.de'];
+const HR_ALLOWED_EMAILS = ['stefan@hochhuth-consulting.de', 'thordis.jacobs@hochhuth-consulting.de', 'umesh.kumar@hochhuth-consulting.de', 'stefan.hochhuth@hochhuth-consulting.de', 'laxmip@smalsus.com', 'skshakya@hochhuth-consulting.de', 'devendra.dixit@hochhuth-consulting.de', 'laxmi.prashanti@hochhuth-consulting.de'];
 
 const LEAVE_EVENT_COLORS = ['#5f8fbd', '#4a88cc', '#4d7ac7', '#6c63c7', '#557bd6', '#7a6cd6', '#4f70b8', '#7b5fc1', '#6680d2', '#6a57b0'];
 const HOLIDAY_EVENT_COLOR = '#1f8f3a';
@@ -288,18 +288,8 @@ const calculateSalary = (monthlyCTC: number, insuranceOptIn = true): {
 };
 
 const App: React.FC<AppProps> = ({ sp }) => {
-  /*
-  //get user groups
-  React.useEffect(() => {
-    if (!sp) return;
-    sp.web.siteGroups.getByName("HR Management").users().then(users => {
-      console.log("HR Management Group Users:", users);
-      setHrGroupUsers(users);
-    }).catch(err => {
-      console.error("Error fetching HR Management group users:", err);
-    });
-  }, [sp]);
-  */
+
+
 
   React.useEffect(() => {
     const bootstrapLinkId = 'hr-bootstrap-css';
@@ -636,6 +626,23 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [leaveModalTab, setLeaveModalTab] = useState<'leave' | 'workFromHome'>('leave');
   const [selectedEmployeeForLeave, setSelectedEmployeeForLeave] = useState<Employee | null>(null);
   const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
+  const [leaveEmployeeSearch, setLeaveEmployeeSearch] = useState('');
+  const [isLeaveEmployeeDropdownOpen, setIsLeaveEmployeeDropdownOpen] = useState(false);
+
+  const filteredLeaveEmployees = useMemo(() => {
+    const sorted = directoryEmployees
+      .filter(emp => emp.employeeStatus !== 'Ex-Staff')
+      .slice()
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    if (!leaveEmployeeSearch.trim()) return sorted;
+    const term = leaveEmployeeSearch.trim().toLowerCase();
+    return sorted.filter(emp =>
+      emp.name.toLowerCase().includes(term) ||
+      emp.id.toLowerCase().includes(term) ||
+      (emp.email && emp.email.toLowerCase().includes(term)) ||
+      (emp.department && emp.department.toLowerCase().includes(term))
+    );
+  }, [directoryEmployees, leaveEmployeeSearch]);
   const [leaveFormData, setLeaveFormData] = useState({
     leaveType: 'Sick',
     startDate: '',
@@ -756,6 +763,36 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [currentUserLoginName, setCurrentUserLoginName] = useState<string | null>(null);
   const [isCurrentUserResolved, setIsCurrentUserResolved] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+
+  // HR Management group membership (3rd fallback for HR access)
+  const [isInHrGroup, setIsInHrGroup] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!sp || !isCurrentUserResolved) return;
+    sp.web.siteGroups.getByName("HR Management").users().then(users => {
+      console.log("HR Management Group Users:", users);
+      const normalizeStr = (v: unknown): string => String(v || '').trim().toLowerCase();
+      const currentEmailNorm = normalizeStr(currentUserEmail);
+      const currentUpnNorm = normalizeStr(currentUserUpn);
+      const currentLoginNorm = normalizeStr(currentUserLoginName);
+
+      const isMember = (users as Array<{ Email?: string; UserPrincipalName?: string; LoginName?: string }>).some(u => {
+        const uEmail = normalizeStr(u.Email);
+        const uUpn = normalizeStr(u.UserPrincipalName);
+        const uLogin = normalizeStr(u.LoginName);
+        return (
+          (currentEmailNorm && (uEmail === currentEmailNorm || uUpn === currentEmailNorm)) ||
+          (currentUpnNorm && (uEmail === currentUpnNorm || uUpn === currentUpnNorm)) ||
+          (currentLoginNorm && (uLogin === currentLoginNorm || uLogin.endsWith('|' + currentLoginNorm)))
+        );
+      });
+      console.log(isMember);
+      setIsInHrGroup(isMember);
+    }).catch(err => {
+      console.error("Error fetching HR Management group users:", err);
+      setIsInHrGroup(false);
+    });
+  }, [sp, isCurrentUserResolved, currentUserEmail, currentUserUpn, currentUserLoginName]);
 
   const editingPolicy = React.useMemo(
     () => policies.find((policy) => policy.id === editingPolicyId) || null,
@@ -890,18 +927,21 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const canAccessHr = React.useMemo(() => {
     const normalize = (value: unknown): string => String(value || '').trim().toLowerCase();
 
-    // Static check (Old logic)
+    // 1st check: static name list
     const allowedNames = HR_ALLOWED_NAMES.map(normalize);
-    const allowedEmails = HR_ALLOWED_EMAILS.map(normalize);
-
     const currentName = normalize(currentUserTitle || inferredCurrentUser?.name);
-    const currentEmail = normalize(currentUserEmail);
-
     const isNameAllowed = !!currentName && allowedNames.indexOf(currentName) !== -1;
-    const isEmailAllowed = !!currentEmail && allowedEmails.indexOf(currentEmail) !== -1;
+    if (isNameAllowed) return true;
 
-    return isNameAllowed || isEmailAllowed;
-  }, [currentUserTitle, currentUserEmail, inferredCurrentUser]);
+    // 2nd check: static email list
+    const allowedEmails = HR_ALLOWED_EMAILS.map(normalize);
+    const currentEmail = normalize(currentUserEmail);
+    const isEmailAllowed = !!currentEmail && allowedEmails.indexOf(currentEmail) !== -1;
+    if (isEmailAllowed) return true;
+
+    // 3rd check: "HR Management" SharePoint group membership
+    return isInHrGroup;
+  }, [currentUserTitle, currentUserEmail, inferredCurrentUser, isInHrGroup]);
 
   React.useEffect(() => {
     if (canAccessHr) return;
@@ -1017,6 +1057,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
     }
 
     setSelectedEmployeeForLeave(emp);
+    setLeaveEmployeeSearch(emp ? `${emp.name} (${emp.id}) - ${emp.department}` : '');
+    setIsLeaveEmployeeDropdownOpen(false);
     if (req) {
       const isWorkFromHomeRequest = req.requestCategory === 'Work From Home';
       setLeaveModalTab(isWorkFromHomeRequest ? 'workFromHome' : 'leave');
@@ -1174,7 +1216,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             leaveType: workFromHomeFormData.workFromHomeType || 'Work From Home',
             endDate: workFromHomeFormData.isHalfDay ? workFromHomeFormData.startDate : (workFromHomeFormData.endDate || workFromHomeFormData.startDate),
             requestCategory: 'Work From Home'
-          }, days);
+          }, days, selectedEmployeeForLeave || undefined);
         } else {
           const start = new Date(leaveFormData.startDate);
           const end = leaveFormData.isHalfDay ? start : new Date(leaveFormData.endDate);
@@ -1185,7 +1227,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             const diffTime = Math.abs(end.getTime() - start.getTime());
             days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
           }
-          await updateLeaveRequest(sp, editingRequest.id, { ...leaveFormData, requestCategory: 'Leave' }, days);
+          await updateLeaveRequest(sp, editingRequest.id, { ...leaveFormData, requestCategory: 'Leave' }, days, selectedEmployeeForLeave || undefined);
         }
       } else {
         if (leaveModalTab === 'workFromHome') {
@@ -3581,7 +3623,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                       <div className="col-lg-6">
                         <div className="card border-0 shadow-sm h-100 px-4">
                           <div className="card-header color-primary bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <h5 className="mb-0 fw-bold">Unofficial Leave Quotas</h5>
+                            <h5 className="mb-0 fw-bold"> Leave Quotas</h5>
                             <button
                               className="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"
                               onClick={() => setIsAddLeaveModalOpen(true)}
@@ -3785,26 +3827,46 @@ const App: React.FC<AppProps> = ({ sp }) => {
               {role === UserRole.HR && (
                 <div className="col-12">
                   <label className="form-label">Employee</label>
-                  <select
-                    className="form-select"
-                    value={selectedEmployeeForLeave?.id || ''}
-                    onChange={(e) => {
-                      const nextId = e.target.value;
-                      const picked = directoryEmployees.find((emp) => emp.id === nextId) || null;
-                      setSelectedEmployeeForLeave(picked);
-                    }}
-                    required
-                  >
-                    <option value="">Select Employee</option>
-                    {directoryEmployees
-                      .slice()
-                      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-                      .map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.id}) - {emp.department}
-                        </option>
-                      ))}
-                  </select>
+                  <div className="position-relative">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Search by name, ID, email or department..."
+                      value={leaveEmployeeSearch}
+                      onChange={(e) => {
+                        setLeaveEmployeeSearch(e.target.value);
+                        setIsLeaveEmployeeDropdownOpen(true);
+                        if (selectedEmployeeForLeave) setSelectedEmployeeForLeave(null);
+                      }}
+                      onFocus={() => setIsLeaveEmployeeDropdownOpen(true)}
+                      required={!selectedEmployeeForLeave}
+                    />
+                    {isLeaveEmployeeDropdownOpen && filteredLeaveEmployees.length > 0 && (
+                      <div
+                        className="position-absolute w-100 bg-white border rounded shadow-lg overflow-auto"
+                        style={{ zIndex: 1050, maxHeight: '220px', top: '100%', marginTop: '2px' }}
+                      >
+                        {filteredLeaveEmployees.map((emp) => (
+                          <button
+                            key={`leave-${emp.id}`}
+                            type="button"
+                            className={`btn btn-light w-100 text-start d-flex align-items-center gap-2 px-3 py-2 border-0 border-bottom ${selectedEmployeeForLeave?.id === emp.id ? 'bg-primary bg-opacity-10' : ''}`}
+                            onClick={() => {
+                              setSelectedEmployeeForLeave(emp);
+                              setLeaveEmployeeSearch(`${emp.name} (${emp.id}) - ${emp.department}`);
+                              setIsLeaveEmployeeDropdownOpen(false);
+                            }}
+                          >
+                            <img src={emp.avatar} alt={emp.name} width="30" height="30" className="rounded-circle border" style={{ objectFit: 'cover' }} />
+                            <div style={{ lineHeight: '1.2' }}>
+                              <div className="fw-medium text-dark" style={{ fontSize: '13px' }}>{emp.name}</div>
+                              <div className="text-muted" style={{ fontSize: '11px' }}>ID: {emp.id} • {emp.department}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
               <div className="col-12"><label className="form-label">Leave Type</label><select className="form-select" value={leaveFormData.leaveType} onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}>{Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))}</select></div>
@@ -4034,26 +4096,46 @@ const App: React.FC<AppProps> = ({ sp }) => {
               {role === UserRole.HR && (
                 <div className="col-12">
                   <label className="form-label">Employee</label>
-                  <select
-                    className="form-select"
-                    value={selectedEmployeeForLeave?.id || ''}
-                    onChange={(e) => {
-                      const nextId = e.target.value;
-                      const picked = directoryEmployees.find((emp) => emp.id === nextId) || null;
-                      setSelectedEmployeeForLeave(picked);
-                    }}
-                    required
-                  >
-                    <option value="">Select Employee</option>
-                    {directoryEmployees
-                      .slice()
-                      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-                      .map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.id}) - {emp.department}
-                        </option>
-                      ))}
-                  </select>
+                  <div className="position-relative">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Search by name, ID, email or department..."
+                      value={leaveEmployeeSearch}
+                      onChange={(e) => {
+                        setLeaveEmployeeSearch(e.target.value);
+                        setIsLeaveEmployeeDropdownOpen(true);
+                        if (selectedEmployeeForLeave) setSelectedEmployeeForLeave(null);
+                      }}
+                      onFocus={() => setIsLeaveEmployeeDropdownOpen(true)}
+                      required={!selectedEmployeeForLeave}
+                    />
+                    {isLeaveEmployeeDropdownOpen && filteredLeaveEmployees.length > 0 && (
+                      <div
+                        className="position-absolute w-100 bg-white border rounded shadow-lg overflow-auto"
+                        style={{ zIndex: 1050, maxHeight: '220px', top: '100%', marginTop: '2px' }}
+                      >
+                        {filteredLeaveEmployees.map((emp) => (
+                          <button
+                            key={`wfh-${emp.id}`}
+                            type="button"
+                            className={`btn btn-light w-100 text-start d-flex align-items-center gap-2 px-3 py-2 border-0 border-bottom ${selectedEmployeeForLeave?.id === emp.id ? 'bg-primary bg-opacity-10' : ''}`}
+                            onClick={() => {
+                              setSelectedEmployeeForLeave(emp);
+                              setLeaveEmployeeSearch(`${emp.name} (${emp.id}) - ${emp.department}`);
+                              setIsLeaveEmployeeDropdownOpen(false);
+                            }}
+                          >
+                            <img src={emp.avatar} alt={emp.name} width="30" height="30" className="rounded-circle border" style={{ objectFit: 'cover' }} />
+                            <div style={{ lineHeight: '1.2' }}>
+                              <div className="fw-medium text-dark" style={{ fontSize: '13px' }}>{emp.name}</div>
+                              <div className="text-muted" style={{ fontSize: '11px' }}>ID: {emp.id} • {emp.department}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
               <div className="col-12">
