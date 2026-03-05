@@ -1051,8 +1051,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
       emp = (empOrReq as Employee) || currentUser;
     }
 
-    if (emp?.department === 'Trainee' && !req) {
-      showAlert("Trainees are not eligible to submit new leave or WFH requests.");
+    if ((emp?.department === 'Trainee' || emp?.department === 'Intern') && !req) {
+      showAlert("Trainees / Interns are not eligible to submit new leave or WFH requests.");
       return;
     }
 
@@ -2623,7 +2623,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
     const toEmployeeType = (department: string): 'Staff' | 'Trainee' => {
       const lower = String(department || '').trim().toLowerCase();
-      return (lower === 'trainee' || lower === 'project management trainee') ? 'Trainee' : 'Staff';
+      return (lower === 'trainee' || lower === 'project management trainee' || lower === 'intern') ? 'Trainee' : 'Staff';
     };
 
     const onLeaveEmployeeIds: Record<string, true> = {};
@@ -5050,6 +5050,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     <option value="Management">Management</option>
                     <option value="Trainee">Trainee</option>
                     <option value="Project Management Trainee">Project Management Trainee</option>
+                    <option value="Intern">Intern</option>
+                    <option value="User Experience">User Experience</option>
+                    <option value="HHHH">HHHH</option>
                   </select>
                 </div>
                 <div className="col-md-6">

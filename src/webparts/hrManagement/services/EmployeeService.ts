@@ -45,7 +45,10 @@ const ALLOWED_DEPARTMENTS = [
   'Portfolio Lead',
   'Management',
   'Trainee',
-  'Project Management Trainee'
+  'Project Management Trainee',
+  'Intern',
+  'User Experience',
+  'HHHH'
 ] as const;
 
 const normalizeDepartment = (value: unknown): string => {

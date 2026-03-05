@@ -499,6 +499,9 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                     <option value="Management">Management</option>
                     <option value="Trainee">Trainee</option>
                     <option value="Project Management Trainee">Project Management Trainee</option>
+                    <option value="Intern">Intern</option>
+                    <option value="User Experience">User Experience</option>
+                    <option value="HHHH">HHHH</option>
                   </select>
                 </div>
                 <div className="col-md-6">
