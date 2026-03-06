@@ -106,6 +106,7 @@ export interface LeaveRequest {
   createdAt?: string;
   modifiedAt?: string;
   createdByName?: string;
+  createdByEmail?: string;
   modifiedByName?: string;
 }
 
@@ -182,6 +183,11 @@ export interface Policy {
 export interface Concern {
   id: number;
   employeeId: string;
+  employeeItemId?: number;
+  employeeName?: string;
+  employeeEmail?: string;
+  employeeDepartment?: string;
+  employeeDesignation?: string;
   type: ConcernType;
   referenceId: string | number; // ID of Leave, Date of Attendance, or ID of Salary Slip
   description: string;
@@ -192,6 +198,7 @@ export interface Concern {
   createdAt?: string;
   modifiedAt?: string;
   createdByName?: string;
+  createdByEmail?: string;
   modifiedByName?: string;
 }
 

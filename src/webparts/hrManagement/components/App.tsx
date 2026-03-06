@@ -28,7 +28,7 @@ import type { LeaveRequest, AttendanceRecord, Employee, SalarySlip, Policy, Conc
 import { LeaveStatus, UserRole, ConcernStatus, ConcernType } from '../types';
 import { getAllLeaveRequests, createLeaveRequest, updateLeaveRequestStatus, deleteLeaveRequest, updateLeaveRequest } from '../services/LeaveRequestsService';
 import { getAllEvents, createEvent, updateEvent, deleteEvent } from '../services/EventsService';
-import { getAllConcerns, createConcern, updateConcernReply } from '../services/ConcernsService';
+import { getAllConcerns, createConcern, updateConcernReply, updateConcernStatus } from '../services/ConcernsService';
 import {
   getAllEmployees,
   createEmployee,
@@ -761,6 +761,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [currentUserTitle, setCurrentUserTitle] = useState<string | null>(null);
   const [currentUserUpn, setCurrentUserUpn] = useState<string | null>(null);
   const [currentUserLoginName, setCurrentUserLoginName] = useState<string | null>(null);
+  const [currentUserSpId, setCurrentUserSpId] = useState<number | null>(null);
   const [isCurrentUserResolved, setIsCurrentUserResolved] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
@@ -845,6 +846,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
           try {
             const spUserId = await getUserId(email, sp);
             console.log('Current User SharePoint ID:', spUserId);
+            setCurrentUserSpId(spUserId);
           } catch (idError) {
             console.error('Error resolving current user ID:', idError);
           }
@@ -1371,7 +1373,17 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
   const handleRaiseConcern = async (type: ConcernType, referenceId: string | number, description: string) => {
     try {
-      await createConcern(sp, { type, referenceId, description, status: ConcernStatus.Open }, currentUser.id);
+      let employeeSpUserId = currentUserSpId;
+      const candidateEmail = currentUserEmail || currentUserUpn || currentUserLoginName;
+      if (!employeeSpUserId && candidateEmail) {
+        try {
+          employeeSpUserId = await getUserId(candidateEmail, sp);
+          setCurrentUserSpId(employeeSpUserId);
+        } catch (error) {
+          console.error('Failed to resolve SharePoint user ID for concern', error);
+        }
+      }
+      await createConcern(sp, { type, referenceId, description, status: ConcernStatus.Open }, employeeSpUserId ?? undefined);
       await loadConcerns();
     } catch (error) {
       console.error("Error raising concern:", error);
@@ -1380,8 +1392,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
   };
 
   const handleOpenConcernReply = (concern: Concern) => {
+    const stripHtml = (value: string): string => value.replace(/<[^>]*>/g, '').trim();
     setSelectedConcern(concern);
-    setConcernReplyText('');
+    setConcernReplyText(concern.reply ? stripHtml(concern.reply) : '');
     setIsConcernReplyModalOpen(true);
   };
 
@@ -1395,6 +1408,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
     } catch (error) {
       console.error("Error saving concern reply:", error);
       showAlert("Failed to save resolution to SharePoint.");
+    }
+  };
+
+  const handleReopenConcern = async (concern: Concern) => {
+    try {
+      await updateConcernStatus(sp, concern.id, ConcernStatus.Open);
+      await loadConcerns();
+    } catch (error) {
+      console.error('Error reopening concern:', error);
+      showAlert('Failed to reopen concern.');
     }
   };
 
@@ -2231,18 +2254,47 @@ const App: React.FC<AppProps> = ({ sp }) => {
     }
   ]), []);
 
+  const resolveConcernEmployee = React.useCallback((c: Concern) => {
+    const normalizeText = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+    const normalizeEmail = (value: unknown): string => {
+      const raw = normalizeText(value);
+      if (!raw) return '';
+      if (raw.indexOf('|') !== -1) {
+        const parts = raw.split('|');
+        return parts[parts.length - 1].trim();
+      }
+      return raw;
+    };
+
+    const byEmail = c.employeeEmail
+      ? directoryEmployees.find((e) => normalizeEmail(e.email) === normalizeEmail(c.employeeEmail))
+      : undefined;
+    const byName = !byEmail && c.employeeName
+      ? directoryEmployees.find((e) => normalizeText(e.name) === normalizeText(c.employeeName))
+      : undefined;
+    const emp = byEmail || byName;
+
+    if (emp) {
+      return { name: emp.name, avatar: emp.avatar, employee: emp };
+    }
+
+    const fallbackName = c.employeeName || c.createdByName || 'Unknown';
+    const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(fallbackName)}&background=2f5596&color=ffffff&bold=true&size=128`;
+    return { name: fallbackName, avatar: fallbackAvatar };
+  }, [directoryEmployees]);
+
   const concernColumns = React.useMemo<ColumnDef<Concern>[]>(() => ([
     {
       key: 'employee',
       header: 'Employee',
-      accessor: (c) => directoryEmployees.find(e => e.id === c.employeeId)?.name || '',
+      accessor: (c) => resolveConcernEmployee(c).name || '',
       render: (c) => {
-        const emp = directoryEmployees.find(e => e.id === c.employeeId);
+        const resolved = resolveConcernEmployee(c);
         return (
           <div className="d-flex align-items-center gap-2">
-            <img src={emp?.avatar} width="32" height="32" className="rounded-circle border" />
+            <img src={resolved.avatar} alt={resolved.name} width="32" height="32" className="rounded-circle border" />
             <div>
-              <div className="">{emp?.name}</div>
+              <div className="">{resolved.name}</div>
               <div className="text-muted small">{c.submittedAt}</div>
             </div>
           </div>
@@ -2265,20 +2317,31 @@ const App: React.FC<AppProps> = ({ sp }) => {
       filterable: false,
       align: 'end',
       render: (c) => {
-        const isAlreadyReplied = c.status !== ConcernStatus.Open || Boolean(c.reply && c.reply.trim());
+        const isAlreadyReplied = c.status !== ConcernStatus.Open;
         return (
-          <button
-            className="btn btn-sm concern-reply-btn"
-            onClick={() => handleOpenConcernReply(c)}
-            disabled={isAlreadyReplied}
-            title={isAlreadyReplied ? 'HR already replied to this concern' : 'Reply to concern'}
-          >
-            Reply
-          </button>
+          <div className="d-flex align-items-center gap-2 justify-content-end">
+            <button
+              className="btn btn-sm concern-reply-btn"
+              onClick={() => handleOpenConcernReply(c)}
+              disabled={isAlreadyReplied}
+              title={isAlreadyReplied ? 'HR already replied to this concern' : 'Reply to concern'}
+            >
+              Reply
+            </button>
+            {c.status !== ConcernStatus.Open && (
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => handleReopenConcern(c)}
+                title="Reopen concern to edit resolution"
+              >
+                Reopen
+              </button>
+            )}
+          </div>
         );
       }
     }
-  ]), [directoryEmployees, handleOpenConcernReply]);
+  ]), [handleOpenConcernReply, handleReopenConcern, resolveConcernEmployee]);
 
   // Load leave category choices from SharePoint field
   const loadLeaveCategories = React.useCallback(async () => {
@@ -3786,6 +3849,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
         isOpen={isConcernReplyModalOpen}
         onClose={() => setIsConcernReplyModalOpen(false)}
         title="Resolve Concern"
+        maxWidth={672}
         createdInfo={formatAuditInfo(selectedConcern?.createdAt, selectedConcern?.createdByName)}
         modifiedInfo={formatAuditInfo(selectedConcern?.modifiedAt, selectedConcern?.modifiedByName)}
         onVersionHistoryClick={() => { void handleOpenVersionHistory('Concern', 'EmployeeConcerns', selectedConcern?.id); }}
@@ -3793,7 +3857,21 @@ const App: React.FC<AppProps> = ({ sp }) => {
         footer={<><button className="btn btn-link text-decoration-none" onClick={() => setIsConcernReplyModalOpen(false)}>Cancel</button><button type="submit" form="concern-reply-form" className="btn btn-primary px-4">Submit</button></>}
       >
         {selectedConcern && (
-          <form id="concern-reply-form" onSubmit={handleSaveConcernReply}><div className="mb-3 p-3 bg-light rounded border"><div className="fw-bold text-muted text-uppercase">{selectedConcern.type}</div><div className="text-dark mt-1">{selectedConcern.description}</div></div><div className="mb-3"><label className="form-label">Resolution</label><textarea className="form-control" rows={5} value={concernReplyText} onChange={e => setConcernReplyText(e.target.value)} required placeholder="Resolution message..."></textarea></div></form>
+          <form id="concern-reply-form" onSubmit={handleSaveConcernReply}>
+            <div className="mb-3 p-3 bg-light rounded border">
+              <div className="fw-bold text-muted text-uppercase">{selectedConcern.type}</div>
+              <div className="text-dark mt-1">{selectedConcern.description}</div>
+            </div>
+            {selectedConcern.modifiedByName && selectedConcern.status === ConcernStatus.Resolved && (
+              <div className="mb-3 small text-muted">
+                Resolved by <span className="fw-semibold">{selectedConcern.modifiedByName}</span>
+              </div>
+            )}
+            <div className="mb-3">
+              <label className="form-label">Resolution</label>
+              <textarea className="form-control" rows={5} value={concernReplyText} onChange={e => setConcernReplyText(e.target.value)} required placeholder="Resolution message..."></textarea>
+            </div>
+          </form>
         )}
       </Modal>
 

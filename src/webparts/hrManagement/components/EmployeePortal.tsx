@@ -66,6 +66,29 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     return String(value ?? '').trim().toLowerCase();
   }, []);
 
+  const normalizeNameTokens = React.useCallback((value: unknown): string[] => {
+    const raw = normalizeText(value);
+    if (!raw) return [];
+    const parts = raw.split(/[\s,./-]+/).map((p) => p.trim()).filter(Boolean);
+    const uniqueParts: string[] = [];
+    parts.forEach(p => {
+      if (uniqueParts.indexOf(p) === -1) uniqueParts.push(p);
+    });
+    return uniqueParts;
+  }, [normalizeText]);
+
+  const namesEquivalent = React.useCallback((a: unknown, b: unknown): boolean => {
+    const normA = normalizeText(a);
+    const normB = normalizeText(b);
+    if (!normA || !normB) return false;
+    if (normA === normB) return true;
+    const tokensA = normalizeNameTokens(a);
+    const tokensB = normalizeNameTokens(b);
+    if (!tokensA.length || !tokensB.length) return false;
+    const isSubset = (small: string[], large: string[]) => small.every((t) => large.indexOf(t) !== -1);
+    return isSubset(tokensA, tokensB) || isSubset(tokensB, tokensA);
+  }, [normalizeNameTokens, normalizeText]);
+
   const normalizeCompactId = React.useCallback((value: unknown): string => {
     return normalizeText(value).replace(/\s+/g, '');
   }, [normalizeText]);
@@ -325,9 +348,15 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
 
   const myConcerns = React.useMemo(() =>
     concerns
-      .filter(c => idsMatch(c.employeeId, user.id))
+      .filter(c => {
+        if (user.email && normalizeText(c.employeeEmail) && normalizeText(c.employeeEmail) === normalizeText(user.email)) return true;
+        if (user.email && normalizeText(c.createdByEmail) && normalizeText(c.createdByEmail) === normalizeText(user.email)) return true;
+        if (namesEquivalent(c.employeeName, user.name)) return true;
+        if (namesEquivalent(c.createdByName, user.name)) return true;
+        return false;
+      })
       .sort((a, b) => b.id - a.id),
-    [concerns, user.id, idsMatch]);
+    [concerns, namesEquivalent, normalizeText, user.email, user.name]);
 
   const handleOpenConcern = (type: ConcernType, refId: string | number) => {
     setTargetType(type);
@@ -525,11 +554,20 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
 
   const currentMonthHolidays = React.useMemo(() => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const currentMonth = today.getMonth();
-    return holidays.filter(h => {
-      const hDate = new Date(h.date);
-      return hDate.getMonth() === currentMonth;
-    }).sort((a, b) => a.date.localeCompare(b.date));
+    const currentYear = today.getFullYear();
+    return holidays
+      .filter(h => {
+        const hDate = new Date(h.date);
+        hDate.setHours(0, 0, 0, 0);
+        return (
+          hDate.getFullYear() === currentYear &&
+          hDate.getMonth() === currentMonth &&
+          hDate.getTime() >= today.getTime()
+        );
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
   }, [holidays]);
 
   const formattedCelebrations = React.useMemo(() => {
@@ -538,7 +576,13 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     const tomorrow = new Date(today.getTime());
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    return teamEvents.map(event => {
+    return teamEvents
+      .filter(event => {
+        const eventDate = new Date(event.date);
+        eventDate.setHours(0, 0, 0, 0);
+        return eventDate.getTime() >= today.getTime();
+      })
+      .map(event => {
       const eventDate = new Date(event.date);
       eventDate.setHours(0, 0, 0, 0);
 
@@ -687,48 +731,61 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         <h6 className="fw-bold mb-3 d-flex align-items-center gap-2" style={{ color: '#2F5596' }}>
           <MessageSquare size={16} /> My {type} Concerns & History
         </h6>
-        <div className="d-flex flex-wrap gap-3">
+        <div
+          className="d-grid gap-3"
+          style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}
+        >
           {filteredConcerns.map(c => (
             <button
               key={c.id}
               type="button"
               className="btn text-start p-0 border-0 bg-transparent"
               onClick={() => setSelectedConcern(c)}
-              style={{ width: '320px', maxWidth: '100%' }}
+              style={{ width: '100%', maxWidth: '100%' }}
             >
               <div className="card shadow-sm border h-100 p-3 bg-white hover-bg-light">
-                <div className="d-flex justify-content-between align-items-start mb-2">
+                <div className="d-flex align-items-center gap-2 mb-2">
+                  <img src={user.avatar} alt={user.name} width="28" height="28" className="rounded-circle border" />
+                  <div className="small fw-semibold">{user.name}</div>
+                </div>
+                <div className="d-flex justify-content-between align-items-center mb-2">
                   <div className="d-flex align-items-center gap-2">
-                    <span className="status-chip status-chip--neutral">Ref: {c.referenceId}</span>
-                    <Badge status={c.status === ConcernStatus.Open ? 'Unresolved' : c.status} />
+                    {/* <span className="status-chip status-chip--neutral">Ref: {c.referenceId}</span> */}
+                    <span className={`status-chip ${c.status === ConcernStatus.Open ? 'status-chip--pending' : 'status-chip--success'}`}>
+                      {c.status === ConcernStatus.Open ? 'Open' : 'Resolved'}
+                    </span>
                   </div>
                   <span className="small text-muted" style={{ fontSize: '11px' }}>{c.submittedAt}</span>
                 </div>
                 <div className="p-2 rounded bg-light border-start border-3 border-warning mb-2">
+                  <div className="d-flex justify-content-between align-items-center gap-2">
+                    <div className="small fw-semibold text-dark">Query:</div>
+                    <span className="small text-muted" style={{ fontSize: '10px' }}>{c.submittedAt}</span>
+                  </div>
                   <p
                     className="mb-0 small text-dark"
                     title={toPlainText(c.description)}
-                    style={{ display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}
                   >
-                    <strong>Query:</strong> {toPlainText(c.description)}
+                    {toPlainText(c.description)}
                   </p>
                 </div>
                 {c.reply ? (
                   <div className="p-2 rounded mt-2" style={{ backgroundColor: '#f0f9ff', borderLeft: '3px solid #0ea5e9' }}>
-                    <div className="d-flex justify-content-between mb-1">
+                    <div className="d-flex justify-content-between align-items-center gap-2 mb-1">
                       <span className="fw-bold color-primary">HR Resolution:</span>
                       <span className="small text-muted" style={{ fontSize: '10px' }}>{c.repliedAt}</span>
                     </div>
                     <p
                       className="mb-0 small text-dark"
                       title={toPlainText(c.reply)}
-                      style={{ display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}
                     >
                       {toPlainText(c.reply)}
                     </p>
                   </div>
                 ) : (
-                  <p className="mb-0 small text-muted font-italic"><Clock size={12} className="me-1" /> Under Review...</p>
+                  <p className="mb-0 small text-muted"><Clock size={12} className="me-1" /> Under Review...</p>
                 )}
               </div>
             </button>
@@ -1540,6 +1597,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         isOpen={!!selectedConcern}
         onClose={() => setSelectedConcern(null)}
         title="Concern Details"
+        maxWidth={620}
       >
         {selectedConcern && (
           <div className="d-flex flex-column gap-3">
@@ -1547,24 +1605,40 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <div className="d-flex justify-content-between align-items-start gap-2">
                 <div>
                   <div className="text-muted mb-1">Reference</div>
-                  <div className="fw-semibold">Ref: {selectedConcern.referenceId}</div>
                 </div>
                 <Badge status={selectedConcern.status === ConcernStatus.Open ? 'Unresolved' : selectedConcern.status} />
               </div>
-              <div className="text-muted mt-2">Submitted: {selectedConcern.submittedAt}</div>
-              {selectedConcern.repliedAt && (
-                <div className="text-muted">Replied: {selectedConcern.repliedAt}</div>
-              )}
+              {(() => {
+                const normalizeDate = (value?: string): string => {
+                  const raw = String(value || '').trim();
+                  if (!raw || raw.includes('1970')) return '';
+                  return raw;
+                };
+                const repliedAt = normalizeDate(selectedConcern.repliedAt);
+                const resolvedBy = selectedConcern.status !== ConcernStatus.Open ? String(selectedConcern.modifiedByName || '').trim() : '';
+                const metaItems: string[] = [];
+                if (selectedConcern.submittedAt) metaItems.push(`Submitted: ${selectedConcern.submittedAt}`);
+                if (selectedConcern.status !== ConcernStatus.Open && repliedAt) metaItems.push(`Replied: ${repliedAt}`);
+                if (selectedConcern.status !== ConcernStatus.Open && resolvedBy) metaItems.push(`Resolved by: ${resolvedBy}`);
+                if (metaItems.length === 0) return null;
+                return (
+                  <div className="d-flex flex-wrap gap-3 mt-2 small text-muted">
+                    {metaItems.map((item) => (
+                      <span key={item}>{item}</span>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             <div className="p-3 border rounded bg-white">
               <div className="text-muted mb-1">Query</div>
-              <div style={{ whiteSpace: 'pre-wrap' }}>
+              <div className="small" style={{ whiteSpace: 'pre-wrap' }}>
                 {toPlainText(selectedConcern.description, 'No query message.')}
               </div>
             </div>
             <div className="p-3 border rounded bg-white">
               <div className="small text-muted mb-1">HR Resolution</div>
-              <div style={{ whiteSpace: 'pre-wrap' }}>
+              <div className="small" style={{ whiteSpace: 'pre-wrap' }}>
                 {toPlainText(selectedConcern.reply, 'No HR resolution yet.')}
               </div>
             </div>

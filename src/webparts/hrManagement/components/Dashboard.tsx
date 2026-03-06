@@ -91,11 +91,20 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
 
   const currentMonthHolidays = React.useMemo(() => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const currentMonth = today.getMonth();
-    return holidays.filter(h => {
-      const hDate = new Date(h.date);
-      return hDate.getMonth() === currentMonth;
-    }).sort((a, b) => a.date.localeCompare(b.date));
+    const currentYear = today.getFullYear();
+    return holidays
+      .filter(h => {
+        const hDate = new Date(h.date);
+        hDate.setHours(0, 0, 0, 0);
+        return (
+          hDate.getFullYear() === currentYear &&
+          hDate.getMonth() === currentMonth &&
+          hDate.getTime() >= today.getTime()
+        );
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
   }, [holidays]);
 
   const formattedEvents = React.useMemo(() => {
@@ -104,7 +113,13 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
     const tomorrow = new Date(today.getTime());
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    return teamEvents.map(event => {
+    return teamEvents
+      .filter(event => {
+        const eventDate = new Date(event.date);
+        eventDate.setHours(0, 0, 0, 0);
+        return eventDate.getTime() >= today.getTime();
+      })
+      .map(event => {
       const eventDate = new Date(event.date);
       eventDate.setHours(0, 0, 0, 0);
 

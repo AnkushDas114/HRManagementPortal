@@ -9,6 +9,7 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg';
+  maxWidth?: number | string;
   scrollable?: boolean;
   createdInfo?: string;
   modifiedInfo?: string;
@@ -23,6 +24,7 @@ const Modal: React.FC<ModalProps> = ({
   children,
   footer,
   size = 'md',
+  maxWidth,
   scrollable = true,
   createdInfo,
   modifiedInfo,
@@ -57,6 +59,9 @@ const Modal: React.FC<ModalProps> = ({
   const dialogScrollableClass = scrollable ? 'modal-dialog-scrollable' : '';
   const bodyClass = scrollable ? 'hr-modal-body' : 'hr-modal-body hr-modal-body--auto';
   const showMetaRow = !!(String(createdInfo || '').trim() || String(modifiedInfo || '').trim());
+  const modalStyle = maxWidth !== undefined
+    ? { maxWidth: typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth }
+    : undefined;
 
   return (
     <div className="hr-modal-backdrop">
@@ -65,6 +70,7 @@ const Modal: React.FC<ModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        style={modalStyle}
         onClick={(e) => e.stopPropagation()}
       >
         <div className={`modal-dialog modal-dialog-centered ${dialogScrollableClass} hr-modal-dialog`}>

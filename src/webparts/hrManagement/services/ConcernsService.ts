@@ -27,10 +27,13 @@ export async function getAllConcerns(sp: SPFI): Promise<Concern[]> {
                 'Created',
                 'Modified',
                 'Author/Title',
+                'Author/EMail',
+                'Author/Email',
                 'Editor/Title',
                 'Employee/Id',
                 'Employee/Title',
-                'Employee/EMail'
+                'Employee/EMail',
+                'Employee/Email'
             )
             .expand('Employee', 'Author', 'Editor')
             .orderBy('Created', false)();
@@ -48,16 +51,17 @@ export async function getAllConcerns(sp: SPFI): Promise<Concern[]> {
 export async function createConcern(
     sp: SPFI,
     concern: Omit<Concern, 'id' | 'submittedAt' | 'employeeId'>,
-    employeeId: string
+    employeeItemId: string | number | undefined
 ): Promise<void> {
     try {
+        const parsedEmployeeItemId = Number(String(employeeItemId ?? '').trim());
         const payload = {
             Title: concern.description.substring(0, 255), // Use part of description as title
             Concern_x0020_Type: concern.type,
             ReferenceID: String(concern.referenceId),
             Description: concern.description,
             Status: concern.status,
-            EmployeeId: parseInt(employeeId)
+            ...(Number.isNaN(parsedEmployeeItemId) ? {} : { EmployeeId: parsedEmployeeItemId })
         };
 
         await sp.web.lists
@@ -95,17 +99,79 @@ export async function updateConcernReply(
 }
 
 /**
+ * UPDATE: Change concern status (e.g., reopen)
+ */
+export async function updateConcernStatus(
+    sp: SPFI,
+    concernId: number,
+    status: ConcernStatus
+): Promise<void> {
+    try {
+        const payload: Record<string, unknown> = { Status: status };
+        if (status === ConcernStatus.Open) {
+            payload.RepliedAt = null;
+        }
+        await sp.web.lists
+            .getByTitle(LIST_NAME)
+            .items
+            .getById(concernId)
+            .update(payload);
+    } catch (error) {
+        console.error('Error updating concern status:', error);
+        throw error;
+    }
+}
+
+/**
+ * DELETE: Remove a concern item
+ */
+export async function deleteConcern(
+    sp: SPFI,
+    concernId: number
+): Promise<void> {
+    try {
+        await sp.web.lists
+            .getByTitle(LIST_NAME)
+            .items
+            .getById(concernId)
+            .delete();
+    } catch (error) {
+        console.error('Error deleting concern:', error);
+        throw error;
+    }
+}
+
+/**
  * Helper: Map SharePoint item to Concern object
  */
+function normalizeConcernType(value: unknown): ConcernType {
+    const raw = String(value ?? '').trim().toLowerCase();
+    if (!raw) return ConcernType.General;
+    if (raw.includes('attendance')) return ConcernType.Attendance;
+    if (raw.includes('salary')) return ConcernType.Salary;
+    if (raw.includes('work from home') || raw.includes('wfh')) return ConcernType.WorkFromHome;
+    if (raw.includes('leave')) return ConcernType.Leave;
+    if (raw.includes('general')) return ConcernType.General;
+    return ConcernType.General;
+}
+
 function mapItemToConcern(item: any): Concern {
     // Strip HTML from Description if it's wrapped in SharePoint Rich Text <div>
     const rawDescription = item.Description || '';
     const cleanDescription = rawDescription.replace(/<[^>]*>/g, '').trim();
+    const employeeLookup = item.Employee || {};
+    const employeeSpUserId = employeeLookup?.Id ? Number(employeeLookup.Id) : undefined;
+    const employeeId = String(employeeLookup?.Id || '');
+    const employeeName = employeeLookup?.Title || item.Author?.Title || '';
+    const employeeEmail = employeeLookup?.EMail || employeeLookup?.Email || '';
 
     return {
         id: item.Id,
-        employeeId: item.Employee?.Id ? String(item.Employee.Id) : '',
-        type: item.Concern_x0020_Type as ConcernType,
+        employeeId: employeeId,
+        employeeItemId: employeeSpUserId,
+        employeeName: employeeName,
+        employeeEmail: employeeEmail,
+        type: normalizeConcernType(item.Concern_x0020_Type),
         referenceId: item.ReferenceID || '',
         description: cleanDescription,
         reply: item.Reply || undefined,
@@ -115,6 +181,7 @@ function mapItemToConcern(item: any): Concern {
         createdAt: formatDateIST(item.Created),
         modifiedAt: formatDateIST(item.Modified),
         createdByName: item.Author?.Title || '',
+        createdByEmail: item.Author?.EMail || item.Author?.Email || '',
         modifiedByName: item.Editor?.Title || ''
     };
 }
