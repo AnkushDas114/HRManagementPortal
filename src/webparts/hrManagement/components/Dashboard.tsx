@@ -85,7 +85,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
       pending: requests.filter(r => r.status === LeaveStatus.Pending).length,
       approved: requests.filter(r => r.status === LeaveStatus.Approved).length,
       onLeaveToday: requests.filter(r => r.status === LeaveStatus.Approved && today >= r.startDate && today <= r.endDate).length,
-      presentToday: attendanceRecords.filter(r => r.date === today && r.status === AttendanceStatus.Present).length,
+      presentToday: attendanceRecords.filter(r => r.date === today && (r.status === AttendanceStatus.Present || r.status === AttendanceStatus.WorkFromHome)).length,
     };
   }, [requests, attendanceRecords]);
 
@@ -251,7 +251,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
     );
 
     const weeklyAttendance = attendanceRecords.filter((record) => isInWeek(toDateValue(record.date)));
-    const presentCount = weeklyAttendance.filter((record) => record.status === AttendanceStatus.Present).length;
+    const presentCount = weeklyAttendance.filter((record) => record.status === AttendanceStatus.Present || record.status === AttendanceStatus.WorkFromHome).length;
     const absentCount = weeklyAttendance.filter((record) => record.status === AttendanceStatus.Absent).length;
     const onLeaveCount = weeklyAttendance.filter((record) => record.status === AttendanceStatus.OnLeave).length;
     const trackableAttendance = weeklyAttendance.filter((record) => record.status !== AttendanceStatus.Weekend);

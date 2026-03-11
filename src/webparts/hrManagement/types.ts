@@ -10,7 +10,7 @@ export enum AttendanceStatus {
   Absent = 'Absent',
   OnLeave = 'On Leave',
   Weekend = 'Weekend',
-  Upcoming = 'Upcoming',
+  WorkFromHome = 'Work From Home',
 }
 
 export enum UserRole {

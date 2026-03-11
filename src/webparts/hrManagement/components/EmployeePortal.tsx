@@ -134,6 +134,13 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     return (hours * 60) + minutes;
   }, []);
 
+  const formatHoursMinutes = React.useCallback((totalMinutes: number | null): string => {
+    if (totalMinutes === null || totalMinutes <= 0) return '--h --m';
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  }, []);
+
   const extractPayrollEmployeeTokens = React.useCallback((payrollKey: string): { name: string; id: string } => {
     const raw = String(payrollKey || '').trim();
     if (!raw) return { name: '', id: '' };
@@ -1005,7 +1012,10 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                       <div className="small text-muted">{rec.clockIn || '--:--'} - {rec.clockOut || '--:--'}</div>
                     </div>
                     <span className="badge bg-primary border-0">
-                      {rec.workDuration || '--:--'} Low
+                      {(() => {
+                        const workedMinutes = getWorkDurationMinutes(rec.workDuration);
+                        return `${formatHoursMinutes(workedMinutes)} Low`;
+                      })()}
                     </span>
                   </div>
                 ))}

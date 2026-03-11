@@ -57,8 +57,10 @@ const OFFICIAL_LEAVES_LIST_ID = 'SmartMetadata';
 const LEAVE_MONTHLY_BALANCE_LIST_REF = 'LeaveMonthlyBalance';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const HR_ALLOWED_NAMES = ['Juli', 'Umesh Kumar', 'Devendra dixit', 'Thordis Jacobs', 'Stefan Hochhuth', 'Prashant', 'Laxmi Prashanti', 'Satendra Shakya', 'Tanu Jain', 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi', 'Vikas Kumar Yadav', 'Vikas Yadav', 'Stefan Hochhuth (Admin)', 'laxmi.prashanti@hochhuth-consulting.de'];
-const HR_ALLOWED_EMAILS = ['stefan@hochhuth-consulting.de', 'thordis.jacobs@hochhuth-consulting.de', 'umesh.kumar@hochhuth-consulting.de', 'stefan.hochhuth@hochhuth-consulting.de', 'laxmip@smalsus.com', 'skshakya@hochhuth-consulting.de', 'devendra.dixit@hochhuth-consulting.de', 'laxmi.prashanti@hochhuth-consulting.de'];
+// const HR_ALLOWED_NAMES = ['Juli', 'Umesh Kumar', 'Devendra dixit', 'Thordis Jacobs', 'Stefan Hochhuth', 'Prashant', 'Laxmi Prashanti', 'Satendra Shakya', 'Tanu Jain', 'Prashant Kumar', 'Ranu Trivedi', 'Ranu', 'Nikki Jha', 'Nikky Jha', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi', 'Vikas Kumar Yadav', 'Vikas Yadav', 'Stefan Hochhuth (Admin)', 'laxmi.prashanti@hochhuth-consulting.de'];
+const HR_ALLOWED_NAMES = ['Juli', 'Thordis Jacobs', 'Stefan Hochhuth', 'Prashant', 'Laxmi Prashanti', 'Satendra Shakya', 'Tanu Jain', 'Prashant Kumar', 'Ankush Das', 'Utkarsh Srivastava', 'Deepak Trivedi', 'Stefan Hochhuth (Admin)', 'laxmi.prashanti@hochhuth-consulting.de'];
+// const HR_ALLOWED_EMAILS = ['stefan@hochhuth-consulting.de', 'thordis.jacobs@hochhuth-consulting.de', 'umesh.kumar@hochhuth-consulting.de', 'stefan.hochhuth@hochhuth-consulting.de', 'laxmip@smalsus.com', 'skshakya@hochhuth-consulting.de', 'devendra.dixit@hochhuth-consulting.de', 'laxmi.prashanti@hochhuth-consulting.de'];
+const HR_ALLOWED_EMAILS = ['stefan@hochhuth-consulting.de', 'thordis.jacobs@hochhuth-consulting.de', 'stefan.hochhuth@hochhuth-consulting.de', 'laxmip@smalsus.com', 'skshakya@hochhuth-consulting.de', 'laxmi.prashanti@hochhuth-consulting.de'];
 
 const LEAVE_EVENT_COLORS = ['#5f8fbd', '#4a88cc', '#4d7ac7', '#6c63c7', '#557bd6', '#7a6cd6', '#4f70b8', '#7b5fc1', '#6680d2', '#6a57b0'];
 const HOLIDAY_EVENT_COLOR = '#1f8f3a';

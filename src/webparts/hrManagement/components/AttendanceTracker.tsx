@@ -538,7 +538,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
           if (normalized === 'absent') return 'Absent' as AttendanceStatus;
           if (normalized === 'onleave' || normalized === 'on leave' || normalized === 'leave') return 'On Leave' as AttendanceStatus;
           if (normalized === 'weekend') return 'Weekend' as AttendanceStatus;
-          if (normalized === 'upcoming') return 'Upcoming' as AttendanceStatus;
+          if (normalized === 'workfromhome' || normalized === 'work from home' || normalized === 'wfh') return 'Work From Home' as AttendanceStatus;
           return value as AttendanceStatus;
         };
 
@@ -862,6 +862,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       // Status coloring (optional but good for UI friendly)
       const statusCell = row.getCell('status');
       if (record.status === 'Present') statusCell.font = { color: { argb: 'FF0D6EFD' }, bold: true };
+      else if (record.status === 'Work From Home') statusCell.font = { color: { argb: 'FF0B5ED7' }, bold: true };
       else if (record.status === 'Absent') statusCell.font = { color: { argb: 'FFDC3545' }, bold: true };
       else if (record.status === 'On Leave') statusCell.font = { color: { argb: 'FF198754' }, bold: true };
     });
@@ -1692,7 +1693,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                   <option value="Absent">Absent</option>
                   <option value="On Leave">On Leave</option>
                   <option value="Weekend">Weekend</option>
-                  <option value="Upcoming">Upcoming</option>
+                  <option value="Work From Home">Work From Home</option>
                 </select>
               </div>
               <div className="col-12">
