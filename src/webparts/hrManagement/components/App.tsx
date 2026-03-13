@@ -3433,7 +3433,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                             onDelete={(event) => { void handleDeleteRequest(Number(event.referenceId)); }}
                           />
                         ) : (
-                          <LeaveRequestsTable requests={leaveOnlyRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} showGenerateReportButton={false} externalOpenReportKey={openLeaveReportKey} onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Leave Request', 'Leave Request', requestId); }} />
+                          <LeaveRequestsTable requests={leaveOnlyRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} showGenerateReportButton={false} externalOpenReportKey={openLeaveReportKey} reportMode="leave" onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Leave Request', 'Leave Request', requestId); }} />
                         )}
                       </>
                     )
@@ -3483,7 +3483,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                             onDelete={(event) => { void handleDeleteRequest(Number(event.referenceId)); }}
                           />
                         ) : (
-                          <LeaveRequestsTable requests={workFromHomeRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} title="Detailed Work From Home Applications" showLeaveBalance={false} showGenerateReportButton={false} externalOpenReportKey={openWfhReportKey} onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Work From Home Request', 'Leave Request', requestId); }} />
+                          <LeaveRequestsTable requests={workFromHomeRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} title="Detailed Work From Home Applications" showLeaveBalance={false} showGenerateReportButton={false} externalOpenReportKey={openWfhReportKey} reportMode="wfh" onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Work From Home Request', 'Leave Request', requestId); }} />
                         )}
                       </>
                     )
