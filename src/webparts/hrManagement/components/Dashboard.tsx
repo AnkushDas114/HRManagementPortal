@@ -85,7 +85,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
       pending: requests.filter(r => r.status === LeaveStatus.Pending).length,
       approved: requests.filter(r => r.status === LeaveStatus.Approved).length,
       onLeaveToday: requests.filter(r => r.status === LeaveStatus.Approved && today >= r.startDate && today <= r.endDate).length,
-      presentToday: attendanceRecords.filter(r => r.date === today && (r.status === AttendanceStatus.Present || r.status === AttendanceStatus.WorkFromHome)).length,
+      presentToday: attendanceRecords.filter(r => r.date === today && !!r.clockIn && r.clockIn.trim() !== '').length,
     };
   }, [requests, attendanceRecords]);
 

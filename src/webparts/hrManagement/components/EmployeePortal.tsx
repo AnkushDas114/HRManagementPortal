@@ -123,6 +123,17 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }, []);
 
+  const formatPortalDate = React.useCallback((value: string): string => {
+    const parsed = parseRecordDate(value);
+    return parsed
+      ? formatDateForDisplayIST(parsed, 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : value;
+  }, [parseRecordDate]);
+
+  const formatPortalDateRange = React.useCallback((startDate: string, endDate: string): string => {
+    return `${formatPortalDate(startDate)} - ${formatPortalDate(endDate)}`;
+  }, [formatPortalDate]);
+
   const getWorkDurationMinutes = React.useCallback((value: unknown): number | null => {
     const raw = String(value || '').trim();
     if (!raw || raw === '--:--' || raw === '-:--') return null;
@@ -366,6 +377,18 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     [concerns, namesEquivalent, normalizeText, user.email, user.name]);
 
   const handleOpenConcern = (type: ConcernType, refId: string | number) => {
+    // Prevent duplicate concerns for the same record/date.
+    if (type !== ConcernType.General) {
+      const stringRefId = String(refId);
+      const existingConcern = myConcerns.find(c => c.type === type && String(c.referenceId) === stringRefId);
+
+      if (existingConcern) {
+        const statusText = existingConcern.status === ConcernStatus.Open ? 'an open' : 'a resolved';
+        showAlert(`You already have ${statusText} concern for this ${type} record. Please check your Concerns tab.`);
+        return;
+      }
+    }
+
     setTargetType(type);
     setTargetRefId(refId);
     setConcernDescription('');
@@ -590,37 +613,37 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         return eventDate.getTime() >= today.getTime();
       })
       .map(event => {
-      const eventDate = new Date(event.date);
-      eventDate.setHours(0, 0, 0, 0);
+        const eventDate = new Date(event.date);
+        eventDate.setHours(0, 0, 0, 0);
 
-      let dateLabel = '';
-      if (eventDate.getTime() === today.getTime()) {
-        dateLabel = 'Today';
-      } else if (eventDate.getTime() === tomorrow.getTime()) {
-        dateLabel = 'Tomorrow';
-      } else {
-        dateLabel = formatDateForDisplayIST(eventDate, 'en-US', { month: 'short', day: 'numeric' });
-      }
+        let dateLabel = '';
+        if (eventDate.getTime() === today.getTime()) {
+          dateLabel = 'Today';
+        } else if (eventDate.getTime() === tomorrow.getTime()) {
+          dateLabel = 'Tomorrow';
+        } else {
+          dateLabel = formatDateForDisplayIST(eventDate, 'en-US', { month: 'short', day: 'numeric' });
+        }
 
-      let icon = <CalendarIcon size={16} className="text-secondary" />;
-      if (event.type === 'Birthday') icon = <Cake size={16} />;
-      if (event.type === 'Work Anniversary') icon = <PartyPopper size={16} />;
-      if (event.type === 'Meeting') icon = <UserCheck size={16} className="text-primary" />;
-      if (['Festival', 'Holi', 'Diwali', 'Durga Puja', 'Christmas Day', 'New Year'].indexOf(event.type) !== -1) {
-        icon = <Sparkle size={16} />;
-      }
+        let icon = <CalendarIcon size={16} className="text-secondary" />;
+        if (event.type === 'Birthday') icon = <Cake size={16} />;
+        if (event.type === 'Work Anniversary') icon = <PartyPopper size={16} />;
+        if (event.type === 'Meeting') icon = <UserCheck size={16} className="text-primary" />;
+        if (['Festival', 'Holi', 'Diwali', 'Durga Puja', 'Christmas Day', 'New Year'].indexOf(event.type) !== -1) {
+          icon = <Sparkle size={16} />;
+        }
 
-      return {
-        ...event,
-        dateLabel,
-        icon,
-        plainDescription: toPlainText(event.description)
-      };
-    }).sort((a, b) => {
-      if (!a.date) return 1;
-      if (!b.date) return -1;
-      return new Date(a.date).getTime() - new Date(b.date).getTime();
-    }).slice(0, 5); // Just show top 5 for portal view
+        return {
+          ...event,
+          dateLabel,
+          icon,
+          plainDescription: toPlainText(event.description)
+        };
+      }).sort((a, b) => {
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      }).slice(0, 5); // Just show top 5 for portal view
   }, [teamEvents, toPlainText]);
 
   const triggerEventBurst = React.useCallback((type: TeamEvent['type']) => {
@@ -803,7 +826,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   };
 
   const attendanceColumns = React.useMemo<ColumnDef<AttendanceRecord>[]>(() => ([
-    { key: 'date', header: 'Date', accessor: (rec) => rec.date, render: (rec) => <span>{rec.date}</span> },
+    { key: 'date', header: 'Date', accessor: (rec) => rec.date, render: (rec) => <span>{formatPortalDate(rec.date)}</span> },
     {
       key: 'status',
       header: 'Work Status',
@@ -836,7 +859,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         </button>
       )
     }
-  ]), [handleOpenConcern]);
+  ]), [formatPortalDate, handleOpenConcern]);
 
   const salaryColumns = React.useMemo<ColumnDef<SalarySlip>[]>(() => ([
     { key: 'period', header: 'Pay Period', accessor: (slip) => `${slip.month} ${slip.year}`, render: (slip) => <span className="fw-bold">{slip.month} {slip.year}</span> },
@@ -867,7 +890,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   ]), [handleOpenConcern, handleSalarySlipDownload]);
 
   const leaveColumns = React.useMemo<ColumnDef<LeaveRequest>[]>(() => ([
-    { key: 'duration', header: 'Duration', accessor: (r) => `${r.startDate} ${r.endDate}`, render: (r) => <span className="fw-medium">{r.startDate} - {r.endDate}</span> },
+    { key: 'duration', header: 'Duration', accessor: (r) => `${r.startDate} ${r.endDate}`, render: (r) => <span className="fw-medium">{formatPortalDateRange(r.startDate, r.endDate)}</span> },
     { key: 'leaveType', header: 'Type', accessor: (r) => r.leaveType },
     { key: 'days', header: 'Days', accessor: (r) => r.days, render: (r) => `${r.days} Days` },
     { key: 'status', header: 'Status', accessor: (r) => r.status, render: (r) => <Badge status={r.status} /> },
@@ -904,7 +927,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         </button>
       )
     }
-  ]), [handleOpenConcern, toPlainText]);
+  ]), [formatPortalDateRange, handleOpenConcern, toPlainText]);
 
   // const approvedLeaveNotes = React.useMemo(() =>
   //   myRequests
@@ -1306,13 +1329,24 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           <div className="card shadow-sm border-0 mb-4 px-4 py-3">
             <div className="d-flex justify-content-end align-items-center mb-3">
               <div>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${calendarViewByTab.attendance ? 'btn-primary' : 'btn-primary'}`}
-                  onClick={() => setCalendarViewByTab((prev) => ({ ...prev, attendance: !prev.attendance }))}
-                >
-                  {calendarViewByTab.attendance ? 'Table View' : 'Calendar View'}
-                </button>
+                <div className="d-flex align-items-center bg-light rounded-pill p-1 border shadow-xs" style={{ width: 'fit-content' }}>
+                  <button
+                    type="button"
+                    className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${!calendarViewByTab.attendance ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                    onClick={() => setCalendarViewByTab(prev => ({ ...prev, attendance: false }))}
+                    style={{ transition: 'all 0.2s' }}
+                  >
+                    <FileText size={14} /> Table
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${calendarViewByTab.attendance ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                    onClick={() => setCalendarViewByTab(prev => ({ ...prev, attendance: true }))}
+                    style={{ transition: 'all 0.2s' }}
+                  >
+                    <CalendarIcon size={14} /> Calendar
+                  </button>
+                </div>
               </div>
             </div>
             {!calendarViewByTab.attendance && (
@@ -1398,13 +1432,24 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <p className="text-muted mb-0">Manage your leave applications</p>
             </div>
             <div className="d-flex align-items-center gap-2">
-              <button
-                type="button"
-                className={`btn btn-sm ${calendarViewByTab.leave ? 'btn-primary' : 'btn-primary'}`}
-                onClick={() => setCalendarViewByTab((prev) => ({ ...prev, leave: !prev.leave }))}
-              >
-                {calendarViewByTab.leave ? 'Table View' : 'Calendar View'}
-              </button>
+              <div className="d-flex align-items-center bg-light rounded-pill p-1 border shadow-xs" style={{ width: 'fit-content' }}>
+                <button
+                  type="button"
+                  className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${!calendarViewByTab.leave ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                  onClick={() => setCalendarViewByTab(prev => ({ ...prev, leave: false }))}
+                  style={{ transition: 'all 0.2s' }}
+                >
+                  <FileText size={14} /> Table
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${calendarViewByTab.leave ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                  onClick={() => setCalendarViewByTab(prev => ({ ...prev, leave: true }))}
+                  style={{ transition: 'all 0.2s' }}
+                >
+                  <CalendarIcon size={14} /> Calendar
+                </button>
+              </div>
               {!isTrainee && (
                 <button
                   className="btn btn-primary d-flex align-items-center gap-1"
@@ -1492,13 +1537,24 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <p className="text-muted mb-0">Manage your work from home applications</p>
             </div>
             <div className="d-flex align-items-center gap-2">
-              <button
-                type="button"
-                className={`btn btn-sm ${calendarViewByTab['work-from-home'] ? 'btn-primary' : 'btn-default'}`}
-                onClick={() => setCalendarViewByTab((prev) => ({ ...prev, 'work-from-home': !prev['work-from-home'] }))}
-              >
-                {calendarViewByTab['work-from-home'] ? 'Table View' : 'Calendar View'}
-              </button>
+              <div className="d-flex align-items-center bg-light rounded-pill p-1 border shadow-xs" style={{ width: 'fit-content' }}>
+                <button
+                  type="button"
+                  className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${!calendarViewByTab['work-from-home'] ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                  onClick={() => setCalendarViewByTab(prev => ({ ...prev, 'work-from-home': false }))}
+                  style={{ transition: 'all 0.2s' }}
+                >
+                  <FileText size={14} /> Table
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${calendarViewByTab['work-from-home'] ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                  onClick={() => setCalendarViewByTab(prev => ({ ...prev, 'work-from-home': true }))}
+                  style={{ transition: 'all 0.2s' }}
+                >
+                  <CalendarIcon size={14} /> Calendar
+                </button>
+              </div>
               {!isTrainee && (
                 <button
                   className="btn btn-primary d-flex align-items-center gap-1 px-4 py-2 fw-bold shadow-sm"

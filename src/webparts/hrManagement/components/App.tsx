@@ -44,7 +44,7 @@ import {
 import { deleteAttendanceRecordById, deleteAttendanceRecordsByDate, getAllAttendanceRecords, saveAttendanceRecords, updateAttendanceRecord } from '../services/AttendanceService';
 import { getAllSalarySlips, createSalarySlip } from '../services/SalarySlipService';
 import { getItemVersionHistory, type VersionHistoryEntry } from '../services/VersionHistoryService';
-import { Plus, Minus, X, Send, Download, Edit3, Trash2 } from 'lucide-react';
+import { Plus, Minus, X, Send, Download, Edit3, Trash2, Calendar as CalendarIcon, FileText } from 'lucide-react';
 import { formatAuditInfo, formatDateForDisplayIST, formatDateIST, getNowIST, monthNameIST, todayIST } from '../utils/dateTime';
 import { openOutOfBoxListItemForm } from '../utils/sharePointForm';
 import { SalarySlipView } from './SalarySlipView';
@@ -988,9 +988,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
     if (!sp) return;
     setIsImportingAttendance(true);
     try {
-      await saveAttendanceRecords(sp, records);
+      const { created, updated, unchanged } = await saveAttendanceRecords(sp, records);
       await loadAttendance();
-      showAlert(`Successfully imported ${records.length} records to SharePoint.`);
+      showAlert(`Created: ${created}, updated: ${updated}, unchanged: ${unchanged}`);
     } catch (err) {
       showAlert("Failed to import attendance data.");
       console.error(err);
@@ -3407,13 +3407,24 @@ const App: React.FC<AppProps> = ({ sp }) => {
                               Generate Report
                             </button>
                           )}
-                          <button
-                            type="button"
-                            className={`btn btn-sm ${hrCalendarViewByTab['leaves-request'] ? 'btn-primary' : 'btn-primary'}`}
-                            onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, 'leaves-request': !prev['leaves-request'] }))}
-                          >
-                            {hrCalendarViewByTab['leaves-request'] ? 'Table View' : 'Calendar View'}
-                          </button>
+                          <div className="d-flex align-items-center bg-light rounded-pill p-1 border shadow-xs" style={{ width: 'fit-content' }}>
+                            <button
+                              type="button"
+                              className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${!hrCalendarViewByTab['leaves-request'] ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                              onClick={() => setHrCalendarViewByTab(prev => ({ ...prev, 'leaves-request': false }))}
+                              style={{ transition: 'all 0.2s' }}
+                            >
+                              <FileText size={14} /> Table
+                            </button>
+                            <button
+                              type="button"
+                              className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${hrCalendarViewByTab['leaves-request'] ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                              onClick={() => setHrCalendarViewByTab(prev => ({ ...prev, 'leaves-request': true }))}
+                              style={{ transition: 'all 0.2s' }}
+                            >
+                              <CalendarIcon size={14} /> Calendar
+                            </button>
+                          </div>
                         </div>
                         {hrCalendarViewByTab['leaves-request'] ? (
                           <CalendarView
@@ -3457,13 +3468,24 @@ const App: React.FC<AppProps> = ({ sp }) => {
                               Generate Report
                             </button>
                           )}
-                          <button
-                            type="button"
-                            className={`btn btn-sm ${hrCalendarViewByTab['wfh-request'] ? 'btn-primary' : 'btn-primary'}`}
-                            onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, 'wfh-request': !prev['wfh-request'] }))}
-                          >
-                            {hrCalendarViewByTab['wfh-request'] ? 'Table View' : 'Calendar View'}
-                          </button>
+                          <div className="d-flex align-items-center bg-light rounded-pill p-1 border shadow-xs" style={{ width: 'fit-content' }}>
+                            <button
+                              type="button"
+                              className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${!hrCalendarViewByTab['wfh-request'] ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                              onClick={() => setHrCalendarViewByTab(prev => ({ ...prev, 'wfh-request': false }))}
+                              style={{ transition: 'all 0.2s' }}
+                            >
+                              <FileText size={14} /> Table
+                            </button>
+                            <button
+                              type="button"
+                              className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${hrCalendarViewByTab['wfh-request'] ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                              onClick={() => setHrCalendarViewByTab(prev => ({ ...prev, 'wfh-request': true }))}
+                              style={{ transition: 'all 0.2s' }}
+                            >
+                              <CalendarIcon size={14} /> Calendar
+                            </button>
+                          </div>
                         </div>
                         {hrCalendarViewByTab['wfh-request'] ? (
                           <CalendarView
@@ -3520,13 +3542,24 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   {activeTab === 'attendance' && (
                     <>
                       <div className="d-flex justify-content-end mb-3">
-                        <button
-                          type="button"
-                          className={`btn btn-sm ${hrCalendarViewByTab.attendance ? 'btn-primary' : 'btn-primary'}`}
-                          onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, attendance: !prev.attendance }))}
-                        >
-                          {hrCalendarViewByTab.attendance ? 'Table View' : 'Calendar View'}
-                        </button>
+                        <div className="d-flex align-items-center bg-light rounded-pill p-1 border shadow-xs" style={{ width: 'fit-content' }}>
+                          <button
+                            type="button"
+                            className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${!hrCalendarViewByTab.attendance ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                            onClick={() => setHrCalendarViewByTab(prev => ({ ...prev, attendance: false }))}
+                            style={{ transition: 'all 0.2s' }}
+                          >
+                            <FileText size={14} /> Table
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${hrCalendarViewByTab.attendance ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                            onClick={() => setHrCalendarViewByTab(prev => ({ ...prev, attendance: true }))}
+                            style={{ transition: 'all 0.2s' }}
+                          >
+                            <CalendarIcon size={14} /> Calendar
+                          </button>
+                        </div>
                       </div>
                       {hrCalendarViewByTab.attendance ? (
                         <CalendarView
@@ -3579,13 +3612,24 @@ const App: React.FC<AppProps> = ({ sp }) => {
                         >
                           <Send size={14} /> Send Report
                         </button>
-                        <button
-                          type="button"
-                          className={`btn btn-sm ${hrCalendarViewByTab.onLeaveToday ? 'btn-primary' : 'btn-primary'}`}
-                          onClick={() => setHrCalendarViewByTab((prev) => ({ ...prev, onLeaveToday: !prev.onLeaveToday }))}
-                        >
-                          {hrCalendarViewByTab.onLeaveToday ? 'Table View' : 'Calendar View'}
-                        </button>
+                        <div className="d-flex align-items-center bg-light rounded-pill p-1 border shadow-xs" style={{ width: 'fit-content' }}>
+                          <button
+                            type="button"
+                            className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${!hrCalendarViewByTab.onLeaveToday ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                            onClick={() => setHrCalendarViewByTab(prev => ({ ...prev, onLeaveToday: false }))}
+                            style={{ transition: 'all 0.2s' }}
+                          >
+                            <FileText size={14} /> Table
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn btn-sm rounded-pill border-0 d-flex align-items-center gap-2 px-3 ${hrCalendarViewByTab.onLeaveToday ? 'bg-white shadow-sm fw-bold text-primary' : 'text-muted'}`}
+                            onClick={() => setHrCalendarViewByTab(prev => ({ ...prev, onLeaveToday: true }))}
+                            style={{ transition: 'all 0.2s' }}
+                          >
+                            <CalendarIcon size={14} /> Calendar
+                          </button>
+                        </div>
                       </div>
                       {hrCalendarViewByTab.onLeaveToday ? (
                         <CalendarView

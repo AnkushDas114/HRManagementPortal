@@ -8,7 +8,7 @@ import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import { Check, X, Filter, MessageSquare, Info, RotateCcw, ChevronDown, ChevronRight, Clock, Download, FileText } from 'lucide-react';
-import { formatAuditInfo, formatDateIST, getNowIST, todayIST } from '../utils/dateTime';
+import { formatAuditInfo, getNowIST, todayIST } from '../utils/dateTime';
 
 interface LeaveRequestsTableProps {
   requests: LeaveRequest[];
@@ -323,50 +323,68 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       if (selectedMemberId && req.employee.id !== selectedMemberId) return false;
 
       // 3. Date Presets Filter
-      const reqDate = new Date(req.submittedAt);
-      const reqTime = reqDate.getTime();
-      const startOfDay = (d: Date) => { d.setHours(0, 0, 0, 0); return d.getTime(); };
+      if (selectedDateFilter === 'All Time' || selectedDateFilter === 'Pre-set') return true;
+
+      const reqStartDateObj = toDateValue(req.startDate);
+      const reqEndDateObj = toDateValue(req.endDate || req.startDate);
+      if (!reqStartDateObj || !reqEndDateObj) return false;
+
+      const startOf = (d: Date) => { const r = new Date(d); r.setHours(0, 0, 0, 0); return r.getTime(); };
+      const endOf = (d: Date) => { const r = new Date(d); r.setHours(23, 59, 59, 999); return r.getTime(); };
+
+      const reqStart = startOf(reqStartDateObj);
+      const reqEnd = endOf(reqEndDateObj);
+
+      const overlaps = (startTarget: number, endTarget: number) => {
+        return startTarget <= reqEnd && endTarget >= reqStart;
+      };
 
       if (selectedDateFilter === 'Today') {
-        return req.submittedAt === todayStr;
+        return overlaps(startOf(today), endOf(today));
       }
       if (selectedDateFilter === 'Yesterday') {
         const yest = new Date(); yest.setDate(today.getDate() - 1);
-        return req.submittedAt === formatDateIST(yest);
+        return overlaps(startOf(yest), endOf(yest));
       }
       if (selectedDateFilter === 'This Week') {
         const first = new Date(); first.setDate(today.getDate() - today.getDay());
-        return reqTime >= startOfDay(first);
+        const last = new Date(first); last.setDate(first.getDate() + 6);
+        return overlaps(startOf(first), endOf(last));
       }
       if (selectedDateFilter === 'Last Week') {
         const first = new Date(); first.setDate(today.getDate() - today.getDay() - 7);
         const last = new Date(); last.setDate(today.getDate() - today.getDay() - 1);
-        return reqTime >= startOfDay(first) && reqTime <= startOfDay(last);
+        return overlaps(startOf(first), endOf(last));
       }
       if (selectedDateFilter === 'This Month') {
         const first = new Date(today.getFullYear(), today.getMonth(), 1);
-        return reqTime >= startOfDay(first);
+        const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        return overlaps(startOf(first), endOf(last));
       }
       if (selectedDateFilter === 'Last Month') {
         const first = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         const last = new Date(today.getFullYear(), today.getMonth(), 0);
-        return reqTime >= startOfDay(first) && reqTime <= startOfDay(last);
+        return overlaps(startOf(first), endOf(last));
       }
       if (selectedDateFilter === 'Last 3 Months') {
         const three = new Date(); three.setMonth(today.getMonth() - 3);
-        return reqTime >= startOfDay(three);
+        return overlaps(startOf(three), endOf(today));
       }
       if (selectedDateFilter === 'This Year') {
         const start = new Date(today.getFullYear(), 0, 1);
-        return reqTime >= startOfDay(start);
+        const end = new Date(today.getFullYear(), 11, 31);
+        return overlaps(startOf(start), endOf(end));
       }
       if (selectedDateFilter === 'Last Year') {
         const start = new Date(today.getFullYear() - 1, 0, 1);
         const end = new Date(today.getFullYear() - 1, 11, 31);
-        return reqTime >= startOfDay(start) && reqTime <= startOfDay(end);
+        return overlaps(startOf(start), endOf(end));
       }
       if (selectedDateFilter === 'Custom' && startDate && endDate) {
-        return req.submittedAt >= startDate && req.submittedAt <= endDate;
+        const sDate = toDateValue(startDate);
+        const eDate = toDateValue(endDate);
+        if (!sDate || !eDate) return false;
+        return overlaps(startOf(sDate), endOf(eDate));
       }
 
       return true;
@@ -882,6 +900,80 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     }, 500);
   }, [generatedReportRows, reportStartDate, reportEndDate, reportDatePreset, hasMaternity, hasPaternity, isWfhReport]);
 
+  const handlePresetChange = (preset: string) => {
+    setSelectedDateFilter(preset);
+    const today = getNowIST();
+
+    const toDateString = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    let sDate = '';
+    let eDate = '';
+
+    if (preset === 'Today') {
+      sDate = toDateString(today);
+      eDate = toDateString(today);
+    } else if (preset === 'Yesterday') {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 1);
+      sDate = toDateString(d);
+      eDate = toDateString(d);
+    } else if (preset === 'This Week') {
+      const first = new Date(today);
+      first.setDate(first.getDate() - first.getDay());
+      const last = new Date(first);
+      last.setDate(first.getDate() + 6);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
+    } else if (preset === 'Last Week') {
+      const first = new Date(today);
+      first.setDate(first.getDate() - first.getDay() - 7);
+      const last = new Date(today);
+      last.setDate(today.getDate() - today.getDay() - 1);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
+    } else if (preset === 'This Month') {
+      const first = new Date(today.getFullYear(), today.getMonth(), 1);
+      const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
+    } else if (preset === 'Last Month') {
+      const first = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const last = new Date(today.getFullYear(), today.getMonth(), 0);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
+    } else if (preset === 'Last 3 Months') {
+      const first = new Date(today);
+      first.setMonth(today.getMonth() - 3);
+      sDate = toDateString(first);
+      eDate = toDateString(today);
+    } else if (preset === 'This Year') {
+      const first = new Date(today.getFullYear(), 0, 1);
+      const last = new Date(today.getFullYear(), 11, 31);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
+    } else if (preset === 'Last Year') {
+      const first = new Date(today.getFullYear() - 1, 0, 1);
+      const last = new Date(today.getFullYear() - 1, 11, 31);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
+    } else if (preset === 'All Time') {
+      sDate = '';
+      eDate = '';
+    } else if (preset === 'Custom' || preset === 'Pre-set') {
+      return;
+    }
+
+    if (preset !== 'Custom' && preset !== 'Pre-set') {
+      setStartDate(sDate);
+      setEndDate(eDate);
+    }
+  };
+
   const handleClearFilters = () => {
     setSelectedDateFilter('All Time');
     setStartDate('');
@@ -1202,7 +1294,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                         name="datePreset"
                         className="radio"
                         checked={selectedDateFilter === preset}
-                        onChange={() => setSelectedDateFilter(preset)}
+                        onChange={() => handlePresetChange(preset)}
                       />
                       <label htmlFor={`date-${preset}`} className="text-muted mb-0 cursor-pointer">{preset}</label>
                     </div>

@@ -257,21 +257,33 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       };
 
       // Priority 1: Accordion Presets (if not All Time/Pre-set)
-      if (selectedDateFilter !== 'All Time' && selectedDateFilter !== 'Pre-set') {
+      if (selectedDateFilter === 'All Time') {
+        return true;
+      }
+
+      const endOfDay = (d: Date) => {
+        const res = new Date(d.getTime());
+        res.setHours(23, 59, 59, 999);
+        return res;
+      };
+
+      if (selectedDateFilter !== 'Pre-set') {
         if (selectedDateFilter === 'Today') {
           return recDateKey === todayStr;
         }
 
         if (selectedDateFilter === 'Yesterday') {
           const yesterday = new Date();
-          yesterday.setDate(yesterday.getDate() - 1);
+          yesterday.setDate(today.getDate() - 1);
           return recDateKey === formatDateIST(yesterday);
         }
 
         if (selectedDateFilter === 'This Week') {
           const firstDayOfWeek = new Date();
           firstDayOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
-          return recTime >= startOfDay(firstDayOfWeek).getTime();
+          const lastDayOfWeek = new Date(firstDayOfWeek);
+          lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
+          return recTime >= startOfDay(firstDayOfWeek).getTime() && recTime <= endOfDay(lastDayOfWeek).getTime();
         }
 
         if (selectedDateFilter === 'Last Week') {
@@ -279,31 +291,39 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
           lastWeekStart.setDate(today.getDate() - today.getDay() - 7);
           const lastWeekEnd = new Date();
           lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
-          return recTime >= startOfDay(lastWeekStart).getTime() && recTime <= startOfDay(lastWeekEnd).getTime();
+          return recTime >= startOfDay(lastWeekStart).getTime() && recTime <= endOfDay(lastWeekEnd).getTime();
         }
 
         if (selectedDateFilter === 'This Month') {
-          return recDate.getMonth() === today.getMonth() && recDate.getFullYear() === today.getFullYear();
+          const first = new Date(today.getFullYear(), today.getMonth(), 1);
+          const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          return recTime >= startOfDay(first).getTime() && recTime <= endOfDay(last).getTime();
         }
 
         if (selectedDateFilter === 'Last Month') {
           const lastMonth = new Date();
           lastMonth.setMonth(today.getMonth() - 1);
-          return recDate.getMonth() === lastMonth.getMonth() && recDate.getFullYear() === lastMonth.getFullYear();
+          const first = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+          const last = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0);
+          return recTime >= startOfDay(first).getTime() && recTime <= endOfDay(last).getTime();
         }
 
         if (selectedDateFilter === 'Last 3 Months') {
           const threeMonthsAgo = new Date();
           threeMonthsAgo.setMonth(today.getMonth() - 3);
-          return recTime >= startOfDay(threeMonthsAgo).getTime();
+          return recTime >= startOfDay(threeMonthsAgo).getTime() && recTime <= endOfDay(today).getTime();
         }
 
         if (selectedDateFilter === 'This Year') {
-          return recDate.getFullYear() === today.getFullYear();
+          const first = new Date(today.getFullYear(), 0, 1);
+          const last = new Date(today.getFullYear(), 11, 31);
+          return recTime >= startOfDay(first).getTime() && recTime <= endOfDay(last).getTime();
         }
 
         if (selectedDateFilter === 'Last Year') {
-          return recDate.getFullYear() === today.getFullYear() - 1;
+          const first = new Date(today.getFullYear() - 1, 0, 1);
+          const last = new Date(today.getFullYear() - 1, 11, 31);
+          return recTime >= startOfDay(first).getTime() && recTime <= endOfDay(last).getTime();
         }
 
         if (selectedDateFilter === 'Custom') {
@@ -395,41 +415,85 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     // Map Presets
     setSelectedDateFilter(filter);
 
+    const toDateString = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    let sDate = '';
+    let eDate = '';
+
     if (filter === 'Today') {
+      sDate = toDateString(now);
+      eDate = toDateString(now);
       setReferenceDate(now);
       setViewMode('Daily');
-      return;
-    }
-    if (filter === 'Yesterday') {
+    } else if (filter === 'Yesterday') {
       const d = new Date(now);
       d.setDate(d.getDate() - 1);
+      sDate = toDateString(d);
+      eDate = toDateString(d);
       setReferenceDate(d);
       setViewMode('Daily');
-      return;
-    }
-    if (filter === 'This Week') {
+    } else if (filter === 'This Week') {
+      const first = new Date(now);
+      first.setDate(first.getDate() - first.getDay());
+      const last = new Date(first);
+      last.setDate(first.getDate() + 6);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
       setReferenceDate(now);
       setViewMode('Weekly');
-      return;
-    }
-    if (filter === 'Last Week') {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
-      setReferenceDate(d);
+    } else if (filter === 'Last Week') {
+      const first = new Date(now);
+      first.setDate(first.getDate() - first.getDay() - 7);
+      const last = new Date(now);
+      last.setDate(now.getDate() - now.getDay() - 1);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
+      setReferenceDate(first);
       setViewMode('Weekly');
-      return;
-    }
-    if (filter === 'This Month') {
+    } else if (filter === 'This Month') {
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
       setReferenceDate(now);
       setViewMode('Monthly');
+    } else if (filter === 'Last Month') {
+      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const last = new Date(now.getFullYear(), now.getMonth(), 0);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
+      setReferenceDate(first);
+      setViewMode('Monthly');
+    } else if (filter === 'Last 3 Months') {
+      const first = new Date(now);
+      first.setMonth(now.getMonth() - 3);
+      sDate = toDateString(first);
+      eDate = toDateString(now);
+    } else if (filter === 'This Year') {
+      const first = new Date(now.getFullYear(), 0, 1);
+      const last = new Date(now.getFullYear(), 11, 31);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
+    } else if (filter === 'Last Year') {
+      const first = new Date(now.getFullYear() - 1, 0, 1);
+      const last = new Date(now.getFullYear() - 1, 11, 31);
+      sDate = toDateString(first);
+      eDate = toDateString(last);
+    } else if (filter === 'All Time') {
+      sDate = '';
+      eDate = '';
+    } else if (filter === 'Custom' || filter === 'Pre-set') {
       return;
     }
-    if (filter === 'Last Month') {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - 1);
-      setReferenceDate(d);
-      setViewMode('Monthly');
-      return;
+
+    if (filter !== 'Custom' && filter !== 'Pre-set') {
+      setStartDate(sDate);
+      setEndDate(eDate);
     }
   };
 
