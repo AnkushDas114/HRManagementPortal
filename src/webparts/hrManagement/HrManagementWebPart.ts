@@ -44,6 +44,7 @@ export default class HrManagementWebPart extends BaseClientSideWebPart<IHrManage
   }
 
   protected onInit(): Promise<void> {
+    document.title = "Employee HR-Management Portal";
     this._sp = spfi().using(SPFx(this.context));
     return this._getEnvironmentMessage().then(message => {
       this._environmentMessage = message;
