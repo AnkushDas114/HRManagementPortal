@@ -26,7 +26,7 @@ import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import Badge from '../ui/Badge';
 import type { LeaveRequest, AttendanceRecord, Employee, SalarySlip, Policy, Concern, Holiday, TeamEvent } from '../types';
 import { LeaveStatus, UserRole, ConcernStatus, ConcernType } from '../types';
-import { getAllLeaveRequests, createLeaveRequest, updateLeaveRequestStatus, deleteLeaveRequest, updateLeaveRequest } from '../services/LeaveRequestsService';
+import { getAllLeaveRequests, createLeaveRequest, updateLeaveRequestStatus, deleteLeaveRequest, updateLeaveRequest, bulkApproveUnplannedLeaves } from '../services/LeaveRequestsService';
 import { getAllEvents, createEvent, updateEvent, deleteEvent } from '../services/EventsService';
 import { getAllConcerns, createConcern, updateConcernReply, updateConcernStatus } from '../services/ConcernsService';
 import {
@@ -1286,7 +1286,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
             'robert.ungethuem@hochhuth-consulting.de',
             'alina.chyhasova@hochhuth-consulting.de',
             'mattis.hahn@hochhuth-consulting.de',
-            'ankush.das@hochhuth-consulting.de'
+            // 'ankush.das@hochhuth-consulting.de'
           ];
           const isSuperUser = selectedEmployeeForLeave && selectedEmployeeForLeave.email
             && SUPER_USERS.indexOf(selectedEmployeeForLeave.email.toLowerCase()) !== -1;
@@ -1307,6 +1307,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
       showAlert('Failed to save leave request. Please try again.');
     } finally {
       setIsSavingLeave(false);
+    }
+  };
+
+  const handleBulkApproveUnplanned = async () => {
+    try {
+      await bulkApproveUnplannedLeaves(sp);
+      await loadLeaveRequests();
+    } catch (error) {
+      console.error('Failed to bulk approve unplanned leaves:', error);
+      throw error;
     }
   };
 
@@ -3456,7 +3466,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                             onDelete={(event) => { void handleDeleteRequest(Number(event.referenceId)); }}
                           />
                         ) : (
-                          <LeaveRequestsTable requests={leaveOnlyRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} showGenerateReportButton={false} externalOpenReportKey={openLeaveReportKey} reportMode="leave" onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Leave Request', 'Leave Request', requestId); }} />
+                          <LeaveRequestsTable requests={leaveOnlyRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} showGenerateReportButton={false} externalOpenReportKey={openLeaveReportKey} reportMode="leave" onBulkApproveUnplanned={handleBulkApproveUnplanned} onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Leave Request', 'Leave Request', requestId); }} />
                         )}
                       </>
                     )
@@ -3517,7 +3527,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
                             onDelete={(event) => { void handleDeleteRequest(Number(event.referenceId)); }}
                           />
                         ) : (
-                          <LeaveRequestsTable requests={workFromHomeRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} title="Detailed Work From Home Applications" showLeaveBalance={false} showGenerateReportButton={false} externalOpenReportKey={openWfhReportKey} reportMode="wfh" onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Work From Home Request', 'Leave Request', requestId); }} />
+                          <LeaveRequestsTable requests={workFromHomeRequests} employees={directoryEmployees} leaveQuotas={leaveQuotas} filter={leaveFilter} onFilterChange={setLeaveFilter} onUpdateStatus={handleUpdateRequestStatus} onDelete={handleDeleteRequest} onViewBalance={handleViewBalance} teams={distinctTimeCategories} title="Detailed Work From Home Applications" showLeaveBalance={false} showGenerateReportButton={false} externalOpenReportKey={openWfhReportKey} reportMode="wfh" onBulkApproveUnplanned={handleBulkApproveUnplanned} onOpenRequestForm={(requestId) => { openOutOfBoxListItemForm(sp, 'Leave Request', requestId).catch(() => undefined); }} onOpenRequestVersionHistory={(requestId) => { void handleOpenVersionHistory('Work From Home Request', 'Leave Request', requestId); }} />
                         )}
                       </>
                     )

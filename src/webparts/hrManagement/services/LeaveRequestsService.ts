@@ -87,11 +87,27 @@ export async function createLeaveRequest(
             };
         }
 
+        const SUPER_USERS = [
+            'stefan@hochhuth-consulting.de',
+            'thordis.jacobs@hochhuth-consulting.de',
+            'kristina.kovach@hochhuth-consulting.de',
+            'robert.ungethuem@hochhuth-consulting.de',
+            'alina.chyhasova@hochhuth-consulting.de',
+            'mattis.hahn@hochhuth-consulting.de',
+            // 'ankush.das@hochhuth-consulting.de'
+        ];
+
+        const isSuperUser = SUPER_USERS.some(email =>
+            employee.email && employee.email.toLowerCase() === email.toLowerCase()
+        );
+
         const isUnplanned = String(formData.leaveType || '').toLowerCase().includes('unplanned');
-        const defaultStatus = isUnplanned ? 'Approved' : 'Pending';
-        const defaultApprover = isUnplanned ? 'System (Auto-Approved)' : null;
-        const defaultApproverComment = isUnplanned ? 'Approved' : null;
-        const defaultApprovedAt = isUnplanned ? nowISTISOString() : null;
+        const shouldAutoApprove = isUnplanned || isSuperUser;
+
+        const defaultStatus = shouldAutoApprove ? 'Approved' : 'Pending';
+        const defaultApprover = shouldAutoApprove ? 'System (Auto-Approved)' : null;
+        const defaultApproverComment = shouldAutoApprove ? 'Approved' : null;
+        const defaultApprovedAt = shouldAutoApprove ? nowISTISOString() : null;
 
         // Create item in SharePoint
         await sp.web.lists
@@ -147,6 +163,44 @@ export async function updateLeaveRequestStatus(
         console.log('Leave request status updated successfully');
     } catch (error) {
         console.error('Error updating leave request status:', error);
+        throw error;
+    }
+}
+
+/**
+ * Bulk approve all unplanned leaves that are not already approved
+ */
+export async function bulkApproveUnplannedLeaves(sp: SPFI): Promise<void> {
+    try {
+        const list = sp.web.lists.getByTitle('Leave Request');
+        const items = await list.items
+            .filter("Status eq 'Pending'")
+            .select('Id', 'LeaveType', 'Status')();
+
+        const unplannedItems = items.filter((item: any) => 
+            String(item.LeaveType || '').toLowerCase() === 'unplanned leave'
+        );
+
+        if (unplannedItems.length === 0) {
+            console.log('No pending/rejected unplanned leaves found to approve.');
+            return;
+        }
+
+        const now = nowISTISOString();
+
+        const updatePromises = unplannedItems.map(item => 
+            list.items.getById(item.Id).update({
+                Status: LeaveStatus.Approved,
+                ApproverName: 'System (Bulk-Approved)',
+                ApproverComment: 'Bulk approved by Admin',
+                ApprovedAt: now
+            })
+        );
+
+        await Promise.all(updatePromises);
+        console.log(`Successfully bulk approved ${unplannedItems.length} unplanned leaves.`);
+    } catch (error) {
+        console.error('Error in bulkApproveUnplannedLeaves:', error);
         throw error;
     }
 }

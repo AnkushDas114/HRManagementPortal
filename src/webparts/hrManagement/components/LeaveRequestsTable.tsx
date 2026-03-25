@@ -27,6 +27,7 @@ interface LeaveRequestsTableProps {
   showGenerateReportButton?: boolean;
   externalOpenReportKey?: number;
   reportMode?: 'leave' | 'wfh';
+  onBulkApproveUnplanned?: () => Promise<void>;
 }
 
 type ReportDatePreset =
@@ -251,7 +252,7 @@ const getReportDaysForRequest = (
   return roundReportValue(totalRequested > 0 ? Math.min(weekdayDays, totalRequested) : weekdayDays);
 };
 
-const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, employees, leaveQuotas, filter, onFilterChange, onUpdateStatus, onDelete, onViewBalance, onOpenRequestForm, onOpenRequestVersionHistory, teams, title = 'Detailed Leave Applications', showLeaveBalance = true, showGenerateReportButton = true, externalOpenReportKey, reportMode = 'leave' }) => {
+const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, employees, leaveQuotas, filter, onFilterChange, onUpdateStatus, onDelete, onViewBalance, onOpenRequestForm, onOpenRequestVersionHistory, teams, title = 'Detailed Leave Applications', showLeaveBalance = true, showGenerateReportButton = true, externalOpenReportKey, reportMode = 'leave', onBulkApproveUnplanned }) => {
   const [isCommentModalOpen, setIsCommentModalOpen] = React.useState(false);
   const [selectedRequest, setSelectedRequest] = React.useState<LeaveRequest | null>(null);
   const [comment, setComment] = React.useState('');
@@ -271,6 +272,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
   const [generatedReportRows, setGeneratedReportRows] = React.useState<LeaveReportRow[]>([]);
   const [expandedReportEmployeeIds, setExpandedReportEmployeeIds] = React.useState<Set<string>>(new Set());
   const [isReportGenerated, setIsReportGenerated] = React.useState(false);
+  // const [isBulkApproving, setIsBulkApproving] = React.useState(false);
   const lastExternalOpenKeyRef = React.useRef<number | null>(null);
 
   const isWfhReport = reportMode === 'wfh';
@@ -1151,25 +1153,31 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       key: 'status',
       header: 'Status',
       accessor: (request) => `${request.status} ${request.approverName || ''}`,
-      render: (request) => (
-        <>
-          <Badge status={request.status} />
-          {request.status !== LeaveStatus.Pending && request.approverName && (
-            <div className="text-muted mt-1" style={{ fontSize: '9px' }}>
-              by {request.approverName}
-              {request.approverComment && (
-                <span className="approver-comment-tooltip ms-1">
-                  <MessageSquare size={12} color="#2F5596" />
-                  <span className="approver-comment-tooltip__box">
-                    <span className="approver-comment-tooltip__label">HR Comment</span>
-                    <span className="approver-comment-tooltip__text">{getApproverCommentPreview(request.approverComment)}</span>
+      render: (request) => {
+        const isUnplanned = String(request.leaveType || '').toLowerCase().includes('unplanned');
+        if (isUnplanned) {
+          return <span className="text-muted"></span>;
+        }
+        return (
+          <>
+            <Badge status={request.status} />
+            {request.status !== LeaveStatus.Pending && request.approverName && request.approverName !== 'System (Auto-Approved)' && (
+              <div className="text-muted mt-1" style={{ fontSize: '9px' }}>
+                by {request.approverName}
+                {request.approverComment && (
+                  <span className="approver-comment-tooltip ms-1">
+                    <MessageSquare size={12} color="#2F5596" />
+                    <span className="approver-comment-tooltip__box">
+                      <span className="approver-comment-tooltip__label">HR Comment</span>
+                      <span className="approver-comment-tooltip__text">{getApproverCommentPreview(request.approverComment)}</span>
+                    </span>
                   </span>
-                </span>
-              )}
-            </div>
-          )}
-        </>
-      )
+                )}
+              </div>
+            )}
+          </>
+        );
+      }
     },
     {
       key: 'actions',
@@ -1177,42 +1185,49 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       searchable: false,
       filterable: false,
       align: 'end',
-      render: (request) => (
-        <div className="d-flex align-items-center justify-content-end gap-3 leave-action-group">
-          {request.status === LeaveStatus.Pending ? (
-            <>
+      render: (request) => {
+        const isUnplanned = String(request.leaveType || '').toLowerCase().includes('unplanned');
+        if (isUnplanned) {
+          return <div className="text-end text-muted">-</div>;
+        }
+
+        return (
+          <div className="d-flex align-items-center justify-content-end gap-3 leave-action-group">
+            {request.status === LeaveStatus.Pending ? (
+              <>
+                <button
+                  onClick={() => handleActionClick(request, LeaveStatus.Approved)}
+                  className="p-0 border-0 bg-transparent flex-shrink-0"
+                  style={{ color: '#15803d', display: 'flex' }}
+                  title="Approve request"
+                  aria-label="Approve request"
+                >
+                  <Check size={18} strokeWidth={2.5} />
+                </button>
+                <button
+                  onClick={() => handleActionClick(request, LeaveStatus.Rejected)}
+                  className="p-0 border-0 bg-transparent flex-shrink-0"
+                  style={{ color: '#dc2626', display: 'flex' }}
+                  title="Reject request"
+                  aria-label="Reject request"
+                >
+                  <X size={18} strokeWidth={2.5} />
+                </button>
+              </>
+            ) : (
               <button
-                onClick={() => handleActionClick(request, LeaveStatus.Approved)}
+                onClick={() => handleRevertClick(request)}
                 className="p-0 border-0 bg-transparent flex-shrink-0"
-                style={{ color: '#15803d', display: 'flex' }}
-                title="Approve request"
-                aria-label="Approve request"
+                style={{ color: '#2f5596', display: 'flex' }}
+                title="Revert to pending"
+                aria-label="Revert to pending"
               >
-                <Check size={18} strokeWidth={2.5} />
+                <RotateCcw size={17} strokeWidth={2.2} />
               </button>
-              <button
-                onClick={() => handleActionClick(request, LeaveStatus.Rejected)}
-                className="p-0 border-0 bg-transparent flex-shrink-0"
-                style={{ color: '#dc2626', display: 'flex' }}
-                title="Reject request"
-                aria-label="Reject request"
-              >
-                <X size={18} strokeWidth={2.5} />
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => handleRevertClick(request)}
-              className="p-0 border-0 bg-transparent flex-shrink-0"
-              style={{ color: '#2f5596', display: 'flex' }}
-              title="Revert to pending"
-              aria-label="Revert to pending"
-            >
-              <RotateCcw size={17} strokeWidth={2.2} />
-            </button>
-          )}
-        </div>
-      )
+            )}
+          </div>
+        );
+      }
     }
   ]), [leaveQuotas, onViewBalance, calculateUsedLeaves, handleActionClick, handleRevertClick, getApproverCommentPreview, showLeaveBalance]);
 
@@ -1247,6 +1262,38 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
               <option value={LeaveStatus.Approved}>Approved</option>
               <option value={LeaveStatus.Rejected}>Rejected</option>
             </select>
+
+            {/* {onBulkApproveUnplanned && (
+              <button
+                className="btn btn-sm btn-success d-flex align-items-center gap-1 ms-2"
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to approve ALL Pending unplanned leave requests across the database?')) {
+                    setIsBulkApproving(true);
+                    try {
+                      await onBulkApproveUnplanned();
+                      alert('Bulk approval completed successfully!');
+                    } catch (err) {
+                      console.error('Bulk approval failed:', err);
+                      alert('Bulk approval failed.');
+                    } finally {
+                      setIsBulkApproving(false);
+                    }
+                  }
+                }}
+                disabled={isBulkApproving}
+                style={{ backgroundColor: '#15803d', borderColor: '#15803d', color: 'white' }}
+              >
+                {isBulkApproving ? (
+                  <>
+                    <RotateCcw size={14} className="animate-spin me-1" /> Processing...
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} /> Bulk Approve Unplanned
+                  </>
+                )}
+              </button>
+            )} */}
           </div>
         </div>
 
