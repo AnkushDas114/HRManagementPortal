@@ -52,7 +52,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
   const [isImportingLocal, setIsImportingLocal] = React.useState(false);
   const [isDateAccordionOpen, setIsDateAccordionOpen] = React.useState(false);
-  const [selectedDateFilter, setSelectedDateFilter] = React.useState('All Time');
+  const [selectedDateFilter, setSelectedDateFilter] = React.useState('Pre-set');
   const [startDate, setStartDate] = React.useState('');
   const [endDate, setEndDate] = React.useState('');
   const [selectedMemberId, setSelectedMemberId] = React.useState<string | null>(null);
@@ -64,7 +64,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   const [deleteEmployeeId, setDeleteEmployeeId] = React.useState('');
   const [isDeletingRecords, setIsDeletingRecords] = React.useState(false);
 
-  const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
+  const [viewMode, setViewMode] = React.useState<'Daily' | 'Weekly' | 'Monthly'>('Daily');
   const [referenceDate, setReferenceDate] = React.useState<Date>(today);
 
   const normalizeText = React.useCallback((value: unknown): string => {
@@ -370,6 +370,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   }, [attendanceRecords, employees, selectedMemberId, selectedDateFilter, startDate, endDate, todayStr, today, employeeIdsMatch, normalizeText, viewMode, referenceDate, parseRecordDate]);
 
   const handlePrev = () => {
+    setSelectedDateFilter('Pre-set');
     const nextDate = new Date(referenceDate);
     if (viewMode === 'Daily') nextDate.setDate(referenceDate.getDate() - 1);
     else if (viewMode === 'Weekly') nextDate.setDate(referenceDate.getDate() - 7);
@@ -378,6 +379,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   };
 
   const handleNext = () => {
+    setSelectedDateFilter('Pre-set');
     const nextDate = new Date(referenceDate);
     if (viewMode === 'Daily') nextDate.setDate(referenceDate.getDate() + 1);
     else if (viewMode === 'Weekly') nextDate.setDate(referenceDate.getDate() + 7);
@@ -390,21 +392,21 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       return selectedDateFilter;
     }
     if (selectedDateFilter === 'Custom' && startDate && endDate) {
-      return `${formatDateForDisplayIST(new Date(startDate), 'en-US', { day: 'numeric', month: 'short' })} - ${formatDateForDisplayIST(new Date(endDate), 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      return `${formatDateForDisplayIST(new Date(startDate), 'en-GB', { day: '2-digit', month: 'short' })} - ${formatDateForDisplayIST(new Date(endDate), 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
     }
 
     if (viewMode === 'Daily') {
-      return formatDateForDisplayIST(referenceDate, 'en-US', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
+      return formatDateForDisplayIST(referenceDate, 'en-GB', { day: '2-digit', month: 'long', year: 'numeric', weekday: 'long' });
     }
     if (viewMode === 'Weekly') {
       const start = new Date(referenceDate);
       start.setDate(referenceDate.getDate() - referenceDate.getDay());
       const end = new Date(start);
       end.setDate(start.getDate() + 6);
-      return `${formatDateForDisplayIST(start, 'en-US', { day: 'numeric', month: 'short' })} - ${formatDateForDisplayIST(end, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      return `${formatDateForDisplayIST(start, 'en-GB', { day: '2-digit', month: 'short' })} - ${formatDateForDisplayIST(end, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
     }
     if (viewMode === 'Monthly') {
-      return formatDateForDisplayIST(referenceDate, 'en-US', { month: 'long', year: 'numeric' });
+      return formatDateForDisplayIST(referenceDate, 'en-GB', { month: 'long', year: 'numeric' });
     }
     return '';
   };
@@ -498,7 +500,9 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   };
 
   const handleClearFilters = () => {
-    setSelectedDateFilter('All Time');
+    setSelectedDateFilter('Pre-set');
+    setViewMode('Daily');
+    setReferenceDate(today);
     setStartDate('');
     setEndDate('');
     setSelectedMemberId(null);
@@ -1147,7 +1151,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             ? formatDateForDisplayIST(parsedDate, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
             : String(record.date || ''),
           parsedDate
-            ? new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Kolkata' }).format(parsedDate)
+            ? new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'Asia/Kolkata' }).format(parsedDate)
             : '',
           formatMinsExcel(scheduledMinutes),
           record.clockIn || 'N/A',
@@ -1164,7 +1168,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             ? formatDateForDisplayIST(parsedDate, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
             : String(record.date || ''),
           parsedDate
-            ? new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Kolkata' }).format(parsedDate)
+            ? new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'Asia/Kolkata' }).format(parsedDate)
             : '',
           record.clockIn || 'N/A',
           record.clockOut || 'N/A',
@@ -1244,7 +1248,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
     {
       key: 'employee',
       header: 'Employee',
-      accessor: ({ record, employee }) => employee?.name || record.employeeName || 'Unknown',
+      accessor: ({ record, employee }) => `${employee?.name || record.employeeName || 'Unknown'} ${record.employeeId} ${employee?.department || record.department || ''}`,
       render: ({ record, employee }) => (
         <div className="d-flex align-items-center">
           {employee?.avatar ? (
@@ -1267,7 +1271,7 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       accessor: ({ record, employee }) => employee?.department || record.department || 'N/A',
       render: ({ record, employee }) => <span className="text-muted">{employee?.department || record.department || 'N/A'}</span>
     },
-    { key: 'date', header: 'Date', accessor: ({ record }) => record.date, render: ({ record }) => <span className="text-primary-emphasis">{record.date}</span> },
+    { key: 'date', header: 'Date', accessor: ({ record }) => formatDateForDisplayIST(record.date), render: ({ record }) => <span className="text-primary-emphasis">{formatDateForDisplayIST(record.date)}</span> },
     {
       key: 'clockIn',
       header: 'Clock In',
@@ -1526,19 +1530,19 @@ const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
           <div className="btn-group shadow-xs" style={{ borderRadius: '8px', overflow: 'hidden' }}>
             <button
               className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Daily' ? 'btn-primary' : 'bg-white text-dark'}`}
-              onClick={() => setViewMode('Daily')}
+              onClick={() => { setViewMode('Daily'); setSelectedDateFilter('Pre-set'); }}
             >
               <Clock size={16} className={viewMode === 'Daily' ? 'text-white' : 'text-primary'} /> Daily
             </button>
             <button
               className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Weekly' ? 'btn-primary' : 'bg-white text-dark'}`}
-              onClick={() => setViewMode('Weekly')}
+              onClick={() => { setViewMode('Weekly'); setSelectedDateFilter('Pre-set'); }}
             >
               <Calendar size={16} className={viewMode === 'Weekly' ? 'text-white' : 'text-primary'} /> Weekly
             </button>
             <button
               className={`btn btn-sm d-flex align-items-center gap-2 px-3 fw-medium border-0 ${viewMode === 'Monthly' ? 'btn-primary' : 'bg-white text-dark'}`}
-              onClick={() => setViewMode('Monthly')}
+              onClick={() => { setViewMode('Monthly'); setSelectedDateFilter('Pre-set'); }}
             >
               <Calendar size={16} className={viewMode === 'Monthly' ? 'text-white' : 'text-primary'} /> Monthly
             </button>

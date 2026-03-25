@@ -87,6 +87,12 @@ export async function createLeaveRequest(
             };
         }
 
+        const isUnplanned = String(formData.leaveType || '').toLowerCase().includes('unplanned');
+        const defaultStatus = isUnplanned ? 'Approved' : 'Pending';
+        const defaultApprover = isUnplanned ? 'System (Auto-Approved)' : null;
+        const defaultApproverComment = isUnplanned ? 'Approved' : null;
+        const defaultApprovedAt = isUnplanned ? nowISTISOString() : null;
+
         // Create item in SharePoint
         await sp.web.lists
             .getByTitle('Leave Request')
@@ -97,12 +103,12 @@ export async function createLeaveRequest(
                 Enddate: formData.isHalfDay ? formData.startDate : formData.endDate,
                 Days: days,
                 Reason: formData.reason,
-                Status: 'Pending',
+                Status: defaultStatus,
                 SubmittedAt: nowISTISOString(),
                 EmployeeLookupId: employeeLookupId,
-                ApproverName: null,
-                ApproverComment: null,
-                ApprovedAt: null,
+                ApproverName: defaultApprover,
+                ApproverComment: defaultApproverComment,
+                ApprovedAt: defaultApprovedAt,
                 LeaveData: JSON.stringify(leaveData)
             });
 

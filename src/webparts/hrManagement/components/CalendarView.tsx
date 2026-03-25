@@ -133,14 +133,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   }, [cursor, mode]);
 
   const periodLabel = React.useMemo(() => {
-    if (mode === 'day') return cursor.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    if (mode === 'day') return cursor.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
     if (mode === 'week') {
       const start = startOfWeekMonday(cursor);
       const end = new Date(start);
       end.setDate(start.getDate() + 6);
-      return `${start.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      return `${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} - ${end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
     }
-    return cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return cursor.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   }, [cursor, mode]);
 
   const agendaEvents = React.useMemo(() => {
@@ -197,7 +197,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const formatDisplayDate = React.useCallback((dateKey: string): string => {
     const parsed = parseYmd(dateKey);
     if (Number.isNaN(parsed.getTime())) return dateKey;
-    return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }, []);
 
   const formatShortDate = React.useCallback((dateKey: string): string => {

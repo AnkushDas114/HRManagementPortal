@@ -8,7 +8,7 @@ import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import CommonTable, { ColumnDef } from '../ui/CommonTable';
 import { Check, X, Filter, MessageSquare, Info, RotateCcw, ChevronDown, ChevronRight, Clock, Download, FileText } from 'lucide-react';
-import { formatAuditInfo, getNowIST, todayIST } from '../utils/dateTime';
+import { formatAuditInfo, getNowIST, todayIST, formatDateForDisplayIST } from '../utils/dateTime';
 
 interface LeaveRequestsTableProps {
   requests: LeaveRequest[];
@@ -1012,13 +1012,13 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     {
       key: 'employee',
       header: 'Employee',
-      accessor: (request) => request.employee.name,
+      accessor: (request) => `${request.employee.name} ${request.employee.id} ${request.employee.department}`,
       render: (request) => (
         <div className="d-flex align-items-center">
-          <img className="rounded-circle border" src={request.employee.avatar} alt={request.employee.name} width="36" height="36" style={{ objectFit: 'cover' }} />
+          <img className="rounded-circle border shadow-xs" src={request.employee.avatar} alt={request.employee.name} width="36" height="36" style={{ objectFit: 'cover' }} />
           <div className="ms-3">
-            <div className="text-dark">{request.employee.name}</div>
-            <div className="text-muted" style={{ fontSize: '10px' }}>ID: {request.employee.id} • {request.employee.department}</div>
+            <div className="text-dark fw-medium" style={{ fontSize: '13px', lineHeight: '1.2' }}>{request.employee.name}</div>
+            <div className="text-muted" style={{ fontSize: '11px', marginTop: '2px' }}>ID: {request.employee.id} &bull; {request.employee.department}</div>
           </div>
         </div>
       )
@@ -1062,57 +1062,80 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     {
       key: 'leaveType',
       header: 'Type',
-      accessor: (request) => request.leaveType,
-      render: (request) => (
-        <div className="d-flex flex-column gap-1">
-          <span className="text-dark fw-bold" style={{ fontSize: '13px' }}>{request.leaveType}</span>
-          <div className="d-flex flex-wrap gap-1">
-            {request.isHalfDay && (
-              <span
-                className="badge rounded-pill d-inline-flex align-items-center"
-                style={{
-                  fontSize: '9px',
-                  padding: '2px 8px',
-                  backgroundColor: '#eef2ff',
-                  color: '#4338ca',
-                  border: '1px solid #c7d2fe',
-                  fontWeight: 600
-                }}
-              >
-                <Clock size={10} className="me-1" />
-                {request.halfDayType === 'first' ? 'First Half' : 'Second Half'}
-              </span>
-            )}
-            {request.isRecurring && (
-              <span
-                className="badge rounded-pill d-inline-flex align-items-center"
-                style={{
-                  fontSize: '9px',
-                  padding: '2px 8px',
-                  backgroundColor: '#f5f3ff',
-                  color: '#6d28d9',
-                  border: '1px solid #ddd6fe',
-                  fontWeight: 600
-                }}
-              >
-                <RotateCcw size={10} className="me-1" />
-                Recurring ({request.recurringFrequency || 'N/A'})
-              </span>
-            )}
+      accessor: (request) => `${request.leaveType} ${request.isHalfDay ? (request.halfDayType === 'first' ? 'First Half' : 'Second Half') : ''} ${request.isRecurring ? 'Recurring' : ''}`,
+      render: (request) => {
+        const typeLower = String(request.leaveType || '').toLowerCase();
+        let dotColor = '#3b82f6'; // Default Blue
+        if (typeLower.includes('unplanned') || typeLower.includes('sick')) dotColor = '#ef4444'; // Red
+        else if (typeLower.includes('planned') || typeLower.includes('vacation')) dotColor = '#10b981'; // Green
+        else if (typeLower.includes('maternity') || typeLower.includes('paternity') || typeLower.includes('restricted') || typeLower.includes('rh')) dotColor = '#f59e0b'; // Orange
+        else if (typeLower.includes('work from home') || typeLower.includes('wfh')) dotColor = '#8b5cf6'; // Purple
+
+        return (
+          <div className="d-flex flex-column gap-1">
+            <div className="d-flex align-items-center gap-2">
+              <div className="rounded-circle" style={{ width: '6px', height: '6px', backgroundColor: dotColor }} />
+              <span className="text-dark fw-medium" style={{ fontSize: '13px' }}>{request.leaveType}</span>
+            </div>
+            <div className="d-flex flex-wrap gap-1 mt-1">
+              {request.isHalfDay && (
+                <span
+                  className="badge rounded-pill d-inline-flex align-items-center"
+                  style={{
+                    fontSize: '9px',
+                    padding: '2px 8px',
+                    backgroundColor: '#eef2ff',
+                    color: '#4338ca',
+                    border: '1px solid #c7d2fe',
+                    fontWeight: 600
+                  }}
+                >
+                  <Clock size={10} className="me-1" />
+                  {request.halfDayType === 'first' ? 'First Half' : 'Second Half'}
+                </span>
+              )}
+              {request.isRecurring && (
+                <span
+                  className="badge rounded-pill d-inline-flex align-items-center"
+                  style={{
+                    fontSize: '9px',
+                    padding: '2px 8px',
+                    backgroundColor: '#f5f3ff',
+                    color: '#6d28d9',
+                    border: '1px solid #ddd6fe',
+                    fontWeight: 600
+                  }}
+                >
+                  <RotateCcw size={10} className="me-1" />
+                  Recurring ({request.recurringFrequency || 'N/A'})
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      )
+        );
+      }
     },
     {
       key: 'dates',
       header: 'Dates & Duration',
-      accessor: (request) => `${request.startDate} ${request.endDate}`,
-      render: (request) => (
-        <>
-          <div className="text-dark">{request.startDate} <span className="text-muted">to</span> {request.endDate}</div>
-          <div className="text-muted" style={{ fontSize: '10px' }}>{request.days} Full Day(s)</div>
-        </>
-      )
+      accessor: (request) => `${formatDateForDisplayIST(request.startDate)} ${formatDateForDisplayIST(request.endDate)} ${request.days} Day${request.days !== 1 ? 's' : ''}`,
+      render: (request) => {
+        const isSameDay = request.startDate === request.endDate;
+        return (
+          <div className="d-flex flex-column gap-1">
+            <div className="text-dark fw-medium" style={{ fontSize: '13px' }}>
+              {formatDateForDisplayIST(request.startDate)}
+              {!isSameDay && <span className="text-muted mx-1 fw-normal">→</span>}
+              {!isSameDay && formatDateForDisplayIST(request.endDate)}
+            </div>
+            <div>
+              <span className="badge rounded-pill d-inline-flex align-items-center" style={{ backgroundColor: '#f3f4f6', color: '#4b5563', fontWeight: 500, fontSize: '10px', padding: '3px 8px' }}>
+                <Clock size={11} className="me-1 text-muted" /> {request.days} Day{request.days !== 1 && 's'}
+              </span>
+            </div>
+          </div>
+        );
+      }
     },
     {
       key: 'reason',
@@ -1127,7 +1150,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     {
       key: 'status',
       header: 'Status',
-      accessor: (request) => request.status,
+      accessor: (request) => `${request.status} ${request.approverName || ''}`,
       render: (request) => (
         <>
           <Badge status={request.status} />
@@ -1598,8 +1621,8 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                                         <tbody>
                                           {detail.entries.map((entry, idx) => (
                                             <tr key={`detail-entry-${row.employee.id}-${detail.type}-${idx}`}>
-                                              <td>{entry.startDate}</td>
-                                              <td>{entry.endDate}</td>
+                                              <td>{formatDateForDisplayIST(entry.startDate)}</td>
+                                              <td>{formatDateForDisplayIST(entry.endDate)}</td>
                                               <td>{roundReportValue(Number(entry.days || 0))}</td>
                                               <td>{entry.description}</td>
                                               <td>

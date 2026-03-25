@@ -129,7 +129,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
       } else if (eventDate.getTime() === tomorrow.getTime()) {
         dateLabel = 'Tomorrow';
       } else {
-        dateLabel = formatDateForDisplayIST(eventDate, 'en-US', { month: 'short', day: 'numeric' });
+        dateLabel = formatDateForDisplayIST(eventDate, 'en-GB', { month: 'short', day: '2-digit' });
       }
 
       let icon = <Calendar size={16} className="text-secondary" />;
@@ -264,7 +264,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
       : 0;
 
     return {
-      rangeLabel: `${formatDateForDisplayIST(weekStart, 'en-US', { day: 'numeric', month: 'short' })} - ${formatDateForDisplayIST(weekEnd, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+      rangeLabel: `${formatDateForDisplayIST(weekStart, 'en-GB', { day: '2-digit', month: 'short' })} - ${formatDateForDisplayIST(weekEnd, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`,
       totalRequests: weeklyRequests.length,
       approvedRequests: weeklyApproved.length,
       pendingRequests: weeklyPending,
@@ -511,7 +511,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requests, attendanceRecords, conc
                       <div className="overflow-hidden">
                         <div className="text-dark text-truncate">{holiday.name}</div>
                         <div className="text-muted small" style={{ fontSize: '10px' }}>
-                          {formatDateForDisplayIST(holiday.date, 'en-US', { day: 'numeric', month: 'short' })}
+                          {formatDateForDisplayIST(holiday.date, 'en-GB', { day: '2-digit', month: 'short' })}
                         </div>
                       </div>
                     </div>

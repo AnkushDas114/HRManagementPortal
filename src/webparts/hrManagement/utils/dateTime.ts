@@ -38,7 +38,7 @@ export const todayIST = (): string => {
 
 export const formatDateForDisplayIST = (
   value: Date | string | number | undefined,
-  locale = 'en-US',
+  locale = 'en-GB',
   options?: Intl.DateTimeFormatOptions
 ): string => {
   if (value === undefined || value === '') return '';
@@ -47,7 +47,7 @@ export const formatDateForDisplayIST = (
 
   return new Intl.DateTimeFormat(locale, {
     timeZone: IST_TIME_ZONE,
-    day: 'numeric',
+    day: '2-digit',
     month: 'short',
     year: 'numeric',
     ...options

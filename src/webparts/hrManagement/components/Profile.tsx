@@ -339,7 +339,7 @@ const Profile: React.FC<ProfileProps> = ({ user, role, sp, onBack, onUpdate, onO
                   </div>
                   <div>
                     <label className="text-muted fw-bold text-uppercase d-block mb-1">Joining Date</label>
-                    <span className="fw-medium">{user.joiningDate ? formatDateForDisplayIST(user.joiningDate, 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A'}</span>
+                    <span className="fw-medium">{user.joiningDate ? formatDateForDisplayIST(user.joiningDate, 'en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A'}</span>
                   </div>
                 </div>
               </div>

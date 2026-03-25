@@ -1279,7 +1279,19 @@ const App: React.FC<AppProps> = ({ sp }) => {
             .filter(r => r.employee.id === currentUser.id && r.leaveType === leaveFormData.leaveType && (r.status === LeaveStatus.Approved || r.status === LeaveStatus.Pending))
             .reduce((sum, r) => sum + r.days, 0);
 
-          if (used + days > quota) {
+          const SUPER_USERS = [
+            'stefan@hochhuth-consulting.de',
+            'thordis.jacobs@hochhuth-consulting.de',
+            'kristina.kovach@hochhuth-consulting.de',
+            'robert.ungethuem@hochhuth-consulting.de',
+            'alina.chyhasova@hochhuth-consulting.de',
+            'mattis.hahn@hochhuth-consulting.de',
+            'ankush.das@hochhuth-consulting.de'
+          ];
+          const isSuperUser = selectedEmployeeForLeave && selectedEmployeeForLeave.email
+            && SUPER_USERS.indexOf(selectedEmployeeForLeave.email.toLowerCase()) !== -1;
+
+          if (!isSuperUser && used + days > quota) {
             showAlert(`Insufficient leave balance! You have used ${used} of ${quota} days for ${leaveFormData.leaveType}. This request of ${days} days would exceed your limit.`);
             return;
           }

@@ -126,7 +126,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
   const formatPortalDate = React.useCallback((value: string): string => {
     const parsed = parseRecordDate(value);
     return parsed
-      ? formatDateForDisplayIST(parsed, 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      ? formatDateForDisplayIST(parsed, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
       : value;
   }, [parseRecordDate]);
 
@@ -349,17 +349,17 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
 
   const getDateDisplay = () => {
     if (viewMode === 'Daily') {
-      return formatDateForDisplayIST(referenceDate, 'en-US', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
+      return formatDateForDisplayIST(referenceDate, 'en-GB', { day: '2-digit', month: 'long', year: 'numeric', weekday: 'long' });
     }
     if (viewMode === 'Weekly') {
       const start = new Date(referenceDate);
       start.setDate(referenceDate.getDate() - referenceDate.getDay());
       const end = new Date(start);
       end.setDate(start.getDate() + 6);
-      return `${formatDateForDisplayIST(start, 'en-US', { day: 'numeric', month: 'short' })} - ${formatDateForDisplayIST(end, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      return `${formatDateForDisplayIST(start, 'en-GB', { day: '2-digit', month: 'short' })} - ${formatDateForDisplayIST(end, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
     }
     if (viewMode === 'Monthly') {
-      return formatDateForDisplayIST(referenceDate, 'en-US', { month: 'long', year: 'numeric' });
+      return formatDateForDisplayIST(referenceDate, 'en-GB', { month: 'long', year: 'numeric' });
     }
     return '';
   };
@@ -622,7 +622,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
         } else if (eventDate.getTime() === tomorrow.getTime()) {
           dateLabel = 'Tomorrow';
         } else {
-          dateLabel = formatDateForDisplayIST(eventDate, 'en-US', { month: 'short', day: 'numeric' });
+          dateLabel = formatDateForDisplayIST(eventDate, 'en-GB', { month: 'short', day: '2-digit' });
         }
 
         let icon = <CalendarIcon size={16} className="text-secondary" />;
@@ -1011,7 +1011,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
           </div>
           <div className="text-end d-none d-md-block">
             <span className="fw-medium text-muted d-block">Current Date</span>
-            <span className="text-dark">{formatDateForDisplayIST(getNowIST(), 'en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
+            <span className="text-dark">{formatDateForDisplayIST(getNowIST(), 'en-GB', { weekday: 'long', month: 'long', day: '2-digit', year: 'numeric' })}</span>
           </div>
         </div>
 
@@ -1031,7 +1031,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 {lowWorkingHoursRecords.map((rec, i) => (
                   <div key={`${rec.employeeId}-${rec.date}-${i}`} className="d-flex align-items-center justify-content-between pb-2 border-bottom border-light last-border-none">
                     <div className="d-flex flex-column">
-                      <div className="text-dark">{formatDateForDisplayIST(rec.date, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                      <div className="text-dark">{formatDateForDisplayIST(rec.date, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                       <div className="small text-muted">{rec.clockIn || '--:--'} - {rec.clockOut || '--:--'}</div>
                     </div>
                     <span className="badge bg-primary border-0">
@@ -1193,7 +1193,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                         <div>
                           <div className="fw-medium text-dark">{holiday.name}</div>
                           <div className="text-muted d-flex align-items-center gap-1" style={{ fontSize: '11px' }}>
-                            <Clock size={10} /> {formatDateForDisplayIST(holiday.date, 'en-US', { day: 'numeric', month: 'short' })} • {holiday.type}
+                            <Clock size={10} /> {formatDateForDisplayIST(holiday.date, 'en-GB', { day: '2-digit', month: 'short' })} • {holiday.type}
                           </div>
                         </div>
                       </div>
@@ -1218,7 +1218,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                 {recentAttendanceRecords.map((rec, i) => (
                   <div key={i} className="d-flex align-items-center justify-content-between pb-2 border-bottom border-light last-border-none">
                     <div className="d-flex align-items-center gap-3">
-                      <div className=" text-dark">{formatDateForDisplayIST(rec.date, 'en-US', { day: 'numeric', month: 'short' })}</div>
+                      <div className=" text-dark">{formatDateForDisplayIST(rec.date, 'en-GB', { day: '2-digit', month: 'short' })}</div>
                       <div className=" text-muted">{rec.clockIn ? `${rec.clockIn} - ${rec.clockOut || '...'}` : '-'}</div>
                     </div>
                     <Badge status={rec.status} />
@@ -1507,7 +1507,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                               <div className="small fw-bold text-dark text-truncate">{request.leaveType}</div>
                               <Badge status={request.status} />
                             </div>
-                            <div className="small text-muted mb-1 text-truncate">{request.startDate} - {request.endDate}</div>
+                            <div className="small text-muted mb-1 text-truncate">{formatPortalDateRange(request.startDate, request.endDate)}</div>
                             <div className="small fw-semibold text-primary text-truncate">By: {request.approverName || 'HR'}</div>
                             <div
                               className="small text-muted text-truncate mt-1"
@@ -1643,7 +1643,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
             <div className="p-3 border rounded bg-light">
               <div className="text-muted mb-1">Leave Details</div>
               <div className="fw-medium text-primary">{selectedApprovalNote.leaveType}</div>
-              <div className="small text-muted">{selectedApprovalNote.startDate} - {selectedApprovalNote.endDate} ({selectedApprovalNote.days} days)</div>
+              <div className="small text-muted">{formatPortalDateRange(selectedApprovalNote.startDate, selectedApprovalNote.endDate)} ({selectedApprovalNote.days} days)</div>
             </div>
             <div className="p-3 border rounded bg-white">
               <div className=" text-muted mb-1">Approved By</div>
@@ -1723,7 +1723,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
               <div className="text-muted mb-1">Event</div>
               <div className="fw-bold">{selectedCelebration.name}</div>
               <div className="text-muted mt-1">
-                {selectedCelebration.type} • {formatDateForDisplayIST(selectedCelebration.date, 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                {selectedCelebration.type} • {formatDateForDisplayIST(selectedCelebration.date, 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
               </div>
               {selectedCelebration.employee?.name && (
                 <div className="text-muted mt-1">Employee: {selectedCelebration.employee.name}</div>
