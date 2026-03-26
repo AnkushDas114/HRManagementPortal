@@ -99,6 +99,8 @@ export interface LeaveRequest {
   approverComment?: string;
   approverName?: string;
   submittedAt: string;
+  isExtraLeave?: boolean;
+  grantedByAdmin?: boolean;
   isHalfDay?: boolean;
   halfDayType?: 'first' | 'second';
   isRecurring?: boolean;

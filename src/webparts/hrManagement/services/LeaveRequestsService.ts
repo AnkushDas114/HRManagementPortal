@@ -9,6 +9,13 @@ import { formatDateIST, nowISTISOString, todayIST } from '../utils/dateTime';
 // const LEAVE_REQUESTS_LIST_TITLE = 'Leave Request';
 const EMPLOYEE_MASTER_LIST_TITLE = 'EmployeeMaster';
 
+interface CreateLeaveRequestOptions {
+    forceApproved?: boolean;
+    approverName?: string | null;
+    approverComment?: string | null;
+    isExtraLeave?: boolean;
+}
+
 /**
  * GET: Load all leave requests from SharePoint
  */
@@ -62,7 +69,8 @@ export async function createLeaveRequest(
     sp: SPFI,
     employee: Employee,
     formData: any,
-    days: number
+    days: number,
+    options?: CreateLeaveRequestOptions
 ): Promise<void> {
     try {
         const employeeLookupId = await getEmployeeLookupId(sp, employee);
@@ -75,7 +83,9 @@ export async function createLeaveRequest(
             isHalfDay: formData.isHalfDay || false,
             halfDayType: formData.halfDayType || null,
             isRecurring: formData.isRecurring || false,
-            requestCategory: formData.requestCategory || 'Leave'
+            requestCategory: formData.requestCategory || 'Leave',
+            isExtraLeave: !!options?.isExtraLeave,
+            grantedByAdmin: !!options?.isExtraLeave
         };
 
         // Add recurrence data if recurring
@@ -102,11 +112,11 @@ export async function createLeaveRequest(
         );
 
         const isUnplanned = String(formData.leaveType || '').toLowerCase().includes('unplanned');
-        const shouldAutoApprove = isUnplanned || isSuperUser;
+        const shouldAutoApprove = !!options?.forceApproved || isUnplanned || isSuperUser;
 
         const defaultStatus = shouldAutoApprove ? 'Approved' : 'Pending';
-        const defaultApprover = shouldAutoApprove ? 'System (Auto-Approved)' : null;
-        const defaultApproverComment = shouldAutoApprove ? 'Approved' : null;
+        const defaultApprover = shouldAutoApprove ? (options?.approverName || 'System (Auto-Approved)') : null;
+        const defaultApproverComment = shouldAutoApprove ? (options?.approverComment || 'Approved') : null;
         const defaultApprovedAt = shouldAutoApprove ? nowISTISOString() : null;
 
         // Create item in SharePoint
@@ -442,6 +452,8 @@ function mapItemToLeaveRequest(item: any, employees: Employee[]): LeaveRequest {
         submittedAt: formatDateIST(item.SubmittedAt || item.Created) || todayIST(),
         approverName: item.ApproverName,
         approverComment: item.ApproverComment,
+        isExtraLeave: !!leaveData.isExtraLeave,
+        grantedByAdmin: !!leaveData.grantedByAdmin,
         isHalfDay: leaveData.isHalfDay || false,
         halfDayType: leaveData.halfDayType || 'first',
         isRecurring: leaveData.isRecurring || false,

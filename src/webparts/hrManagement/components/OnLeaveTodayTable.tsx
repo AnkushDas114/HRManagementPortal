@@ -16,20 +16,65 @@ interface OnLeaveTodayTableProps {
   requests: LeaveRequest[];
   onEdit?: (request: LeaveRequest) => void;
   leaveQuotas: Record<string, number>;
+  extraLeaveTypes?: string[];
+  canManageExtraLeaves?: boolean;
+  approverName?: string;
   sp: SPFI;
   employees: Employee[];
   onRefresh: () => Promise<void>;
 }
 
-const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit, leaveQuotas = {}, sp, employees, onRefresh }) => {
+const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit, leaveQuotas = {}, extraLeaveTypes = [], canManageExtraLeaves = false, approverName = 'HR Manager', sp, employees, onRefresh }) => {
   const today = todayIST();
+  const isWeekendDate = React.useCallback((date: Date): boolean => {
+    const day = date.getDay();
+    return day === 0 || day === 6;
+  }, []);
+
+  const countLeaveDays = React.useCallback((start: Date, end: Date, includeWeekends: boolean, isHalfDay: boolean): number => {
+    if (isHalfDay) {
+      return includeWeekends || !isWeekendDate(start) ? 0.5 : 0;
+    }
+
+    const current = new Date(start);
+    current.setHours(12, 0, 0, 0);
+    const last = new Date(end);
+    last.setHours(12, 0, 0, 0);
+
+    let total = 0;
+    while (current.getTime() <= last.getTime()) {
+      if (includeWeekends || !isWeekendDate(current)) total += 1;
+      current.setDate(current.getDate() + 1);
+    }
+
+    return total;
+  }, [isWeekendDate]);
+
+  const leaveTypeOptions = React.useMemo(() => {
+    const seen = new Set<string>();
+    const values: string[] = [];
+    [...Object.keys(leaveQuotas), ...(canManageExtraLeaves ? extraLeaveTypes : [])].forEach((type) => {
+      const trimmed = String(type || '').trim();
+      const key = trimmed.toLowerCase();
+      if (!trimmed || seen.has(key)) return;
+      seen.add(key);
+      values.push(trimmed);
+    });
+    return values;
+  }, [leaveQuotas, extraLeaveTypes, canManageExtraLeaves]);
+
+  const isExtraLeaveType = React.useCallback((value: string): boolean => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return extraLeaveTypes.some((type) => String(type || '').trim().toLowerCase() === normalized);
+  }, [extraLeaveTypes]);
+
   const [isAddLeaveModalOpen, setIsAddLeaveModalOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null);
 
   const [leaveFormData, setLeaveFormData] = React.useState({
-    leaveType: Object.keys(leaveQuotas)[0] || 'Sick',
+    leaveType: leaveTypeOptions[0] || Object.keys(leaveQuotas)[0] || 'Sick',
     startDate: today,
     endDate: today,
     reason: '',
@@ -60,7 +105,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
   });
 
   const onLeaveToday = React.useMemo(() => {
-    const validTypes = Object.keys(leaveQuotas);
+    const validTypes = [...Object.keys(leaveQuotas), ...extraLeaveTypes];
     return requests.filter(req => {
       const isStatusValid = req.status === LeaveStatus.Approved;
       const isDateValid = today >= req.startDate && today <= req.endDate;
@@ -68,7 +113,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
       const isTypeValid = isWorkFromHomeRequest || validTypes.length === 0 || validTypes.indexOf(req.leaveType) !== -1;
       return isStatusValid && isDateValid && isTypeValid;
     });
-  }, [requests, today, leaveQuotas]);
+  }, [requests, today, leaveQuotas, extraLeaveTypes]);
 
   const filteredEmployees = React.useMemo(() => {
     if (!searchTerm.trim()) return [];
@@ -93,15 +138,34 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
     try {
       const start = new Date(leaveFormData.startDate);
       const end = leaveFormData.isHalfDay ? start : new Date(leaveFormData.endDate);
-      let days = 1;
-      if (leaveFormData.isHalfDay) {
-        days = 0.5;
-      } else {
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      const lowerType = String(leaveFormData.leaveType || '').toLowerCase();
+      const includeWeekends = lowerType.includes('maternity') || lowerType.includes('paternity');
+      const days = countLeaveDays(start, end, includeWeekends, leaveFormData.isHalfDay);
+      if (days <= 0) {
+        showAlert('Selected leave dates fall only on Saturday/Sunday. Please choose working days.');
+        return;
       }
 
-      await createLeaveRequest(sp, selectedEmployee, leaveFormData, days);
+      const isExtraLeaveRequest = leaveFormData.requestCategory === 'Leave' && isExtraLeaveType(leaveFormData.leaveType);
+      if (isExtraLeaveRequest && !canManageExtraLeaves) {
+        showAlert('Only HR Management users can assign extra leave.');
+        return;
+      }
+
+      await createLeaveRequest(
+        sp,
+        selectedEmployee,
+        leaveFormData,
+        days,
+        isExtraLeaveRequest
+          ? {
+            forceApproved: true,
+            approverName,
+            approverComment: 'Extra leave assigned by HR.',
+            isExtraLeave: true
+          }
+          : undefined
+      );
       await onRefresh();
       setIsAddLeaveModalOpen(false);
       resetForm();
@@ -118,7 +182,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
     setSearchTerm('');
     setLeaveFormData({
       ...leaveFormData,
-      leaveType: Object.keys(leaveQuotas)[0] || 'Sick',
+      leaveType: leaveTypeOptions[0] || Object.keys(leaveQuotas)[0] || 'Sick',
       startDate: today,
       endDate: today,
       reason: '',
@@ -382,7 +446,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
                 {leaveFormData.requestCategory === 'Work From Home' ? (
                   <option value="Work From Home">Work From Home</option>
                 ) : (
-                  Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))
+                  leaveTypeOptions.map(t => (<option key={t} value={t}>{t}</option>))
                 )}
               </select>
             </div>
@@ -423,7 +487,7 @@ const OnLeaveTodayTable: React.FC<OnLeaveTodayTableProps> = ({ requests, onEdit,
                   setLeaveFormData({
                     ...leaveFormData,
                     requestCategory: isWFH ? 'Leave' : 'Work From Home',
-                    leaveType: isWFH ? (Object.keys(leaveQuotas)[0] || 'Sick') : 'Work From Home'
+                    leaveType: isWFH ? (leaveTypeOptions[0] || Object.keys(leaveQuotas)[0] || 'Sick') : 'Work From Home'
                   });
                 }}
                 aria-pressed={leaveFormData.requestCategory === 'Work From Home'}

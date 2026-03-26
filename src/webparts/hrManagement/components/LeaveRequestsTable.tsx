@@ -71,6 +71,7 @@ interface LeaveReportRow {
   employee: Employee;
   planned: number;
   unplanned: number;
+  extraLeave: number;
   workFromHome: number;
   maternity: number;
   maternityTotal: number; // Used in period
@@ -164,9 +165,10 @@ const isWorkFromHomeRequest = (request: LeaveRequest): boolean => (
   /work\s*from\s*home|wfh/i.test(String(request.leaveType || ''))
 );
 
-const classifyLeaveBucket = (request: LeaveRequest): 'planned' | 'unplanned' | 'restrictedHoliday' | 'maternity' | 'paternity' => {
+const classifyLeaveBucket = (request: LeaveRequest): 'planned' | 'unplanned' | 'extraLeave' | 'restrictedHoliday' | 'maternity' | 'paternity' => {
   const raw = String(request.leaveType || '').toLowerCase();
   const leaveType = normalizeLeaveType(raw);
+  if (request.isExtraLeave || leaveType.includes('extraleave')) return 'extraLeave';
   if (
     leaveType.includes('restrictedholiday') ||
     leaveType.includes('restrictedleave') ||
@@ -184,7 +186,7 @@ const classifyLeaveBucket = (request: LeaveRequest): 'planned' | 'unplanned' | '
 const getReportGroupMeta = (
   request: LeaveRequest,
   isWfhReport: boolean
-): { key: 'planned' | 'unplanned' | 'restrictedHoliday' | 'maternity' | 'paternity' | 'workFromHome'; label: string } => {
+): { key: 'planned' | 'unplanned' | 'extraLeave' | 'restrictedHoliday' | 'maternity' | 'paternity' | 'workFromHome'; label: string } => {
   if (isWfhReport || isWorkFromHomeRequest(request)) {
     return { key: 'workFromHome', label: 'Work From Home' };
   }
@@ -192,6 +194,7 @@ const getReportGroupMeta = (
   const bucket = classifyLeaveBucket(request);
   if (bucket === 'planned') return { key: bucket, label: 'Planned Leaves' };
   if (bucket === 'unplanned') return { key: bucket, label: 'UnPlanned Leaves' };
+  if (bucket === 'extraLeave') return { key: bucket, label: 'Extra Leaves' };
   if (bucket === 'restrictedHoliday') return { key: bucket, label: 'Restricted Holiday' };
   if (bucket === 'maternity') return { key: bucket, label: 'Maternity' };
   return { key: bucket, label: 'Paternity' };
@@ -277,26 +280,29 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
 
   const isWfhReport = reportMode === 'wfh';
 
-  const { hasMaternity, hasPaternity } = React.useMemo(() => {
-    if (isWfhReport) return { hasMaternity: false, hasPaternity: false };
+  const { hasExtraLeave, hasMaternity, hasPaternity } = React.useMemo(() => {
+    if (isWfhReport) return { hasExtraLeave: false, hasMaternity: false, hasPaternity: false };
+    let extra = false;
     let m = false;
     let p = false;
     generatedReportRows.forEach(row => {
+      if (row.extraLeave > 0 || row.details.some((detail) => detail.type === 'Extra Leaves')) extra = true;
       // Show columns if either there is usage (period or cumulative) OR if a quota is explicitly set > 0
       if (row.maternity > 0 || row.maternityTotal > 0 || row.maternityQuota > 0) m = true;
       if (row.paternity > 0 || row.paternityTotal > 0 || row.paternityQuota > 0) p = true;
     });
-    return { hasMaternity: m, hasPaternity: p };
+    return { hasExtraLeave: extra, hasMaternity: m, hasPaternity: p };
   }, [generatedReportRows, isWfhReport]);
 
   const reportColSpan = React.useMemo(() => {
     let span = isWfhReport ? 5 : 7; // WFH: expand + name + wfh + halfDay + total
     if (!isWfhReport) {
+      if (hasExtraLeave) span++;
       if (hasMaternity) span++;
       if (hasPaternity) span++;
     }
     return span;
-  }, [hasMaternity, hasPaternity, isWfhReport]);
+  }, [hasExtraLeave, hasMaternity, hasPaternity, isWfhReport]);
 
   React.useEffect(() => {
     if (typeof externalOpenReportKey !== 'number') return;
@@ -524,6 +530,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
           employee: request.employee,
           planned: 0,
           unplanned: 0,
+          extraLeave: 0,
           workFromHome: 0,
           maternity: 0,
           maternityTotal: matUsed,
@@ -596,6 +603,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         row.totalLeave = roundReportValue(
           row.planned +
           row.unplanned +
+          row.extraLeave +
           row.restrictedHoliday +
           row.maternityTotal +
           row.paternityTotal
@@ -620,6 +628,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       ? ['Name', 'Work From Home', 'Total']
       : ['Name', 'Planned', 'Unplanned'];
     if (!isWfhReport) {
+      if (hasExtraLeave) summaryHeaders.push('Extra Leave');
       if (hasMaternity) summaryHeaders.push('Maternity');
       if (hasPaternity) summaryHeaders.push('Paternity');
       summaryHeaders.push('Restricted Holiday', 'Total Leave');
@@ -651,6 +660,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     if (isWfhReport) {
       // Name, WFH, Total
     } else {
+      if (hasExtraLeave) columns.push({ key: 'colExtra', width: 15 });
       if (hasMaternity) columns.push({ key: 'col4', width: 15 });
       if (hasPaternity) columns.push({ key: 'col5', width: 15 });
       columns.push(
@@ -669,6 +679,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
         ? [row.employee.name, row.workFromHome, row.totalLeave]
         : [row.employee.name, row.planned, row.unplanned];
       if (!isWfhReport) {
+        if (hasExtraLeave) rowData.push(row.extraLeave);
         if (hasMaternity) rowData.push(row.maternityQuota > 0 ? `${row.maternityTotal} / ${row.maternityQuota}` : (row.maternityTotal > 0 ? `${row.maternityTotal} / 0` : '0'));
         if (hasPaternity) rowData.push(row.paternityQuota > 0 ? `${row.paternityTotal} / ${row.paternityQuota}` : (row.paternityTotal > 0 ? `${row.paternityTotal} / 0` : '0'));
         rowData.push(
@@ -741,7 +752,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(blob, `${isWfhReport ? 'wfh' : 'leave'}_report_${todayIST()}.xlsx`);
-  }, [generatedReportRows, isWfhReport]);
+  }, [generatedReportRows, hasExtraLeave, hasMaternity, hasPaternity, isWfhReport]);
 
   const handleDownloadPdf = React.useCallback((): void => {
     if (generatedReportRows.length === 0) return;
@@ -820,6 +831,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
               <tr>
                 <th style="width: 200px">Employee Name</th>
                 ${isWfhReport ? '<th>Work From Home</th>' : '<th>Planned</th><th>Unplanned</th>'}
+                ${!isWfhReport && hasExtraLeave ? '<th>Extra Leave</th>' : ''}
                 ${!isWfhReport && hasMaternity ? '<th>Maternity</th>' : ''}
                 ${!isWfhReport && hasPaternity ? '<th>Paternity</th>' : ''}
                 ${!isWfhReport ? '<th>RH</th>' : ''}
@@ -830,6 +842,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
               <tr style="background: ${rowFill};">
                 <td style="font-weight: bold;">${escapeHtml(row.employee.name)}</td>
                 ${isWfhReport ? `<td>${row.workFromHome}</td>` : `<td>${row.planned}</td><td>${row.unplanned}</td>`}
+                ${!isWfhReport && hasExtraLeave ? `<td>${row.extraLeave}</td>` : ''}
                 ${!isWfhReport && hasMaternity ? `<td>${row.maternityQuota > 0 || row.maternityTotal > 0 ? `<span style="font-weight:bold;color:#11803f">${row.maternityTotal} / ${row.maternityQuota}</span>` : '0'}</td>` : ''}
                 ${!isWfhReport && hasPaternity ? `<td>${row.paternityQuota > 0 || row.paternityTotal > 0 ? `<span style="font-weight:bold;color:#11803f">${row.paternityTotal} / ${row.paternityQuota}</span>` : '0'}</td>` : ''}
                 ${!isWfhReport ? `<td>${row.restrictedHoliday}</td>` : ''}
@@ -900,7 +913,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
     setTimeout(() => {
       popup.print();
     }, 500);
-  }, [generatedReportRows, reportStartDate, reportEndDate, reportDatePreset, hasMaternity, hasPaternity, isWfhReport]);
+  }, [generatedReportRows, reportStartDate, reportEndDate, reportDatePreset, hasExtraLeave, hasMaternity, hasPaternity, isWfhReport]);
 
   const handlePresetChange = (preset: string) => {
     setSelectedDateFilter(preset);
@@ -1032,13 +1045,26 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
       filterable: false,
       render: (request: LeaveRequest) => {
         const lowerType = String(request.leaveType || '').toLowerCase();
+        const isExtraLeave = !!request.isExtraLeave || lowerType.includes('extra leave');
         const isSpecial = lowerType.includes('maternity') || lowerType.includes('paternity');
 
         let used = 0;
         let quota = 0;
         let label = '';
 
-        if (isSpecial) {
+        if (isExtraLeave) {
+          used = calculateUsedLeaves(request.employee.id, request.leaveType);
+          label = 'Extra Leave';
+          return (
+            <div className="d-flex flex-column">
+              <div className="d-flex align-items-center gap-2">
+                <span className="">{used} day(s)</span>
+                <Info size={14} className="text-muted cursor-pointer" onClick={() => onViewBalance?.(request.employee)} />
+              </div>
+              <div className="text-muted" style={{ fontSize: '9px' }}>{label} • Unlimited</div>
+            </div>
+          );
+        } else if (isSpecial) {
           used = calculateUsedLeaves(request.employee.id, request.leaveType);
           quota = leaveQuotas[request.leaveType] || 0;
           label = request.leaveType;
@@ -1588,6 +1614,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                         <th>Unplanned</th>
                       </>
                     )}
+                    {!isWfhReport && hasExtraLeave && <th>Extra Leave</th>}
                     {!isWfhReport && hasMaternity && <th>Maternity</th>}
                     {!isWfhReport && hasPaternity && <th>Paternity</th>}
                     {!isWfhReport && <th>Restricted Holiday</th>}
@@ -1623,6 +1650,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ requests, emplo
                               <td>{row.unplanned}</td>
                             </>
                           )}
+                          {!isWfhReport && hasExtraLeave && <td>{row.extraLeave}</td>}
                           {!isWfhReport && hasMaternity && (
                             <td>
                               {row.maternityQuota > 0 || row.maternityTotal > 0 ? (

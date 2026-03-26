@@ -22,6 +22,7 @@ interface EmployeePortalProps {
   holidays: Holiday[];
   concerns: Concern[];
   leaveQuotas: Record<string, number>;
+  extraLeaveTypes?: string[];
   teamEvents: TeamEvent[];
   onRaiseConcern: (type: ConcernType, referenceId: string | number, description: string) => void;
   onSubmitLeave: (preferredTab?: 'leave' | 'workFromHome', initialDate?: string) => void;
@@ -41,7 +42,7 @@ const getLeaveEventColor = (value: string): string => {
   return LEAVE_EVENT_COLORS[Math.abs(hash) % LEAVE_EVENT_COLORS.length];
 };
 
-const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attendance, salarySlips, policies, holidays, concerns, leaveQuotas, teamEvents, onRaiseConcern, onSubmitLeave, onTabChange, activeTab }) => {
+const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attendance, salarySlips, policies, holidays, concerns, leaveQuotas, extraLeaveTypes = [], teamEvents, onRaiseConcern, onSubmitLeave, onTabChange, activeTab }) => {
   const [isPolicyModalOpen, setIsPolicyModalOpen] = React.useState(false);
   const [isConcernModalOpen, setIsConcernModalOpen] = React.useState(false);
   const [targetType, setTargetType] = React.useState<ConcernType>(ConcernType.General);
@@ -685,8 +686,13 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     });
   }, [eventBurst]);
 
+  const isExtraLeaveType = React.useCallback((value: string): boolean => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return extraLeaveTypes.some((type) => String(type || '').trim().toLowerCase() === normalized);
+  }, [extraLeaveTypes]);
+
   // Dynamic leave balance calculations
-  const { regularLeaveStats, specialLeaveStats } = React.useMemo(() => {
+  const { regularLeaveStats, specialLeaveStats, extraLeaveStats } = React.useMemo(() => {
     // Only count APPROVED leaves for usage
     const approved = myLeaveRequests.filter(r => r.status === LeaveStatus.Approved);
 
@@ -733,13 +739,29 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
     const plannedStats = allStats.filter(s => s.label.toLowerCase() !== 'sick');
     const unplannedStats = allStats.filter(s => s.label.toLowerCase() === 'sick');
 
+    const extraGroups = approved
+      .filter(r => r.isExtraLeave || isExtraLeaveType(r.leaveType))
+      .reduce((acc, request) => {
+        const existing = acc.find(item => item.label.toLowerCase() === String(request.leaveType || '').toLowerCase());
+        if (existing) {
+          existing.used += Number(request.days || 0);
+          return acc;
+        }
+        acc.push({
+          label: request.leaveType,
+          used: Number(request.days || 0)
+        });
+        return acc;
+      }, [] as Array<{ label: string; used: number }>);
+
     return {
       regularLeaveStats: plannedStats,
-      specialLeaveStats: unplannedStats
+      specialLeaveStats: unplannedStats,
+      extraLeaveStats: extraGroups
     };
-  }, [myLeaveRequests, leaveQuotas]);
+  }, [myLeaveRequests, leaveQuotas, isExtraLeaveType]);
 
-  const leaveStats = React.useMemo(() => [...regularLeaveStats, ...specialLeaveStats], [regularLeaveStats, specialLeaveStats]);
+  const leaveStats = React.useMemo(() => [...regularLeaveStats, ...specialLeaveStats, ...extraLeaveStats], [regularLeaveStats, specialLeaveStats, extraLeaveStats]);
 
   const totalLeavesTaken = React.useMemo(
     () => regularLeaveStats.reduce((sum, item) => sum + (Number(item.used) || 0), 0),
@@ -967,7 +989,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
 
   const onLeaveWfhTodayRecords = React.useMemo(() => {
     const today = todayIST();
-    const validTypes = Object.keys(leaveQuotas || {});
+    const validTypes = [...Object.keys(leaveQuotas || {}), ...extraLeaveTypes];
 
     return requests.filter((req) => {
       const isStatusValid = req.status === LeaveStatus.Approved;
@@ -977,7 +999,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
 
       return isStatusValid && isDateValid && isTypeValid;
     });
-  }, [requests, leaveQuotas]);
+  }, [requests, leaveQuotas, extraLeaveTypes]);
 
   const renderDashboardTab = () => {
     return (
@@ -1106,6 +1128,20 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                           <AlertCircle size={13} className="text-muted" /> {item.label}
                         </div>
                         <div className="small fw-bold" style={{ color: '#2F5596' }}>{item.used}/{item.total} Days</div>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {extraLeaveStats.length > 0 && (
+                  <>
+                    <div className="small text-muted fw-bold text-uppercase mt-2 border-top pt-2" style={{ fontSize: '10px' }}>Extra Leaves</div>
+                    {extraLeaveStats.map((item, idx) => (
+                      <div key={`extra-${idx}`} className="d-flex justify-content-between align-items-center">
+                        <div className="d-flex align-items-center gap-2 text-dark" style={{ fontSize: '13px' }}>
+                          <Sparkle size={13} className="text-muted" /> {item.label}
+                        </div>
+                        <div className="small fw-bold" style={{ color: '#2F5596' }}>{item.used} Days</div>
                       </div>
                     ))}
                   </>
@@ -1305,6 +1341,24 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ user, requests, attenda
                     <div className="d-flex justify-content-between align-items-center">
                       <span className="text-muted fw-semibold">Leaves Left</span>
                       <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>{item.left}</span>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {extraLeaveStats.length > 0 && (
+              <>
+                <div className="small text-muted fw-bold text-uppercase px-1 mt-1" style={{ fontSize: '10px' }}>Extra Leaves</div>
+                {extraLeaveStats.map((item, idx) => (
+                  <div key={`extra-modal-${idx}`} className="border rounded p-3 bg-light">
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>{item.label}</span>
+                      <span className="text-muted small">{item.used} day(s) assigned</span>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
+                      <span className="text-muted fw-semibold">Quota</span>
+                      <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>Unlimited</span>
                     </div>
                   </div>
                 ))}

@@ -89,6 +89,30 @@ const endOfDay = (date: Date): Date => {
   return d;
 };
 
+const isWeekendDate = (date: Date): boolean => {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+};
+
+const countLeaveDays = (start: Date, end: Date, includeWeekends: boolean, isHalfDay: boolean): number => {
+  if (isHalfDay) {
+    return includeWeekends || !isWeekendDate(start) ? 0.5 : 0;
+  }
+
+  const current = new Date(start);
+  current.setHours(12, 0, 0, 0);
+  const last = new Date(end);
+  last.setHours(12, 0, 0, 0);
+
+  let total = 0;
+  while (current.getTime() <= last.getTime()) {
+    if (includeWeekends || !isWeekendDate(current)) total += 1;
+    current.setDate(current.getDate() + 1);
+  }
+
+  return total;
+};
+
 const toDateValue = (value: string): Date | null => {
   const raw = String(value || '').trim();
   if (!raw) return null;
@@ -151,6 +175,20 @@ const resolveSendReportRange = (
   return { start: null, end: null };
 };
 
+const getSendReportPeriodLabel = (preset: SendReportDatePreset): string => {
+  if (preset === 'Today') return 'Total leave today';
+  if (preset === 'Yesterday') return 'Total leave yesterday';
+  if (preset === 'This Week') return 'Total leave this week';
+  if (preset === 'Last Week') return 'Total leave last week';
+  if (preset === 'This Month') return 'Total leave this month';
+  if (preset === 'Last Month') return 'Total leave last month';
+  if (preset === 'Last 3 Months') return 'Total leave in last 3 months';
+  if (preset === 'This Year') return 'Total leave this year';
+  if (preset === 'Last Year') return 'Total leave last year';
+  if (preset === 'All Time') return 'Total leave overall';
+  return 'Total leave in selected range';
+};
+
 interface SendReportTypeSummary {
   type: 'Staff' | 'Trainee';
   total: number;
@@ -175,7 +213,8 @@ interface SendReportDetailRow {
   expectedLeaveEnd: string;
   team: string;
   status: string;
-  totalLeaveThisYear: number;
+  totalLeaveInPeriod: number;
+  extraLeaveInPeriod: number;
   maternityUsage?: string;
   paternityUsage?: string;
 }
@@ -183,6 +222,7 @@ interface SendReportDetailRow {
 interface SendReportSnapshot {
   generatedAt: string;
   reportPreset: SendReportDatePreset;
+  totalLeaveLabel: string;
   rangeStartDate: string;
   rangeEndDate: string;
   totalTeamCount: number;
@@ -353,6 +393,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
   const [holidaysError, setHolidaysError] = useState<string | null>(null);
   const [leaveCategories, setLeaveCategories] = useState<string[]>([]);
   const [workFromHomeTypes, setWorkFromHomeTypes] = useState<string[]>([]);
+  const [extraLeaveTypes, setExtraLeaveTypes] = useState<string[]>([]);
   const [concerns, setConcerns] = useState<Concern[]>([]);
   const [isLoadingQuotas, setIsLoadingQuotas] = useState(false);
   const [quotasError, setQuotasError] = useState<string | null>(null);
@@ -947,6 +988,29 @@ const App: React.FC<AppProps> = ({ sp }) => {
     return isInHrGroup;
   }, [currentUserTitle, currentUserEmail, inferredCurrentUser, isInHrGroup]);
 
+  const isExtraLeaveType = React.useCallback((value: string): boolean => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return extraLeaveTypes.some((type) => String(type || '').trim().toLowerCase() === normalized);
+  }, [extraLeaveTypes]);
+
+  const availableLeaveTypes = React.useMemo(() => {
+    const seen = new Set<string>();
+    const allTypes: string[] = [];
+
+    const appendType = (value: string) => {
+      const trimmed = String(value || '').trim();
+      const key = trimmed.toLowerCase();
+      if (!trimmed || seen.has(key)) return;
+      seen.add(key);
+      allTypes.push(trimmed);
+    };
+
+    Object.keys(leaveQuotas).forEach(appendType);
+    if (editingRequest && isExtraLeaveType(leaveFormData.leaveType)) appendType(leaveFormData.leaveType);
+
+    return allTypes;
+  }, [leaveQuotas, editingRequest, leaveFormData.leaveType, isExtraLeaveType]);
+
   React.useEffect(() => {
     if (canAccessHr) return;
     if (role === UserRole.HR) {
@@ -954,6 +1018,13 @@ const App: React.FC<AppProps> = ({ sp }) => {
       setActiveTab('dashboard');
     }
   }, [canAccessHr, role]);
+
+  React.useEffect(() => {
+    if (canAccessHr && role === UserRole.HR) return;
+    if (!isExtraLeaveType(leaveFormData.leaveType)) return;
+    const fallbackType = Object.keys(leaveQuotas)[0] || 'Sick';
+    setLeaveFormData(prev => ({ ...prev, leaveType: fallbackType }));
+  }, [canAccessHr, role, isExtraLeaveType, leaveFormData.leaveType, leaveQuotas]);
 
   const handleUpdateRequestStatus = async (id: number, status: LeaveStatus, comment: string) => {
     try {
@@ -1129,7 +1200,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
       setLeaveModalTab(preferredTab || 'leave');
       setEditingRequest(null);
       const todayStr = initialDate || todayIST();
-      const defaultType = Object.keys(leaveQuotas)[0] || 'Sick';
+      const defaultType = availableLeaveTypes[0] || Object.keys(leaveQuotas)[0] || 'Sick';
       setLeaveFormData({
         leaveType: defaultType,
         startDate: todayStr,
@@ -1201,6 +1272,12 @@ const App: React.FC<AppProps> = ({ sp }) => {
       return;
     }
 
+    const isExtraLeaveRequest = leaveModalTab === 'leave' && isExtraLeaveType(leaveFormData.leaveType);
+    if (isExtraLeaveRequest && !(canAccessHr && role === UserRole.HR)) {
+      showAlert('Only HR Management users can assign extra leave.');
+      return;
+    }
+
     setIsSavingLeave(true);
     try {
       if (editingRequest) {
@@ -1224,12 +1301,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
         } else {
           const start = new Date(leaveFormData.startDate);
           const end = leaveFormData.isHalfDay ? start : new Date(leaveFormData.endDate);
-          let days = 1;
-          if (leaveFormData.isHalfDay) {
-            days = 0.5;
-          } else {
-            const diffTime = Math.abs(end.getTime() - start.getTime());
-            days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          const includeWeekends = isSpecialLeave;
+          const days = countLeaveDays(start, end, includeWeekends, leaveFormData.isHalfDay);
+          if (days <= 0) {
+            showAlert('Selected leave dates fall only on Saturday/Sunday. Please choose working days.');
+            return;
           }
           await updateLeaveRequest(sp, editingRequest.id, { ...leaveFormData, requestCategory: 'Leave' }, days, selectedEmployeeForLeave || undefined);
         }
@@ -1263,20 +1339,22 @@ const App: React.FC<AppProps> = ({ sp }) => {
         } else {
           const start = new Date(leaveFormData.startDate);
           const end = leaveFormData.isHalfDay ? start : new Date(leaveFormData.endDate);
-          let days = 1;
-          if (leaveFormData.isHalfDay) {
-            days = 0.5;
-          } else {
-            const diffTime = Math.abs(end.getTime() - start.getTime());
-            days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          const includeWeekends = isSpecialLeave;
+          const days = countLeaveDays(start, end, includeWeekends, leaveFormData.isHalfDay);
+          if (days <= 0) {
+            showAlert('Selected leave dates fall only on Saturday/Sunday. Please choose working days.');
+            return;
           }
 
-          // Validate Leave Balance
+          const approverName = (currentUserTitle && String(currentUserTitle).trim()) || inferredCurrentUser?.name || 'HR Manager';
           const quota = leaveQuotas[leaveFormData.leaveType] || 0;
 
-          // Calculate currently used leaves (Approved + Pending) for this user and type
           const used = leaveRequests
-            .filter(r => r.employee.id === currentUser.id && r.leaveType === leaveFormData.leaveType && (r.status === LeaveStatus.Approved || r.status === LeaveStatus.Pending))
+            .filter(r =>
+              r.employee.id === selectedEmployeeForLeave.id &&
+              r.leaveType === leaveFormData.leaveType &&
+              (r.status === LeaveStatus.Approved || r.status === LeaveStatus.Pending)
+            )
             .reduce((sum, r) => sum + r.days, 0);
 
           const SUPER_USERS = [
@@ -1291,12 +1369,25 @@ const App: React.FC<AppProps> = ({ sp }) => {
           const isSuperUser = selectedEmployeeForLeave && selectedEmployeeForLeave.email
             && SUPER_USERS.indexOf(selectedEmployeeForLeave.email.toLowerCase()) !== -1;
 
-          if (!isSuperUser && used + days > quota) {
-            showAlert(`Insufficient leave balance! You have used ${used} of ${quota} days for ${leaveFormData.leaveType}. This request of ${days} days would exceed your limit.`);
+          if (!isExtraLeaveRequest && !isSuperUser && used + days > quota) {
+            showAlert(`Insufficient leave balance! You have used ${used} of ${quota} days for ${leaveFormData.leaveType}. This request of ${days} days would exceed your limit. Please contact HR for more leaves.`);
             return;
           }
 
-          await createLeaveRequest(sp, selectedEmployeeForLeave, { ...leaveFormData, requestCategory: 'Leave' }, days);
+          await createLeaveRequest(
+            sp,
+            selectedEmployeeForLeave,
+            { ...leaveFormData, requestCategory: 'Leave' },
+            days,
+            isExtraLeaveRequest
+              ? {
+                forceApproved: true,
+                approverName,
+                approverComment: 'Extra leave assigned by HR.',
+                isExtraLeave: true
+              }
+              : undefined
+          );
         }
       }
 
@@ -1394,6 +1485,69 @@ const App: React.FC<AppProps> = ({ sp }) => {
     const other = balanceSummary.find(s => s.type === 'Other Leaves');
     return other ? other.left : 0;
   }, [balanceSummary]);
+
+  const selectedEmployeeBalanceData = React.useMemo(() => {
+    if (!selectedEmployeeForLeave) {
+      return {
+        summary: [] as Array<{ type: string; quota: number; used: number; left: number; isSpecial: boolean }>,
+        totalLeavesTaken: 0,
+        totalLeavesLeft: 0,
+        extraSummary: [] as Array<{ type: string; used: number }>
+      };
+    }
+
+    const allItems = Object.keys(leaveQuotas).map((type) => {
+      const quota = getQuotaForLeaveType(type);
+      const used = getUsedLeavesForEmployee(selectedEmployeeForLeave.id, type);
+      return {
+        type,
+        quota,
+        used,
+        left: Math.max(quota - used, 0),
+        isSpecial: type.toLowerCase().includes('maternity') || type.toLowerCase().includes('paternity')
+      };
+    });
+
+    const regulars = allItems.filter((item) => !item.isSpecial);
+    const specials = allItems.filter((item) => item.isSpecial);
+    const otherLeaves = {
+      type: 'Other Leaves',
+      quota: regulars.reduce((sum, item) => sum + item.quota, 0),
+      used: regulars.reduce((sum, item) => sum + item.used, 0),
+      left: regulars.reduce((sum, item) => sum + item.left, 0),
+      isSpecial: false
+    };
+
+    const summary = [otherLeaves];
+    if (specials.some((item) => item.used > 0)) {
+      specials.forEach((item) => summary.push(item));
+    }
+
+    const other = summary.find((item) => item.type === 'Other Leaves');
+    const extraSummary = extraLeaveTypes
+      .map((type) => ({
+        type,
+        used: getUsedLeavesForEmployee(selectedEmployeeForLeave.id, type)
+      }))
+      .filter((item) => item.used > 0);
+
+    return {
+      summary,
+      totalLeavesTaken: other ? other.used : 0,
+      totalLeavesLeft: other ? other.left : 0,
+      extraSummary
+    };
+  }, [selectedEmployeeForLeave, leaveQuotas, extraLeaveTypes, getQuotaForLeaveType, getUsedLeavesForEmployee]);
+
+  const extraLeaveBalanceSummary = React.useMemo(() => {
+    if (!balanceEmployee) return [];
+    return extraLeaveTypes
+      .map((type) => ({
+        type,
+        used: getUsedLeavesForEmployee(balanceEmployee.id, type)
+      }))
+      .filter((item) => item.used > 0);
+  }, [balanceEmployee, extraLeaveTypes, getUsedLeavesForEmployee]);
 
   const handleRaiseConcern = async (type: ConcernType, referenceId: string | number, description: string) => {
     try {
@@ -2406,6 +2560,26 @@ const App: React.FC<AppProps> = ({ sp }) => {
     }
   }, [sp]);
 
+  const loadExtraLeaveTypes = React.useCallback(async () => {
+    if (!sp) return;
+    try {
+      const items = await sp.web.lists
+        .getByTitle(OFFICIAL_LEAVES_LIST_ID)
+        .items.select('Title')
+        .filter("TaxType eq 'Extra Leave'")
+        .top(5000)();
+
+      const mappedTypes = items
+        .map((item: { Title?: string }) => String(item.Title || '').trim())
+        .filter((type: string, index: number, arr: string[]) => type && arr.findIndex((entry) => entry.toLowerCase() === type.toLowerCase()) === index);
+
+      setExtraLeaveTypes(mappedTypes.length > 0 ? mappedTypes : ['Extra Leave']);
+    } catch (err: any) {
+      console.error('Failed to load extra leave types', err);
+      setExtraLeaveTypes(['Extra Leave']);
+    }
+  }, [sp]);
+
   // Load holidays from SharePoint
   const loadHolidays = React.useCallback(async () => {
     if (!sp) return;
@@ -2563,6 +2737,10 @@ const App: React.FC<AppProps> = ({ sp }) => {
   }, [loadWorkFromHomeTypes]);
 
   React.useEffect(() => {
+    void loadExtraLeaveTypes();
+  }, [loadExtraLeaveTypes]);
+
+  React.useEffect(() => {
     if (workFromHomeTypes.length === 0) return;
     if (workFromHomeTypes.indexOf(workFromHomeFormData.workFromHomeType) !== -1) return;
     setWorkFromHomeFormData(prev => ({ ...prev, workFromHomeType: workFromHomeTypes[0] }));
@@ -2605,6 +2783,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     const now = getNowIST();
     let startBound: Date | null = null;
     let endBound: Date | null = null;
+    const totalLeaveLabel = getSendReportPeriodLabel(sendReportPreset);
 
     if (sendReportPreset === 'Custom') {
       startBound = sendReportStartDate ? startOfDay(new Date(sendReportStartDate)) : null;
@@ -2623,22 +2802,16 @@ const App: React.FC<AppProps> = ({ sp }) => {
       const requestStart = new Date(requestStartKey);
       if (Number.isNaN(requestStart.getTime())) return false;
       const requestStartTime = requestStart.getTime();
+      const requestEndKey = toDateKey(request.endDate) || requestStartKey;
+      const requestEnd = new Date(requestEndKey);
+      const requestEndTime = Number.isNaN(requestEnd.getTime()) ? requestStartTime : requestEnd.getTime();
 
-      const leaveType = String(request.leaveType || '').toLowerCase();
-      const isLongLeave = leaveType.includes('maternity') || leaveType.includes('paternity');
+      // No bounds (All Time): include all non-rejected rows above
+      if (!startBound && !endBound) return true;
 
-      if (isLongLeave) {
-        // For maternity/paternity: use overlap check (include if leave is active during the period)
-        const requestEndKey = toDateKey(request.endDate) || requestStartKey;
-        const requestEnd = new Date(requestEndKey);
-        const requestEndTime = Number.isNaN(requestEnd.getTime()) ? requestStartTime : requestEnd.getTime();
-        if (startBound && requestEndTime < startBound.getTime()) return false;
-        if (endBound && requestStartTime > endBound.getTime()) return false;
-      } else {
-        // For regular leaves: check if start date falls within the range (original behavior)
-        if (startBound && requestStartTime < startBound.getTime()) return false;
-        if (endBound && requestStartTime > endBound.getTime()) return false;
-      }
+      // Any bounded report: include if the leave overlaps the range (matches per-row extra totals & PDF range logic)
+      if (startBound && requestEndTime < startBound.getTime()) return false;
+      if (endBound && requestStartTime > endBound.getTime()) return false;
       return true;
     });
 
@@ -2664,16 +2837,80 @@ const App: React.FC<AppProps> = ({ sp }) => {
     const uniqueEmployees: Record<string, true> = {};
     filtered.forEach((r) => { uniqueEmployees[r.employee.id] = true; });
 
+    const extraLeaveSummaryByEmployee = Object.values(filtered.reduce((acc, request) => {
+      if (!(request.isExtraLeave || String(request.leaveType || '').toLowerCase().includes('extra leave'))) {
+        return acc;
+      }
+
+      const key = request.employee.id;
+      if (!acc[key]) {
+        acc[key] = {
+          employeeId: request.employee.id,
+          employeeName: request.employee.name,
+          department: request.employee.department,
+          totalExtraLeaveInPeriod: 0,
+          requests: [] as Array<{
+            requestId: number;
+            leaveType: string;
+            startDate: string;
+            endDate: string;
+            days: number;
+            status: string;
+            reason: string;
+          }>
+        };
+      }
+
+      acc[key].totalExtraLeaveInPeriod = Number((acc[key].totalExtraLeaveInPeriod + Number(request.days || 0)).toFixed(2));
+      acc[key].requests.push({
+        requestId: request.id,
+        leaveType: request.leaveType,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        days: Number(request.days || 0),
+        status: String(request.status || ''),
+        reason: request.reason || ''
+      });
+
+      return acc;
+    }, {} as Record<string, {
+      employeeId: string;
+      employeeName: string;
+      department: string;
+      totalExtraLeaveInPeriod: number;
+      requests: Array<{
+        requestId: number;
+        leaveType: string;
+        startDate: string;
+        endDate: string;
+        days: number;
+        status: string;
+        reason: string;
+      }>;
+    }>)).sort((a, b) => String(a.employeeName || '').localeCompare(String(b.employeeName || '')));
+
+    const totalLeaveDaysInPeriod = Number(
+      filtered.reduce((sum, r) => sum + Number(r.days || 0), 0).toFixed(2)
+    );
+    const totalExtraLeaveDaysInPeriod = Number(
+      extraLeaveSummaryByEmployee.reduce((sum, e) => sum + e.totalExtraLeaveInPeriod, 0).toFixed(2)
+    );
+
     const payload = {
       reportMeta: {
         generatedAt: new Date().toISOString(),
         sourceTab: 'On Leave / WFH Today',
         reportPreset: sendReportPreset,
+        totalLeaveLabel,
         rangeStartDate: startBound ? formatDateIST(startBound) : '',
         rangeEndDate: endBound ? formatDateIST(endBound) : '',
         totalRequests: filtered.length,
-        totalEmployees: Object.keys(uniqueEmployees).length
+        totalLeaveDaysInPeriod,
+        totalExtraLeaveDaysInPeriod,
+        totalEmployees: Object.keys(uniqueEmployees).length,
+        employeesWithExtraLeave: extraLeaveSummaryByEmployee.length
       },
+      extraLeaveSummaryByEmployee,
       summaryByStatus: Object.keys(statusSummaryMap).map((key) => ({
         status: key,
         count: statusSummaryMap[key].count,
@@ -2685,16 +2922,59 @@ const App: React.FC<AppProps> = ({ sp }) => {
         count: typeStatusSummaryMap[key].count,
         totalDays: Number(typeStatusSummaryMap[key].totalDays.toFixed(2))
       })),
+      summaryByEmployee: Object.values(filtered.reduce((acc, request) => {
+        const key = request.employee.id;
+        if (!acc[key]) {
+          acc[key] = {
+            employeeId: request.employee.id,
+            employeeName: request.employee.name,
+            department: request.employee.department,
+            totalLeaveInPeriod: 0,
+            extraLeaveInPeriod: 0
+          };
+        }
+
+        acc[key].totalLeaveInPeriod = Number((acc[key].totalLeaveInPeriod + Number(request.days || 0)).toFixed(2));
+
+        if (request.isExtraLeave || String(request.leaveType || '').toLowerCase().includes('extra leave')) {
+          acc[key].extraLeaveInPeriod = Number((acc[key].extraLeaveInPeriod + Number(request.days || 0)).toFixed(2));
+        }
+
+        return acc;
+      }, {} as Record<string, {
+        employeeId: string;
+        employeeName: string;
+        department: string;
+        totalLeaveInPeriod: number;
+        extraLeaveInPeriod: number;
+      }>)).sort((a, b) => String(a.employeeName || '').localeCompare(String(b.employeeName || ''))),
       records: filtered
         .slice()
         .sort((a, b) => (a.startDate || '').localeCompare(b.startDate || '') || a.employee.name.localeCompare(b.employee.name))
         .map((request) => ({
+          extraLeaveInPeriod: leaveRequests
+            .filter((r) => {
+              if (r.employee.id !== request.employee.id) return false;
+              if (r.status === LeaveStatus.Rejected) return false;
+              if (!(r.isExtraLeave || String(r.leaveType || '').toLowerCase().includes('extra leave'))) return false;
+              const rStart = toDateValue(r.startDate);
+              const rEnd = toDateValue(r.endDate);
+              if (!rStart) return false;
+              const rStartMs = rStart.getTime();
+              const rEndMs = (rEnd || rStart).getTime();
+              if (startBound && rEndMs < startBound.getTime()) return false;
+              if (endBound && rStartMs > endBound.getTime()) return false;
+              return true;
+            })
+            .reduce((sum, r) => sum + Number(r.days || 0), 0),
           requestId: request.id,
           employeeId: request.employee.id,
           employeeName: request.employee.name,
           department: request.employee.department,
           requestCategory: request.requestCategory || 'Leave',
           leaveType: request.leaveType,
+          isExtraLeave: !!request.isExtraLeave,
+          grantedByAdmin: !!request.grantedByAdmin,
           status: request.status,
           startDate: request.startDate,
           endDate: request.endDate,
@@ -2787,6 +3067,22 @@ const App: React.FC<AppProps> = ({ sp }) => {
             return sum + Number(r.days || 0);
           }, 0);
 
+        const extraLeaveInRange = leaveRequests
+          .filter((r) => {
+            if (r.employee.id !== request.employee.id) return false;
+            if (r.status === LeaveStatus.Rejected) return false;
+            if (!(r.isExtraLeave || String(r.leaveType || '').toLowerCase().includes('extra leave'))) return false;
+            const rStart = toDateValue(r.startDate);
+            const rEnd = toDateValue(r.endDate);
+            if (!rStart) return false;
+            const rStartMs = rStart.getTime();
+            const rEndMs = rEnd ? rEnd.getTime() : rStartMs;
+            if (reportStartMs && rEndMs < reportStartMs) return false;
+            if (reportEndMs && rStartMs > reportEndMs) return false;
+            return true;
+          })
+          .reduce((sum, r) => sum + Number(r.days || 0), 0);
+
         // Cumulative Maternity/Paternity Usage up to report end
         const cumulativeRequests = leaveRequests.filter(r =>
           r.employee.id === request.employee.id &&
@@ -2848,7 +3144,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
           expectedLeaveEnd: request.endDate,
           team: request.employee.department || '',
           status: String(request.status || ''),
-          totalLeaveThisYear: Number(grandTotal.toFixed(2)),
+          totalLeaveInPeriod: Number(grandTotal.toFixed(2)),
+          extraLeaveInPeriod: Number(extraLeaveInRange.toFixed(2)),
           maternityUsage: (matUsed > 0 || matQuota > 0) ? `${matUsed} / ${matQuota}` : undefined,
           paternityUsage: (patUsed > 0 || patQuota > 0) ? `${patUsed} / ${patQuota}` : undefined
         };
@@ -2857,6 +3154,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     setSendReportSnapshot({
       generatedAt: new Date().toISOString(),
       reportPreset: sendReportPreset,
+      totalLeaveLabel,
       rangeStartDate: startBound ? formatDateIST(startBound) : '',
       rangeEndDate: endBound ? formatDateIST(endBound) : '',
       totalTeamCount,
@@ -2935,10 +3233,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
         <td>${escapeHtml(item.team)}</td>
         <td>${escapeHtml(item.status)}</td>
         <td>
-          ${item.totalLeaveThisYear}
+          ${item.totalLeaveInPeriod}
           ${item.maternityUsage ? `<br/><span style="font-size:10px;color:#11803f;font-weight:bold">Mat: ${escapeHtml(item.maternityUsage)}</span>` : ''}
           ${item.paternityUsage ? `<br/><span style="font-size:10px;color:#11803f;font-weight:bold">Pat: ${escapeHtml(item.paternityUsage)}</span>` : ''}
         </td>
+        <td>${item.extraLeaveInPeriod}</td>
       </tr>
     `).join('');
 
@@ -3003,10 +3302,11 @@ const App: React.FC<AppProps> = ({ sp }) => {
               <th>Expected leave end</th>
               <th>Team</th>
               <th>Status</th>
-              <th>Total leave this year</th>
+              <th>${escapeHtml(sendReportSnapshot.totalLeaveLabel)}</th>
+              <th>Extra leave in period</th>
             </tr>
           </thead>
-          <tbody>${detailRows || '<tr><td colspan="9" style="text-align:center;color:#6b7280">No data found</td></tr>'}</tbody>
+          <tbody>${detailRows || '<tr><td colspan="10" style="text-align:center;color:#6b7280">No data found</td></tr>'}</tbody>
         </table>
 
         <script>window.onload=function(){window.print();}</script>
@@ -3179,7 +3479,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
     // Title
     const titleRow = worksheet.addRow(['On Leave / WFH Report']);
-    worksheet.mergeCells('A1:G1');
+    worksheet.mergeCells('A1:J1');
     titleRow.eachCell(cell => {
       cell.font = { bold: true, size: 14, color: { argb: 'FF2F5596' } };
       cell.alignment = { horizontal: 'left', vertical: 'middle' };
@@ -3235,7 +3535,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
     }
 
     // Details Table
-    const detailHeaders = ['No', 'Name', 'Employee Type', 'Attendance', 'Reason', 'Expected End', 'Team', 'Status', 'Total Leaves (YTD)'];
+    const detailHeaders = ['No', 'Name', 'Employee Type', 'Attendance', 'Reason', 'Expected End', 'Team', 'Status', sendReportSnapshot.totalLeaveLabel, 'Extra Leave In Period'];
     const detailHeaderRow = worksheet.addRow(detailHeaders);
     detailHeaderRow.eachCell(cell => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
@@ -3253,7 +3553,8 @@ const App: React.FC<AppProps> = ({ sp }) => {
         item.expectedLeaveEnd,
         item.team,
         item.status,
-        item.totalLeaveThisYear
+        item.totalLeaveInPeriod,
+        item.extraLeaveInPeriod
       ]);
       row.eachCell((cell, colNum) => {
         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
@@ -3263,7 +3564,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
     // Column Widths
     worksheet.columns = [
-      { width: 5 }, { width: 25 }, { width: 12 }, { width: 25 }, { width: 30 }, { width: 15 }, { width: 20 }, { width: 12 }, { width: 15 }
+      { width: 5 }, { width: 25 }, { width: 12 }, { width: 25 }, { width: 30 }, { width: 15 }, { width: 20 }, { width: 12 }, { width: 18 }, { width: 18 }
     ];
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -3406,7 +3707,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
 
             <div className="tab-content">
               {role === UserRole.Employee ? (
-                <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={(preferredTab, initialDate) => handleOpenLeaveModal(undefined, preferredTab, initialDate)} onTabChange={setActiveTab} activeTab={activeTab} />
+                <EmployeePortal user={currentUser} requests={leaveRequests} attendance={attendanceRecords} salarySlips={salarySlips} policies={policies} holidays={holidays} concerns={concerns} leaveQuotas={leaveQuotas} extraLeaveTypes={extraLeaveTypes} teamEvents={teamEvents} onRaiseConcern={handleRaiseConcern} onSubmitLeave={(preferredTab, initialDate) => handleOpenLeaveModal(undefined, preferredTab, initialDate)} onTabChange={setActiveTab} activeTab={activeTab} />
               ) : (
                 <>
                   {activeTab === 'overview' && <Dashboard requests={leaveRequests} attendanceRecords={attendanceRecords} concernsCount={openConcernsCount} holidays={holidays} teamEvents={teamEvents} onAddTeamEvent={handleAddTeamEvent} onUpdateTeamEvent={handleUpdateTeamEvent} onDeleteTeamEvent={handleDeleteTeamEvent} onPendingClick={() => setActiveTab('leaves-request')} onOnLeaveTodayClick={() => setActiveTab('onLeaveToday')} onConcernsClick={() => setActiveTab('concerns-admin')} onOpenTeamEventForm={(eventId) => { openOutOfBoxListItemForm(sp, 'TeamCelebrations', eventId).catch(() => undefined); }} onOpenTeamEventVersionHistory={(eventId) => { void handleOpenVersionHistory('Team Event', 'TeamCelebrations', eventId); }} />}
@@ -3675,6 +3976,9 @@ const App: React.FC<AppProps> = ({ sp }) => {
                           requests={leaveRequests}
                           onEdit={handleOpenLeaveModal}
                           leaveQuotas={leaveQuotas}
+                          extraLeaveTypes={extraLeaveTypes}
+                          canManageExtraLeaves={canAccessHr && role === UserRole.HR}
+                          approverName={(currentUserTitle && String(currentUserTitle).trim()) || inferredCurrentUser?.name || 'HR Manager'}
                           sp={sp}
                           employees={directoryEmployees}
                           onRefresh={loadLeaveRequests}
@@ -4015,7 +4319,121 @@ const App: React.FC<AppProps> = ({ sp }) => {
                   </div>
                 </div>
               )}
-              <div className="col-12"><label className="form-label">Leave Type</label><select className="form-select" value={leaveFormData.leaveType} onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}>{Object.keys(leaveQuotas).map(t => (<option key={t} value={t}>{t}</option>))}</select></div>
+              {role === UserRole.HR && selectedEmployeeForLeave && (
+                <div className="col-12">
+                  <div className="border rounded-3 bg-white p-3">
+                    <div className="text-center mb-3">
+                      <div className="fw-bold text-primary">{selectedEmployeeForLeave.name}</div>
+                      <div className="text-muted">Employee ID: {selectedEmployeeForLeave.id}</div>
+                    </div>
+
+                    <div className="row g-2 mb-3">
+                      <div className="col-6">
+                        <div className="p-2 border rounded bg-light text-center h-100">
+                          <div className="text-muted fw-semibold">Total Leaves Left</div>
+                          <div className="h5 mb-0 text-primary fw-bold">{selectedEmployeeBalanceData.totalLeavesLeft}</div>
+                        </div>
+                      </div>
+                      <div className="col-6">
+                        <div className="p-2 border rounded bg-light text-center h-100">
+                          <div className="text-muted fw-semibold">Total Leaves Taken</div>
+                          <div className="h5 mb-0 text-primary fw-bold">{selectedEmployeeBalanceData.totalLeavesTaken}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedEmployeeBalanceData.summary.length === 0 && selectedEmployeeBalanceData.extraSummary.length === 0 && (
+                      <div className="text-muted small text-center">No unofficial leave quota configured.</div>
+                    )}
+
+                    <div className="d-flex flex-column gap-2">
+                      {(() => {
+                        const otherItem = selectedEmployeeBalanceData.summary.find((item) => item.type === 'Other Leaves');
+                        const specialItems = selectedEmployeeBalanceData.summary.filter((item) => item.isSpecial);
+                        const allLeaveTypes = Object.keys(leaveQuotas)
+                          .filter((type) => !type.toLowerCase().includes('maternity') && !type.toLowerCase().includes('paternity'));
+
+                        return (
+                          <>
+                            {otherItem && (
+                              <div className="border rounded p-3">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                  <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>Other Leaves</span>
+                                  <span className="text-muted">{otherItem.used}/{otherItem.quota} used</span>
+                                </div>
+                                <div className="d-flex flex-column gap-1 ps-2 border-start border-2 mb-2">
+                                  {allLeaveTypes.map((type, idx) => {
+                                    const quota = getQuotaForLeaveType(type);
+                                    const used = getUsedLeavesForEmployee(selectedEmployeeForLeave.id, type);
+                                    return (
+                                      <div key={`popup-summary-${idx}`} className="d-flex justify-content-between align-items-center py-1">
+                                        <span className="text-muted" style={{ fontSize: '12px' }}>↳ {type}</span>
+                                        <span className="fw-medium text-dark" style={{ fontSize: '12px' }}>{used}/{quota} Days</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                <div className="d-flex justify-content-between align-items-center border-top pt-2">
+                                  <span className="text-muted small fw-semibold">Leaves Left</span>
+                                  <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>{otherItem.left}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {specialItems.length > 0 && (
+                              <>
+                                <div className="small text-muted fw-bold text-uppercase px-1 mt-1" style={{ fontSize: '10px' }}>Special Leaves</div>
+                                {specialItems.map((item, idx) => (
+                                  <div key={`popup-special-${idx}`} className="border rounded p-3 bg-light">
+                                    <div className="d-flex justify-content-between align-items-center mb-1">
+                                      <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>{item.type}</span>
+                                      <span className="text-muted small">{item.used}/{item.quota} used</span>
+                                    </div>
+                                    <div className="progress mb-2" style={{ height: '3px' }}>
+                                      <div className="progress-bar bg-primary" role="progressbar" style={{ width: `${(item.used / (item.quota || 1)) * 100}%` }} />
+                                    </div>
+                                    <div className="d-flex justify-content-between align-items-center">
+                                      <span className="text-muted small fw-semibold">Leaves Left</span>
+                                      <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>{item.left}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+
+                            {selectedEmployeeBalanceData.extraSummary.length > 0 && (
+                              <>
+                                <div className="small text-muted fw-bold text-uppercase px-1 mt-1" style={{ fontSize: '10px' }}>Extra Leaves</div>
+                                {selectedEmployeeBalanceData.extraSummary.map((item, idx) => (
+                                  <div key={`popup-extra-${idx}`} className="border rounded p-3 bg-light">
+                                    <div className="d-flex justify-content-between align-items-center">
+                                      <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>{item.type}</span>
+                                      <span className="text-muted small">{item.used} day(s) assigned</span>
+                                    </div>
+                                    <div className="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
+                                      <span className="text-muted small fw-semibold">Quota</span>
+                                      <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>Unlimited</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="col-12"><label className="form-label">Leave Type</label><select className="form-select" value={leaveFormData.leaveType} onChange={e => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}>{availableLeaveTypes.map(t => (<option key={t} value={t}>{t}</option>))}</select></div>
+              {role === UserRole.HR && isExtraLeaveType(leaveFormData.leaveType) && (
+                <div className="col-12">
+                  <div className="alert alert-info mb-0 py-2">
+                    <div className="fw-semibold">Extra leave will be auto-approved.</div>
+                    <div className="small mb-0">This request is saved directly as an approved employee leave entry and is shown separately from the normal quota-based leave balance.</div>
+                  </div>
+                </div>
+              )}
               <div className="col-md-6"><label className="form-label">Start</label><input type="date" className="form-control" value={leaveFormData.startDate} onChange={e => setLeaveFormData({ ...leaveFormData, startDate: e.target.value })} required /></div>
               <div className="col-md-6">
                 <label className="form-label">End {isSpecialLeave && <span className="small text-primary">(Auto-calculated)</span>}</label>
@@ -5048,7 +5466,7 @@ const App: React.FC<AppProps> = ({ sp }) => {
               </div>
             </div>
 
-            {balanceSummary.length === 0 && (
+            {balanceSummary.length === 0 && extraLeaveBalanceSummary.length === 0 && (
               <div className="text-muted small text-center">No unofficial leave quota configured.</div>
             )}
 
@@ -5103,6 +5521,24 @@ const App: React.FC<AppProps> = ({ sp }) => {
                             <div className="d-flex justify-content-between align-items-center">
                               <span className="text-muted small fw-semibold">Leaves Left</span>
                               <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>{item.left}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    {extraLeaveBalanceSummary.length > 0 && (
+                      <>
+                        <div className="small text-muted fw-bold text-uppercase px-1 mt-1" style={{ fontSize: '10px' }}>Extra Leaves</div>
+                        {extraLeaveBalanceSummary.map((item, idx) => (
+                          <div key={`extra-${idx}`} className="border rounded p-3 bg-light">
+                            <div className="d-flex justify-content-between align-items-center">
+                              <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>{item.type}</span>
+                              <span className="text-muted small">{item.used} day(s) assigned</span>
+                            </div>
+                            <div className="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
+                              <span className="text-muted small fw-semibold">Quota</span>
+                              <span className="fw-bold text-primary" style={{ fontSize: '16px' }}>Unlimited</span>
                             </div>
                           </div>
                         ))}
@@ -5516,9 +5952,26 @@ const App: React.FC<AppProps> = ({ sp }) => {
                     type="radio"
                     id={`send-report-preset-${preset}`}
                     checked={sendReportPreset === preset}
-                    onChange={() => setSendReportPreset(preset)}
+                    onChange={() => {
+                      setSendReportPreset(preset);
+                      const now = getNowIST();
+                      if (preset === 'All Time') {
+                        setSendReportStartDate('');
+                        setSendReportEndDate('');
+                      } else if (preset !== 'Custom') {
+                        const range = resolveSendReportRange(preset, now);
+                        setSendReportStartDate(range.start ? formatDateIST(range.start) : '');
+                        setSendReportEndDate(range.end ? formatDateIST(range.end) : '');
+                      }
+                    }}
+                    style={{ accentColor: '#2F5596' }}
                   />
-                  <label className="form-check-label" htmlFor={`send-report-preset-${preset}`}>{preset}</label>
+                  <label
+                    className={`form-check-label ${sendReportPreset === preset ? 'fw-bold text-primary' : ''}`}
+                    htmlFor={`send-report-preset-${preset}`}
+                  >
+                    {preset}
+                  </label>
                 </div>
               ))}
             </div>
